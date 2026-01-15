@@ -6,7 +6,6 @@ local output = require("output")
 local chunk_vial = require("chunk_vial")
 
 local is_active = false
-local stopping_triggered = true -- if initially inactive, show the stopping status immediately
 
 local work = {}
 
@@ -15,6 +14,10 @@ function work.mainLoop()
 	if file then
 		is_active = file.readAll() == "active"
 		file.close()
+	end
+
+	if not is_active then
+		work._showStopping(true)
 	end
 
 	parallel.waitForAll(
@@ -30,7 +33,9 @@ function work.mainLoop()
 				if monitor == peripheral.getName(names.monitor) then
 					is_active = not is_active
 					if not is_active then
-						stopping_triggered = true
+						-- We can't log errors or provide output yet, since flushing will take
+						-- a while, but we should react immediately for responsibility.
+						work._showStopping(true)
 					end
 					local file = fs.open("/state.txt", "w")
 					if is_active then
@@ -60,13 +65,6 @@ function work.work()
 			work._showSmelting(eta, input_ok, fuel_ok, output_ok)
 		end
 	else
-		if stopping_triggered then
-			-- We can't log errors or provide output yet, since flushing will take a while, but we
-			-- should react immediately for responsibility.
-			work._showStopping(true)
-			stopping_triggered = false
-		end
-
 		local input_ok = input.returnInput()
 		if input_ok then
 			fuel.returnFuel()
