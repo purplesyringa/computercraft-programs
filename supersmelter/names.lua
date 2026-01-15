@@ -15,7 +15,6 @@ return {
 	output_barrel = peripheral.wrap("minecraft:barrel_4"),
 
 	monitor = peripheral.find("monitor"),
-	redstone_relay = peripheral.find("redstone_relay"),
 	normal_furnaces = normal_furnaces,
 	blast_furnaces = blast_furnaces,
 	all_furnaces = table.move(

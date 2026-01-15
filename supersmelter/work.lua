@@ -26,8 +26,8 @@ function work.mainLoop()
 		end,
 		function()
 			while true do
-				os.pullEvent("redstone")
-				if names.redstone_relay.getInput("front") then
+				local  _, monitor = os.pullEvent("monitor_touch")
+				if monitor == peripheral.getName(names.monitor) then
 					is_active = not is_active
 					if not is_active then
 						stopping_triggered = true
@@ -99,6 +99,7 @@ function work._showSmelting(eta, input_ok, fuel_ok, output_ok)
 	util.print("Smelting")
 	names.monitor.setTextColor(colors.white)
 	util.print(string.format("ETA: %s", util.formatTime(eta)))
+	util.print("Tap to cancel")
 	names.monitor.setTextColor(colors.red)
 	if not input_ok then
 		util.print("Declutter input")
@@ -126,8 +127,7 @@ function work._showReady()
 	names.monitor.setTextColor(colors.green)
 	util.print("Ready")
 	names.monitor.setTextColor(colors.white)
-	util.print("Put items in and")
-	util.print("press \"Start\"")
+	util.print("Load items and tap")
 end
 
 function work._showDone(has_input, output_ok)
@@ -137,8 +137,7 @@ function work._showDone(has_input, output_ok)
 	names.monitor.setTextColor(colors.white)
 	util.print("Take items out")
 	if has_input then
-		util.print("Press \"Start\"")
-		util.print("to keep going")
+		util.print("Tap to resume")
 	end
 	names.monitor.setTextColor(colors.red)
 	if not output_ok then
