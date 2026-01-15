@@ -9,19 +9,24 @@ return {
 	},
 	input_storage_blocks = {
 		["minecraft:raw_iron"] = {
-			block_slot = 16,
-			item_slot = 25,
+			block_slot = 15,
+			item_slot = 24,
 			storage_block_name = "minecraft:raw_iron_block",
 		},
 		["minecraft:raw_copper"] = {
-			block_slot = 17,
-			item_slot = 26,
+			block_slot = 16,
+			item_slot = 25,
 			storage_block_name = "minecraft:raw_copper_block",
 		},
 		["minecraft:raw_gold"] = {
+			block_slot = 17,
+			item_slot = 26,
+			storage_block_name = "minecraft:raw_gold_block",
+		},
+		["create:raw_zinc"] = {
 			block_slot = 18,
 			item_slot = 27,
-			storage_block_name = "minecraft:raw_gold_block",
+			storage_block_name = "create:raw_zinc_block",
 		},
 	},
 	output_storage_blocks = {
@@ -40,6 +45,11 @@ return {
 			item_slot = 21,
 			storage_block_name = "minecraft:gold_block",
 		},
+		["create:zinc_ingot"] = {
+			block_slot = 13,
+			item_slot = 22,
+			storage_block_name = "create:zinc_block",
+		},
 	},
-	blast_smeltable_tags = { "c:ores", "c:raw_ores", "create:crushed_raw_materials" },
+	blast_smeltable_tags = { "c:ores", "c:raw_materials", "create:crushed_raw_materials" },
 }
