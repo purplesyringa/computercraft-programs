@@ -79,6 +79,7 @@ function input.queueInputs()
 			table.insert(inputs, {
 				inventory = slot.inventory,
 				slot = slot.slot,
+				name = item.name,
 				count = item.count,
 				is_blast_smeltable = util.isBlastSmeltable(item),
 			})
@@ -199,23 +200,23 @@ function input._populateFurnaceInputs(furnaces, wanted_duration_per_furnace, inp
 			count_to_add = math.min(count_to_add - item.count, item.maxCount - item.count)
 		end
 
-		for _, item in pairs(inputs) do
+		for _, input in pairs(inputs) do
 			if count_to_add <= 0 then
 				break
 			end
 
-			local is_item_eligible = item.is_blast_smeltable or not is_blast_furnace
-			if item.count > 0 and is_item_eligible then
-				local count_to_move = math.min(item.count, count_to_add)
+			local is_input_eligible = input.is_blast_smeltable or not is_blast_furnace
+			if (not item or input.name == item.name) and input.count > 0 and is_input_eligible then
+				local count_to_move = math.min(input.count, count_to_add)
 				-- Decrease count before yielding so that multiple furnaces don't try to move from
 				-- the same slot.
-				item.count = item.count - count_to_move
+				input.count = input.count - count_to_move
 				-- This may move less than count_to_move on race, but this will fix itself on the
 				-- next iteration of work.
 				count_to_add = count_to_add - util.moveItems(
-					item.inventory,
+					input.inventory,
 					furnace,
-					item.slot,
+					input.slot,
 					count_to_move,
 					1
 				)
