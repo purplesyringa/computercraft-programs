@@ -21,7 +21,7 @@ end
 
 function fuel.fillFuel()
 	local fuel = {}
-	for slot, item in pairs(names.fuel_barrel.list()) do
+	for slot, item in pairs(names.fuel_inventory.list()) do
 		capacity = data.fuel_capacity[item.name]
 		if capacity then
 			fuel[slot] = capacity
@@ -50,7 +50,7 @@ function fuel.fillFuel()
 				break
 			end
 			local count_fuel_moved = util.moveItems(
-				names.fuel_barrel,
+				names.fuel_inventory,
 				furnace,
 				slot,
 				math.ceil(count_unfueled / capacity),
@@ -68,7 +68,7 @@ end
 
 function fuel.returnFuel()
 	util.parForEach(names.all_furnaces, function(furnace)
-		util.moveItems(furnace, names.fuel_barrel, 2)
+		util.moveItems(furnace, names.fuel_inventory, 2)
 	end)
 end
 

@@ -51,7 +51,7 @@ function work.mainLoop()
 end
 
 function work.work()
-	local fuel_list = names.fuel_barrel.list()
+	local fuel_list = names.fuel_inventory.list()
 
 	if is_active then
 		chunk_vial.equip()
@@ -68,14 +68,14 @@ function work.work()
 		local input_ok = input.returnInput()
 		if input_ok then
 			fuel.returnFuel()
-			local has_input = next(names.input_barrel.list()) ~= nil
+			local has_input = next(names.input_inventory.list()) ~= nil
 			local output_ok = output.flushOutput(true)
-			local has_output = next(names.output_barrel.list()) ~= nil
+			local has_output = next(names.output_inventory.list()) ~= nil
 			if output_ok then
 				chunk_vial.unequip()
 			end
 			if output_ok and not has_output then
-				work._showReady()
+				work._showReady(has_input)
 			else
 				work._showDone(has_input, output_ok)
 			end
@@ -86,7 +86,7 @@ function work.work()
 
 	names.monitor.setTextColor(colors.red)
 	fuel.printInvalidFuels(fuel_list)
-	if next(names.decorative_furnace.list()) then
+	if names.decorative_furnace and next(names.decorative_furnace.list()) then
 		util.print("Decorative furnace")
 	end
 end
@@ -106,7 +106,7 @@ function work._showSmelting(eta, input_ok, fuel_ok, output_ok)
 		util.print("Out of fuel")
 	end
 	if not output_ok then
-		util.print("Output barrel full")
+		util.print("Output full")
 	end
 end
 
@@ -116,16 +116,19 @@ function work._showStopping(input_ok)
 	util.print("Stopping")
 	names.monitor.setTextColor(colors.red)
 	if not input_ok then
-		util.print("Input barrel full")
+		util.print("Input full")
 	end
 end
 
-function work._showReady()
+function work._showReady(has_input)
 	util.clear()
 	names.monitor.setTextColor(colors.green)
 	util.print("Ready")
 	names.monitor.setTextColor(colors.white)
-	util.print("Load items and tap")
+	util.print("Load items")
+	if has_input then
+		util.print("Tap to start")
+	end
 end
 
 function work._showDone(has_input, output_ok)
@@ -139,7 +142,7 @@ function work._showDone(has_input, output_ok)
 	end
 	names.monitor.setTextColor(colors.red)
 	if not output_ok then
-		util.print("Output barrel full")
+		util.print("Output full")
 	end
 end
 

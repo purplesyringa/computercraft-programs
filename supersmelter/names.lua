@@ -1,18 +1,29 @@
-local decorative_furnace = peripheral.wrap("minecraft:furnace_13")
+local config_file = fs.open("config.txt", "r")
+assert(config_file, "config not available -- run setup")
+local config_text = config_file.readAll()
+config_file.close()
+local config = textutils.unserialize(config_text)
+assert(config, "failed to deserialize config")
+
+local decorative_furnace = nil
+if config.decorative_furnace ~= nil then
+	decorative_furnace = peripheral.wrap(config.decorative_furnace)
+end
+
 local normal_furnaces = { peripheral.find("minecraft:furnace", function(name, furnace)
-	return name ~= peripheral.getName(decorative_furnace)
+	return name ~= config.decorative_furnace
 end) }
 local blast_furnaces = { peripheral.find("minecraft:blast_furnace", function(name, furnace)
-	return name ~= peripheral.getName(decorative_furnace)
+	return name ~= config.decorative_furnace
 end) }
 
 return {
 	decorative_furnace = decorative_furnace,
-	helper_chest = peripheral.wrap("minecraft:chest_1"),
-	scram_chest = peripheral.wrap("minecraft:chest_2"),
-	input_barrel = peripheral.wrap("minecraft:barrel_2"),
-	fuel_barrel = peripheral.wrap("minecraft:barrel_3"),
-	output_barrel = peripheral.wrap("minecraft:barrel_4"),
+	helper_inventory = peripheral.wrap(config.helper_inventory),
+	scram_inventory = peripheral.wrap(config.scram_inventory),
+	input_inventory = peripheral.wrap(config.input_inventory),
+	fuel_inventory = peripheral.wrap(config.fuel_inventory),
+	output_inventory = peripheral.wrap(config.output_inventory),
 
 	monitor = peripheral.find("monitor"),
 	normal_furnaces = normal_furnaces,

@@ -10,43 +10,43 @@ for _, info in pairs(data.input_storage_blocks) do
 end
 
 function input.queueInputs()
-	-- The scram chest should always be empty during stopping to be able to contain all inputs, ergo
-	-- it should always be smelted first.
+	-- The scram inventory should always be empty during stopping to be able to contain all inputs,
+	-- ergo it should always be smelted first.
 	util.parForEach(input._getOrderedFurnaces(), function(furnace)
-		util.moveItems(names.scram_chest, furnace.furnace, furnace.i)
+		util.moveItems(names.scram_inventory, furnace.furnace, furnace.i)
 	end)
-	assert(#names.scram_chest.list() == 0, "Full scram chest")
+	assert(not next(names.scram_inventory.list()), "Full scram")
 
 	local schedule = input._computeSchedule()
 	if not schedule then
 		return nil
 	end
 
-	local helper_chest_list = names.helper_chest.list()
-	assert(not helper_chest_list[1], "Helper full/prede")
+	local helper_inventory_list = names.helper_inventory.list()
+	assert(not helper_inventory_list[1], "Helper full/prede")
 
 	-- This loop has to be sequential due to crafting. Iterations that touch non-existing ores or
 	-- filled queues don't take time.
-	for slot, item in pairs(names.input_barrel.list()) do
+	for slot, item in pairs(names.input_inventory.list()) do
 		local storage_block_info = rev_input_storage_blocks[item.name]
 		if not storage_block_info then
 			goto continue
 		end
-		local helper_chest_item = helper_chest_list[storage_block_info.item_slot]
+		local helper_inventory_item = helper_inventory_list[storage_block_info.item_slot]
 		-- Don't decraft if there's already many items queued -- it'd just waste time. Recovery
 		-- requires this bound to be somewhat smaller than 64, so 32 is good enough.
-		local count_helper_chest = 0
-		if helper_chest_item then
-			count_helper_chest = helper_chest_item.count
+		local count_helper_inventory = 0
+		if helper_inventory_item then
+			count_helper_inventory = helper_inventory_item.count
 		end
-		local count_to_move = math.floor((32 - count_helper_chest) / 9)
+		local count_to_move = math.floor((32 - count_helper_inventory) / 9)
 		if count_to_move <= 0 then
 			goto continue
 		end
 		-- Turtles can only suck from the first slot, so move the items there.
 		local count_moved_storage_blocks = util.moveItems(
-			names.input_barrel,
-			names.helper_chest,
+			names.input_inventory,
+			names.helper_inventory,
 			slot,
 			count_to_move,
 			1
@@ -58,22 +58,22 @@ function input.queueInputs()
 		turtle.drop()
 		assert(turtle.getItemCount(1) == 0, "Helper full/de")
 		local count_moved_items = util.moveItems(
-			names.helper_chest,
-			names.helper_chest,
+			names.helper_inventory,
+			names.helper_inventory,
 			1,
 			nil,
 			storage_block_info.item_slot
 		)
 		assert(count_moved_items == count_moved_storage_blocks * 9, "Item slot full")
-		helper_chest_list[storage_block_info.item_slot] = {
+		helper_inventory_list[storage_block_info.item_slot] = {
 			name = item.name,
-			count = count_helper_chest + count_moved_items,
+			count = count_helper_inventory + count_moved_items,
 		}
 		::continue::
 	end
 
 	local inputs = {}
-	util.parForEach(input._getInputSlots({ "input_barrel", "helper_chest" }), function(slot)
+	util.parForEach(input._getInputSlots({ "input_inventory", "helper_inventory" }), function(slot)
 		local item = slot.inventory.getItemDetail(slot.slot)
 		if item and not rev_input_storage_blocks[item.name] then
 			table.insert(inputs, {
@@ -105,7 +105,7 @@ function input._computeSchedule()
 		normal = 0,
 		blast = 0,
 	}
-	local slots = input._getInputSlots({ "input_barrel", "helper_chest", "furnaces" })
+	local slots = input._getInputSlots({ "input_inventory", "helper_inventory", "furnaces" })
 	util.parForEach(slots, function(slot)
 		item = slot.inventory.getItemDetail(slot.slot)
 		if not item then
@@ -157,22 +157,22 @@ end
 function input._getInputSlots(categories)
 	local slots = {}
 	for _, category in pairs(categories) do
-		if category == "input_barrel" then
-			for slot = 1, names.input_barrel.size() do
-				table.insert(slots, { inventory = names.input_barrel, slot = slot })
+		if category == "input_inventory" then
+			for slot = 1, names.input_inventory.size() do
+				table.insert(slots, { inventory = names.input_inventory, slot = slot })
 			end
-		elseif category == "helper_chest" then
+		elseif category == "helper_inventory" then
 			for _, info in pairs(data.input_storage_blocks) do
-				table.insert(slots, { inventory = names.helper_chest, slot = info.block_slot })
-				table.insert(slots, { inventory = names.helper_chest, slot = info.item_slot })
+				table.insert(slots, { inventory = names.helper_inventory, slot = info.block_slot })
+				table.insert(slots, { inventory = names.helper_inventory, slot = info.item_slot })
 			end
 		elseif category == "furnaces" then
 			for _, furnace in pairs(names.all_furnaces) do
 				table.insert(slots, { inventory = furnace, slot = 1 })
 			end
-		elseif category == "scram_chest" then
-			for slot = 1, names.scram_chest.size() do
-				table.insert(slots, { inventory = names.scram_chest, slot = slot })
+		elseif category == "scram_inventory" then
+			for slot = 1, names.scram_inventory.size() do
+				table.insert(slots, { inventory = names.scram_inventory, slot = slot })
 			end
 		else
 			assert(false, "Invalid category")
@@ -242,7 +242,7 @@ function input.fixInputs()
 			rev_input_storage_blocks[item.name]
 			or (is_blast_furnace and not util.isBlastSmeltable(item))
 		)
-		if is_invalid and util.moveItems(furnace, input_barrel, 1) < item.count then
+		if is_invalid and util.moveItems(furnace, input_inventory, 1) < item.count then
 			ok = false
 		end
 	end)
@@ -250,20 +250,21 @@ function input.fixInputs()
 end
 
 function input.returnInput()
-	-- Move items from furnaces into the scram chest. This ensures that a) the items are not smelted
-	-- and lost because the input barrel is full, b) the number of items cannot change in runtime,
-	-- racing with crafting.
+	-- Move items from furnaces into the scram inventory. This ensures that a) the items are not
+	-- smelted and lost because the input inventory is full, b) the number of items cannot change in
+	-- runtime, racing with crafting.
 	util.parForEach(input._getOrderedFurnaces(), function(furnace)
-		util.moveItems(furnace.furnace, names.scram_chest, 1, nil, furnace.i)
-		assert(not furnace.furnace.getItemDetail(1), "Full scram chest")
+		util.moveItems(furnace.furnace, names.scram_inventory, 1, nil, furnace.i)
+		assert(not furnace.furnace.getItemDetail(1), "Full scram")
 	end)
 
 	-- Flush items and recrafted storage blocks.
 	local ok = true
 	local by_name = {}
-	-- Pull from the helper chest before the scram chest to reduce the number of items in the item
-	-- slot. Recovery requires that if crafting is underway, the item slot has some free space.
-	util.parForEach(input._getInputSlots({ "helper_chest", "scram_chest" }), function(slot)
+	-- Pull from the helper inventory before the scram inventory to reduce the number of items in
+	-- the item slot. Recovery requires that if crafting is underway, the item slot has some free
+	-- space.
+	util.parForEach(input._getInputSlots({ "helper_inventory", "scram_inventory" }), function(slot)
 		local item = slot.inventory.getItemDetail(slot.slot)
 		if not item then
 			return
@@ -278,15 +279,15 @@ function input.returnInput()
 			by_name[item.name].count = by_name[item.name].count + item.count
 			table.insert(by_name[item.name].slots, slot)
 		else
-			local count_moved = util.moveItems(slot.inventory, names.input_barrel, slot.slot)
+			local count_moved = util.moveItems(slot.inventory, names.input_inventory, slot.slot)
 			if count_moved < item.count then
 				ok = false
 			end
 		end
 	end)
 
-	local helper_chest_list = names.helper_chest.list()
-	assert(not helper_chest_list[1], "Helper full/prere")
+	local helper_inventory_list = names.helper_inventory.list()
+	assert(not helper_inventory_list[1], "Helper full/prere")
 
 	-- Craft new storage blocks. Has to be done sequentially.
 	for name, info in pairs(by_name) do
@@ -296,8 +297,8 @@ function input.returnInput()
 			-- Don't try to craft more blocks than we're guaranteed to have space for.
 			local block_slot = data.input_storage_blocks[name].block_slot
 			local count_taken = 0
-			if helper_chest_list[block_slot] then
-				count_taken = helper_chest_list[block_slot].count
+			if helper_inventory_list[block_slot] then
+				count_taken = helper_inventory_list[block_slot].count
 			end
 			local current_count = math.min(count_recipes, 64 - count_taken)
 
@@ -312,7 +313,7 @@ function input.returnInput()
 						end
 						count_moved = count_moved + util.moveItems(
 							slot.inventory,
-							names.helper_chest,
+							names.helper_inventory,
 							slot.slot,
 							current_count - count_moved,
 							1
@@ -328,11 +329,11 @@ function input.returnInput()
 			assert(craft_ok, "Craft failed/re")
 			turtle.drop()
 			assert(turtle.getItemCount(1) == 0, "Helper full/re")
-			local count_moved = util.moveItems(names.helper_chest, names.input_barrel, 1)
+			local count_moved = util.moveItems(names.helper_inventory, names.input_inventory, 1)
 			if count_moved < current_count then
 				count_moved = count_moved + util.moveItems(
-					names.helper_chest,
-					names.helper_chest,
+					names.helper_inventory,
+					names.helper_inventory,
 					1,
 					nil,
 					block_slot
@@ -346,7 +347,7 @@ function input.returnInput()
 		end
 
 		util.parForEach(info.slots, function(slot)
-			util.moveItems(slot.inventory, names.input_barrel, slot.slot)
+			util.moveItems(slot.inventory, names.input_inventory, slot.slot)
 			ok = ok and not slot.inventory.getItemDetail(slot.slot)
 		end)
 
