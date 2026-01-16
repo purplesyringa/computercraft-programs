@@ -10,7 +10,7 @@ local is_active = false
 local work = {}
 
 function work.mainLoop()
-	local file = fs.open("/state.txt", "r")
+	local file = fs.open(shell.resolve("state.txt"), "r")
 	if file then
 		is_active = file.readAll() == "active"
 		file.close()
@@ -37,7 +37,7 @@ function work.mainLoop()
 						-- a while, but we should react immediately for responsibility.
 						work._showStopping(true)
 					end
-					local file = fs.open("/state.txt", "w")
+					local file = fs.open(shell.resolve("state.txt"), "w")
 					if is_active then
 						file.write("active")
 					else

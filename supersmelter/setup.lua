@@ -110,7 +110,7 @@ local function main()
 		output_inventory = output_inventory,
 	}
 
-	local file = fs.open("config.txt", "w")
+	local file = fs.open(shell.resolve("config.txt"), "w")
 	file.write(textutils.serialize(config))
 	file.close()
 

@@ -1,4 +1,4 @@
-local config_file = fs.open("config.txt", "r")
+local config_file = fs.open(shell.resolve("config.txt"), "r")
 assert(config_file, "config not available -- run setup")
 local config_text = config_file.readAll()
 config_file.close()
