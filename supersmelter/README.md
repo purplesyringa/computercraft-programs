@@ -5,7 +5,7 @@ Needs to be uploaded to a turtle that holds a chunk vial (from Turtlematic) in t
 - An advanced 2x1 display in the UI.
 - An optional decorative furnace in the UI.
 - 3 inventories containing input, output, and fuel respectively. Barrels located around the decorative furnace are an obvious choice.
-- A "helper" inventory that the turtle faces directly (but it should be connected via wired modems as well, so that it's part of the wired network).
+- A "holding" inventory.
 - A "SCRAM" inventory.
 - An arbitrary count of furnaces, but at least one.
 - An arbitrary count of blast furnaces, but at least one.

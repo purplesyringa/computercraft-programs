@@ -62,7 +62,7 @@ function recovery._rebalanceItemsForCrafting()
 		return false
 	end
 	local count_blocks_present = 0
-	local item = names.helper_inventory.getItemDetail(info.block_slot)
+	local item = names.holding_inventory.getItemDetail(info.block_slot)
 	if item then
 		count_blocks_present = item.count
 	end
@@ -89,7 +89,7 @@ function recovery._rebalanceItemsForCrafting()
 			local count_to_move = item.count - count_recipe
 			local count_moved = util.moveItems(
 				turtle,
-				names.helper_inventory,
+				names.holding_inventory,
 				slot_from,
 				count_to_move,
 				info.item_slot
@@ -113,7 +113,7 @@ function recovery._moveStorageBlocksToBlockSlot()
 		if item.name == info.storage_block_name then
 			local count_moved = util.moveItems(
 				turtle,
-				names.helper_inventory,
+				names.holding_inventory,
 				1,
 				nil,
 				info.block_slot
@@ -131,7 +131,7 @@ function recovery._moveItemsToItemSlot()
 	end
 	local info = all_storage_blocks[item.name]
 	if info then
-		util.moveItems(turtle, names.helper_inventory, 1, nil, info.item_slot)
+		util.moveItems(turtle, names.holding_inventory, 1, nil, info.item_slot)
 	end
 end
 

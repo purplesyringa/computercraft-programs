@@ -22,7 +22,7 @@ function input.queueInputs()
 		return nil
 	end
 
-	local helper_inventory_list = names.helper_inventory.list()
+	local holding_inventory_list = names.holding_inventory.list()
 
 	-- This loop has to be sequential due to crafting. Iterations that touch non-existing ores or
 	-- filled queues don't take time.
@@ -31,14 +31,14 @@ function input.queueInputs()
 		if not storage_block_info then
 			goto continue
 		end
-		local helper_inventory_item = helper_inventory_list[storage_block_info.item_slot]
+		local holding_inventory_item = holding_inventory_list[storage_block_info.item_slot]
 		-- Don't decraft if there's already many items queued -- it'd just waste time. Recovery
 		-- requires this bound to be somewhat smaller than 64, so 32 is good enough.
-		local count_helper_inventory = 0
-		if helper_inventory_item then
-			count_helper_inventory = helper_inventory_item.count
+		local count_holding_inventory = 0
+		if holding_inventory_item then
+			count_holding_inventory = holding_inventory_item.count
 		end
-		local count_to_move = math.floor((32 - count_helper_inventory) / 9)
+		local count_to_move = math.floor((32 - count_holding_inventory) / 9)
 		if count_to_move <= 0 then
 			goto continue
 		end
@@ -54,21 +54,21 @@ function input.queueInputs()
 		assert(craft_ok, "Craft failed/de")
 		local count_moved_items = util.moveItems(
 			turtle,
-			names.helper_inventory,
+			names.holding_inventory,
 			1,
 			nil,
 			storage_block_info.item_slot
 		)
 		assert(count_moved_items == count_moved_storage_blocks * 9, "Item slot full")
-		helper_inventory_list[storage_block_info.item_slot] = {
+		holding_inventory_list[storage_block_info.item_slot] = {
 			name = item.name,
-			count = count_helper_inventory + count_moved_items,
+			count = count_holding_inventory + count_moved_items,
 		}
 		::continue::
 	end
 
 	local inputs = {}
-	util.parForEach(input._getInputSlots({ "input_inventory", "helper_inventory" }), function(slot)
+	util.parForEach(input._getInputSlots({ "input_inventory", "holding_inventory" }), function(slot)
 		local item = slot.inventory.getItemDetail(slot.slot)
 		if item and not rev_input_storage_blocks[item.name] then
 			table.insert(inputs, {
@@ -100,7 +100,7 @@ function input._computeSchedule()
 		normal = 0,
 		blast = 0,
 	}
-	local slots = input._getInputSlots({ "input_inventory", "helper_inventory", "furnaces" })
+	local slots = input._getInputSlots({ "input_inventory", "holding_inventory", "furnaces" })
 	util.parForEach(slots, function(slot)
 		item = slot.inventory.getItemDetail(slot.slot)
 		if not item then
@@ -156,10 +156,10 @@ function input._getInputSlots(categories)
 			for slot = 1, names.input_inventory.size() do
 				table.insert(slots, { inventory = names.input_inventory, slot = slot })
 			end
-		elseif category == "helper_inventory" then
+		elseif category == "holding_inventory" then
 			for _, info in pairs(data.input_storage_blocks) do
-				table.insert(slots, { inventory = names.helper_inventory, slot = info.block_slot })
-				table.insert(slots, { inventory = names.helper_inventory, slot = info.item_slot })
+				table.insert(slots, { inventory = names.holding_inventory, slot = info.block_slot })
+				table.insert(slots, { inventory = names.holding_inventory, slot = info.item_slot })
 			end
 		elseif category == "furnaces" then
 			for _, furnace in pairs(names.all_furnaces) do
@@ -256,10 +256,10 @@ function input.returnInput()
 	-- Flush items and recrafted storage blocks.
 	local ok = true
 	local by_name = {}
-	-- Pull from the helper inventory before the scram inventory to reduce the number of items in
+	-- Pull from the holding inventory before the scram inventory to reduce the number of items in
 	-- the item slot. Recovery requires that if crafting is underway, the item slot has some free
 	-- space.
-	util.parForEach(input._getInputSlots({ "helper_inventory", "scram_inventory" }), function(slot)
+	util.parForEach(input._getInputSlots({ "holding_inventory", "scram_inventory" }), function(slot)
 		local item = slot.inventory.getItemDetail(slot.slot)
 		if not item then
 			return
@@ -281,7 +281,7 @@ function input.returnInput()
 		end
 	end)
 
-	local helper_inventory_list = names.helper_inventory.list()
+	local holding_inventory_list = names.holding_inventory.list()
 
 	-- Craft new storage blocks. Has to be done sequentially.
 	for name, info in pairs(by_name) do
@@ -291,8 +291,8 @@ function input.returnInput()
 			-- Don't try to craft more blocks than we're guaranteed to have space for.
 			local block_slot = data.input_storage_blocks[name].block_slot
 			local count_taken = 0
-			if helper_inventory_list[block_slot] then
-				count_taken = helper_inventory_list[block_slot].count
+			if holding_inventory_list[block_slot] then
+				count_taken = holding_inventory_list[block_slot].count
 			end
 			local current_count = math.min(count_recipes, 64 - count_taken)
 
@@ -322,7 +322,7 @@ function input.returnInput()
 			if count_moved < current_count then
 				count_moved = count_moved + util.moveItems(
 					turtle,
-					names.helper_inventory,
+					names.holding_inventory,
 					1,
 					nil,
 					block_slot

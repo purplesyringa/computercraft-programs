@@ -19,7 +19,7 @@ end) }
 
 return {
 	decorative_furnace = decorative_furnace,
-	helper_inventory = peripheral.wrap(config.helper_inventory),
+	holding_inventory = peripheral.wrap(config.holding_inventory),
 	scram_inventory = peripheral.wrap(config.scram_inventory),
 	input_inventory = peripheral.wrap(config.input_inventory),
 	fuel_inventory = peripheral.wrap(config.fuel_inventory),

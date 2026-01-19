@@ -79,7 +79,7 @@ local function main()
 		decorative_furnace = queryInventoryName("decorative furnace")
 	end
 
-	local helper_inventory = queryInventoryName("helper inventory")
+	local holding_inventory = queryInventoryName("holding inventory")
 	local scram_inventory = queryInventoryName("scram inventory")
 	local input_inventory = queryInventoryName("input inventory")
 	local fuel_inventory = queryInventoryName("fuel inventory")
@@ -87,7 +87,7 @@ local function main()
 
 	local config = {
 		decorative_furnace = decorative_furnace,
-		helper_inventory = helper_inventory,
+		holding_inventory = holding_inventory,
 		scram_inventory = scram_inventory,
 		input_inventory = input_inventory,
 		fuel_inventory = fuel_inventory,

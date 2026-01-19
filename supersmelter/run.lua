@@ -18,7 +18,7 @@ local function main()
 	for _, info in pairs(data.output_storage_blocks) do
 		max_slot = math.max(max_slot, math.max(info.block_slot, info.item_slot))
 	end
-	assert(names.helper_inventory.size() >= max_slot, "Helper too small")
+	assert(names.holding_inventory.size() >= max_slot, "holding inventory too small")
 
 	if recovery.recover() then
 		work.mainLoop()
