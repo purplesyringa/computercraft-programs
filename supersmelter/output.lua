@@ -82,22 +82,24 @@ function output.flushOutput(immediate)
 			holding_inventory_queue_updates[item.name] = now
 		end
 
-		-- Prefer to wait for at least 5 blocks, since crafting takes a long while.
-		local force_flush = immediate or holding_inventory_queue_updates[item.name] < now - 15
-		local count_recipes = math.floor(item.count / 9)
-		if count_recipes >= 5 or (force_flush and count_recipes > 0) then
+        local count_recipes = math.floor(item.count / 9)
+		if count_recipes > 0 then
+			local slots = {}
 			for x = 1, 3 do
 				for y = 1, 3 do
-					local count_moved = util.moveItems(
-						names.holding_inventory,
-						turtle,
-						info.item_slot,
-						count_recipes,
-						(y - 1) * 4 + x
-					)
-					assert(count_moved == count_recipes, "Move failed/cr")
+					table.insert(slots, (y - 1) * 4 + x)
 				end
 			end
+			util.parForEach(slots, function(slot)
+				local count_moved = util.moveItems(
+					names.holding_inventory,
+					turtle,
+					info.item_slot,
+					count_recipes,
+					slot
+				)
+				assert(count_moved == count_recipes, "Move failed/cr")
+			end)
 			turtle.select(1)
 			local craft_ok, _ = turtle.craft()
 			assert(craft_ok, "Craft failed/cr")
@@ -119,7 +121,7 @@ function output.flushOutput(immediate)
 			holding_inventory_queue_updates[item.name] = now
 		end
 
-		if force_flush then
+		if immediate or holding_inventory_queue_updates[item.name] < now - 15 then
 			-- No items have arrived recently -- flush as-is.
 			local count_moved = util.moveItems(
 				names.holding_inventory,

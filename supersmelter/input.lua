@@ -272,7 +272,11 @@ function input.returnInput()
 				}
 			end
 			by_name[item.name].count = by_name[item.name].count + item.count
-			table.insert(by_name[item.name].slots, slot)
+			table.insert(by_name[item.name].slots, {
+				count = item.count,
+				inventory = slot.inventory,
+				slot = slot.slot,
+			})
 		else
 			local count_moved = util.moveItems(slot.inventory, names.input_inventory, slot.slot)
 			if count_moved < item.count then
@@ -297,24 +301,34 @@ function input.returnInput()
 			local current_count = math.min(count_recipes, 64 - count_taken)
 
 			-- Move items into the turtle inventory uniformly.
+			local slots_to = {}
 			for x = 1, 3 do
 				for y = 1, 3 do
-					local count_moved = 0
-					for _, slot in pairs(info.slots) do
-						if count_moved >= current_count then
-							break
-						end
-						count_moved = count_moved + util.moveItems(
-							slot.inventory,
-							turtle,
-							slot.slot,
-							current_count - count_moved,
-							(y - 1) * 4 + x
-						)
-					end
-					assert(count_moved == current_count, "Move failed/re")
+					table.insert(slots_to, (y - 1) * 4 + x)
 				end
 			end
+			util.parForEach(slots_to, function(slot_to)
+				local count_to_add = current_count
+				for _, slot_from in pairs(info.slots) do
+					if count_to_add <= 0 then
+						break
+					end
+					if slot_from.count > 0 then
+						local count_to_move = math.min(slot_from.count, count_to_add)
+						-- Decrease count before yielding so that we don't try to move from the same
+						-- slot in parallel.
+						slot_from.count = slot_from.count - count_to_move
+						count_to_add = count_to_add - util.moveItems(
+							slot_from.inventory,
+							turtle,
+							slot_from.slot,
+							count_to_move,
+							slot_to
+						)
+					end
+				end
+				assert(count_to_add == 0, "Move failed/re")
+			end)
 			turtle.select(1)
 			local craft_ok, _ = turtle.craft()
 			assert(craft_ok, "Craft failed/re")
