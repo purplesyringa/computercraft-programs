@@ -49,7 +49,6 @@ function output.flushOutput(immediate)
 	end)
 
 	local helper_inventory_list = names.helper_inventory.list()
-	assert(not helper_inventory_list[1], "Helper full/precr")
 
 	-- This loop has to be sequential due to crafting. Iterations that touch non-existing metals
 	-- don't take time.
@@ -87,32 +86,27 @@ function output.flushOutput(immediate)
 		local force_flush = immediate or helper_inventory_queue_updates[item.name] < now - 15
 		local count_recipes = math.floor(item.count / 9)
 		if count_recipes >= 5 or (force_flush and count_recipes > 0) then
-			-- Turtles can only suck from the first slot, so move the items there.
-			local count_moved = util.moveItems(
-				names.helper_inventory,
-				names.helper_inventory,
-				info.item_slot,
-				count_recipes * 9,
-				1
-			)
-			assert(count_moved == count_recipes * 9, "Move failed/cr")
 			for x = 1, 3 do
 				for y = 1, 3 do
-					turtle.select((y - 1) * 4 + x)
-					turtle.suck(count_recipes)
+					local count_moved = util.moveItems(
+						names.helper_inventory,
+						turtle,
+						info.item_slot,
+						count_recipes,
+						(y - 1) * 4 + x
+					)
+					assert(count_moved == count_recipes, "Move failed/cr")
 				end
 			end
 			turtle.select(1)
 			local craft_ok, _ = turtle.craft()
 			assert(craft_ok, "Craft failed/cr")
-			turtle.drop()
-			assert(turtle.getItemCount(1) == 0, "Helper full/cr")
-			local count_moved = util.moveItems(names.helper_inventory, names.output_inventory, 1)
+			local count_moved = util.moveItems(turtle, names.output_inventory, 1)
 			if count_moved < count_recipes then
 				ok = false
 			end
 			count_moved = count_moved + util.moveItems(
-				names.helper_inventory,
+				turtle,
 				names.helper_inventory,
 				1,
 				nil,

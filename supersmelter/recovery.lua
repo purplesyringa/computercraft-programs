@@ -13,19 +13,15 @@ end
 local recovery = {}
 
 function recovery.recover()
-	-- If we were unloaded in the middle of something, our inventory and slot 1 of the helper
-	-- inventory could be in an unexpected state and break our operation -- recover from that
-	-- failure.
+	-- If we were unloaded in the middle of something, our inventory could be in an unexpected state
+	-- and break crafting -- recover from that failure.
 	if recovery._rebalanceItemsForCrafting() then
 		turtle.select(1)
 		turtle.craft()
 	end
-	recovery._moveItemsToItemSlot()
-	recovery._dropStorageBlocks()
 	if not recovery._moveStorageBlocksToBlockSlot() then
 		-- If there isn't enough space in the block slot, we must have pulled input storage blocks
 		-- to smelt them, so there should be enough space in the item slot after decrafting.
-		recovery._suckStorageBlocks()
 		turtle.select(1)
 		turtle.craft()
 		recovery._moveItemsToItemSlot()
@@ -42,14 +38,10 @@ function recovery._rebalanceItemsForCrafting()
 		end
 	end
 
-	local items = { names.helper_inventory.getItemDetail(1) }
-	for _, slot in pairs(slots) do
-		table.insert(items, turtle.getItemDetail(slot))
-	end
-
 	local count_total = 0
 	local expected_name = nil
-	for _, item in pairs(items) do
+	for _, slot in pairs(slots) do
+		local item = turtle.getItemDetail(slot)
 		if item then
 			if expected_name and item.name ~= expected_name then
 				return false
@@ -58,13 +50,16 @@ function recovery._rebalanceItemsForCrafting()
 			count_total = count_total + item.count
 		end
 	end
-	if not all_storage_blocks[expected_name] or count_total == 0 then
+	if count_total == 0 then
 		return false
 	end
 
 	local info = data.input_storage_blocks[expected_name]
 	if not info then
 		info = data.output_storage_blocks[expected_name]
+	end
+	if not info then
+		return false
 	end
 	local count_blocks_present = 0
 	local item = names.helper_inventory.getItemDetail(info.block_slot)
@@ -75,87 +70,49 @@ function recovery._rebalanceItemsForCrafting()
 	local count_recipe = math.min(math.floor(count_total / 9), 64 - count_blocks_present)
 
 	-- Move items from slots with too many items to slots with too few items.
-	function considerSlotAsSource(item, count_wanted, transferToSlot, transferToHelperInventory)
-		if not item or item.count < count_wanted then
-			return
-		end
-		for _, slot_to in pairs(slots) do
-			local item_to = turtle.getItemDetail(slot_to)
-			local count_to = 0
-			if item_to then
-				count_to = item_to.count
-			end
-			if count_to < count_recipe then
-				local count = math.min(item.count - count_wanted, count_recipe - count_to)
-				transferToSlot(slot_to, count)
-				item.count = item.count - count
-			end
-		end
-		transferToHelperInventory(item.count - count_wanted)
-	end
-	considerSlotAsSource(
-		names.helper_inventory.getItemDetail(1),
-		0,
-		function(slot_to, count)
-			turtle.select(slot_to)
-			turtle.suck(count)
-		end,
-		function(count) end
-	)
 	for _, slot_from in pairs(slots) do
-		turtle.select(slot_from)
-		considerSlotAsSource(
-			turtle.getItemDetail(slot_from),
-			count_recipe,
-			function(slot_to, count) turtle.transferTo(slot_to, count) end,
-			function(count) turtle.drop(count) end
-		)
 		local item = turtle.getItemDetail(slot_from)
 		if item and item.count > count_recipe then
-			return false
+			turtle.select(slot_from)
+			for _, slot_to in pairs(slots) do
+				local item_to = turtle.getItemDetail(slot_to)
+				local count_to = 0
+				if item_to then
+					count_to = item_to.count
+				end
+				if count_to < count_recipe then
+					local count = math.min(item.count - count_recipe, count_recipe - count_to)
+					turtle.transferTo(slot_to, count)
+					item.count = item.count - count
+				end
+			end
+			local count_to_move = item.count - count_recipe
+			local count_moved = util.moveItems(
+				turtle,
+				names.helper_inventory,
+				slot_from,
+				count_to_move,
+				info.item_slot
+			)
+			if count_moved ~= count_to_move then
+				return false
+			end
 		end
 	end
 
 	return true
 end
 
-function recovery._moveItemsToItemSlot()
-	local item = names.helper_inventory.getItemDetail(1)
-	if not item then
-		return
-	end
-	local info = all_storage_blocks[item.name]
-	if info then
-		util.moveItems(names.helper_inventory, names.helper_inventory, 1, nil, info.item_slot)
-	end
-end
-
-function recovery._dropStorageBlocks()
-	if names.helper_inventory.getItemDetail(1) then
-		return
-	end
-	local item = turtle.getItemDetail(1)
-	if not item then
-		return
-	end
-	for _, info in pairs(all_storage_blocks) do
-		if item.name == info.storage_block_name then
-			turtle.select(1)
-			turtle.drop()
-		end
-	end
-end
-
 -- Returns `false` if there isn't space in the block slot, `true` on success or if unapplicable.
 function recovery._moveStorageBlocksToBlockSlot()
-	local item = names.helper_inventory.getItemDetail(1)
+	local item = turtle.getItemDetail(1)
 	if not item then
 		return true
 	end
 	for _, info in pairs(all_storage_blocks) do
 		if item.name == info.storage_block_name then
 			local count_moved = util.moveItems(
-				names.helper_inventory,
+				turtle,
 				names.helper_inventory,
 				1,
 				nil,
@@ -167,19 +124,14 @@ function recovery._moveStorageBlocksToBlockSlot()
 	return true
 end
 
-function recovery._suckStorageBlocks()
-	if turtle.getItemDetail(1) then
-		return
-	end
-	local item = names.helper_inventory.getItemDetail(1)
+function recovery._moveItemsToItemSlot()
+	local item = turtle.getItemDetail(1)
 	if not item then
 		return
 	end
-	for _, info in pairs(all_storage_blocks) do
-		if item.name == info.storage_block_name then
-			turtle.select(1)
-			turtle.suck()
-		end
+	local info = all_storage_blocks[item.name]
+	if info then
+		util.moveItems(turtle, names.helper_inventory, 1, nil, info.item_slot)
 	end
 end
 
@@ -192,7 +144,7 @@ function recovery._isPristine()
 			end
 		end
 	end
-	return not names.helper_inventory.getItemDetail(1)
+	return true
 end
 
 return recovery

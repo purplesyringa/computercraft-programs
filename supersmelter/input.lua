@@ -23,7 +23,6 @@ function input.queueInputs()
 	end
 
 	local helper_inventory_list = names.helper_inventory.list()
-	assert(not helper_inventory_list[1], "Helper full/prede")
 
 	-- This loop has to be sequential due to crafting. Iterations that touch non-existing ores or
 	-- filled queues don't take time.
@@ -43,22 +42,18 @@ function input.queueInputs()
 		if count_to_move <= 0 then
 			goto continue
 		end
-		-- Turtles can only suck from the first slot, so move the items there.
 		local count_moved_storage_blocks = util.moveItems(
 			names.input_inventory,
-			names.helper_inventory,
+			turtle,
 			slot,
 			count_to_move,
 			1
 		)
 		turtle.select(1)
-		turtle.suck(count_moved_storage_blocks)
 		local craft_ok, _ = turtle.craft()
 		assert(craft_ok, "Craft failed/de")
-		turtle.drop()
-		assert(turtle.getItemCount(1) == 0, "Helper full/de")
 		local count_moved_items = util.moveItems(
-			names.helper_inventory,
+			turtle,
 			names.helper_inventory,
 			1,
 			nil,
@@ -287,7 +282,6 @@ function input.returnInput()
 	end)
 
 	local helper_inventory_list = names.helper_inventory.list()
-	assert(not helper_inventory_list[1], "Helper full/prere")
 
 	-- Craft new storage blocks. Has to be done sequentially.
 	for name, info in pairs(by_name) do
@@ -305,7 +299,6 @@ function input.returnInput()
 			-- Move items into the turtle inventory uniformly.
 			for x = 1, 3 do
 				for y = 1, 3 do
-					-- Turtles can only suck from the first slot, so move the items there.
 					local count_moved = 0
 					for _, slot in pairs(info.slots) do
 						if count_moved >= current_count then
@@ -313,26 +306,22 @@ function input.returnInput()
 						end
 						count_moved = count_moved + util.moveItems(
 							slot.inventory,
-							names.helper_inventory,
+							turtle,
 							slot.slot,
 							current_count - count_moved,
-							1
+							(y - 1) * 4 + x
 						)
 					end
-					turtle.select((y - 1) * 4 + x)
-					turtle.suck()
 					assert(count_moved == current_count, "Move failed/re")
 				end
 			end
 			turtle.select(1)
 			local craft_ok, _ = turtle.craft()
 			assert(craft_ok, "Craft failed/re")
-			turtle.drop()
-			assert(turtle.getItemCount(1) == 0, "Helper full/re")
-			local count_moved = util.moveItems(names.helper_inventory, names.input_inventory, 1)
+			local count_moved = util.moveItems(turtle, names.input_inventory, 1)
 			if count_moved < current_count then
 				count_moved = count_moved + util.moveItems(
-					names.helper_inventory,
+					turtle,
 					names.helper_inventory,
 					1,
 					nil,

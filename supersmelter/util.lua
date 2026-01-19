@@ -42,8 +42,16 @@ function util.isBlastSmeltable(item)
 	return false
 end
 
+local turtle_modem_name = peripheral.find("modem").getNameLocal()
+
 function util.moveItems(from, to, fromSlot, count, toSlot)
-	return from.pushItems(peripheral.getName(to), fromSlot, count, toSlot)
+	if from == turtle then
+		return to.pullItems(turtle_modem_name, fromSlot, count, toSlot)
+	elseif to == turtle then
+		return from.pushItems(turtle_modem_name, fromSlot, count, toSlot)
+	else
+		return from.pushItems(peripheral.getName(to), fromSlot, count, toSlot)
+	end
 end
 
 return util

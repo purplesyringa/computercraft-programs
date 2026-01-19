@@ -67,23 +67,6 @@ local function main()
 		check(not next(inventory.list()), string.format("Inventory %s must be empty", name))
 	end)
 
-	check(peripheral.hasType("front", "inventory"), "No helper inventory in front of the turtle")
-	local helper_inventory = peripheral.wrap("front")
-
-	local helper_inventory_wired = nil
-	if left and is_turtle_inventory_empty and not next(helper_inventory.list()) then
-		turtle.select(1)
-		turtle.equipLeft()
-		turtle.drop()
-		helper_inventory_wired = peripheral.find("inventory", function(name, inventory)
-			local item = inventory.getItemDetail(1)
-			return name ~= "front" and item and item.name == left.name
-		end)
-		turtle.suck()
-		turtle.equipLeft()
-		check(helper_inventory_wired, "Helper inventory not connected to wired network")
-	end
-
 	if not ok then
 		return
 	end
@@ -96,6 +79,7 @@ local function main()
 		decorative_furnace = queryInventoryName("decorative furnace")
 	end
 
+	local helper_inventory = queryInventoryName("helper inventory")
 	local scram_inventory = queryInventoryName("scram inventory")
 	local input_inventory = queryInventoryName("input inventory")
 	local fuel_inventory = queryInventoryName("fuel inventory")
@@ -103,7 +87,7 @@ local function main()
 
 	local config = {
 		decorative_furnace = decorative_furnace,
-		helper_inventory = peripheral.getName(helper_inventory_wired),
+		helper_inventory = helper_inventory,
 		scram_inventory = scram_inventory,
 		input_inventory = input_inventory,
 		fuel_inventory = fuel_inventory,
