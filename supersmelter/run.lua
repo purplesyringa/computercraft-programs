@@ -29,11 +29,14 @@ local function main()
 	end
 end
 
-local ok, err = pcall(main)
+local ok, err = xpcall(main, debug.traceback)
 if not ok then
-	print(err)
+	local file = fs.open(shell.resolve("error.log"), "w")
+	file.write(err .. "\n")
+	file.close()
 	util.clear()
 	names.monitor.setTextColor(colors.red)
 	util.print("Crash")
 	util.print("Call Alisa")
+	print("Crashed, stacktrace written to error.log")
 end
