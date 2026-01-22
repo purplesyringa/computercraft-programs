@@ -10,6 +10,11 @@ if config.decorative_furnace ~= nil then
 	decorative_furnace = peripheral.wrap(config.decorative_furnace)
 end
 
+local scram_inventories = {}
+for _, name in pairs(config.scram_inventories) do
+	table.insert(scram_inventories, peripheral.wrap(name))
+end
+
 local normal_furnaces = {}
 local blast_furnaces = {}
 for _, name in pairs(config.furnaces) do
@@ -23,8 +28,8 @@ end
 
 return {
 	decorative_furnace = decorative_furnace,
+	scram_inventories = scram_inventories,
 	holding_inventory = peripheral.wrap(config.holding_inventory),
-	scram_inventory = peripheral.wrap(config.scram_inventory),
 	input_inventory = peripheral.wrap(config.input_inventory),
 	fuel_inventory = peripheral.wrap(config.fuel_inventory),
 	output_inventory = peripheral.wrap(config.output_inventory),

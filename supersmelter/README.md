@@ -2,13 +2,13 @@ A smart supersmelter.
 
 Needs to be uploaded to a turtle that holds a chunk vial (from Turtlematic) in the left equipment slot, and a crafting table in the right equipment slot. The turtle should be connected, via wired modems, to:
 
-- An advanced 2x1 display in the UI.
-- An optional decorative furnace in the UI.
-- 3 inventories containing input, output, and fuel respectively. Barrels located around the decorative furnace are an obvious choice.
-- A "holding" inventory.
-- A "SCRAM" inventory.
 - An arbitrary count of furnaces, but at least one.
 - An arbitrary count of blast furnaces, but at least one.
+- An optional decorative furnace in the UI.
+- An advanced 2x1 display in the UI.
+- 3 inventories containing input, output, and fuel respectively. Barrels located around the decorative furnace are an obvious choice.
+- A "holding" inventory.
+- One or more "SCRAM" inventories (chests or barrels), depending on the number of furnaces. Note that they have to be singular chests; using double chests will cause weird behavior due to a CC bug.
 
 Run `setup.lua` to detect and save the IDs of the peripherals once. You should run `run.lua` on startup under normal operation. Mod-specific extensions can be adjusted in `data.lua`.
 

@@ -10,7 +10,12 @@ local function main()
 	util.print("Booting")
 
 	-- Sanity checks.
-	assert(names.scram_inventory.size() >= #names.all_furnaces, "Scram too small for #furnaces")
+	local total_scram_size = 0
+	for _, inventory in pairs(names.scram_inventories) do
+		total_scram_size = total_scram_size + inventory.size()
+	end
+	assert(total_scram_size >= #names.all_furnaces, "Scram too small for #furnaces")
+
 	local max_slot = 0
 	for _, info in pairs(data.input_storage_blocks) do
 		max_slot = math.max(max_slot, math.max(info.block_slot, info.item_slot))

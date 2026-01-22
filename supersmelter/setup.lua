@@ -53,10 +53,6 @@ end
 
 local function locate_unique_furnaces(furnaces, out, decorative_furnace)
 	local turtle_modem_name = peripheral.find("modem").getNameLocal()
-
-	turtle.select(1)
-	turtle.equipLeft()
-
 	local duplicates = {}
 	for _, furnace in pairs(furnaces) do
 		local name = peripheral.getName(furnace)
@@ -71,8 +67,6 @@ local function locate_unique_furnaces(furnaces, out, decorative_furnace)
 			table.insert(out, name)
 		end
 	end
-
-	turtle.equipLeft() -- unequip
 end
 
 local function main()
@@ -121,6 +115,8 @@ local function main()
 	end
 
 	print("Discovering working furnaces")
+	turtle.select(1)
+	turtle.equipLeft()
 	local furnaces = {}
 	locate_unique_furnaces({ peripheral.find("minecraft:furnace") }, furnaces, decorative_furnace)
 	locate_unique_furnaces(
@@ -128,17 +124,24 @@ local function main()
 		furnaces,
 		decorative_furnace
 	)
+	turtle.equipLeft()
+
+	local n_scrams = math.ceil(#furnaces / 27)
+	print("Need", n_scrams, "scram inventories due to the number of furnaces")
+	local scram_inventories = {}
+	for i = 1, n_scrams do
+		table.insert(scram_inventories, queryInventoryName(string.format("scram inventory #%d", i)))
+	end
 
 	local holding_inventory = queryInventoryName("holding inventory")
-	local scram_inventory = queryInventoryName("scram inventory")
 	local input_inventory = queryInventoryName("input inventory")
 	local fuel_inventory = queryInventoryName("fuel inventory")
 	local output_inventory = queryInventoryName("output inventory")
 
 	local config = {
 		decorative_furnace = decorative_furnace,
+		scram_inventories = scram_inventories,
 		holding_inventory = holding_inventory,
-		scram_inventory = scram_inventory,
 		input_inventory = input_inventory,
 		fuel_inventory = fuel_inventory,
 		output_inventory = output_inventory,

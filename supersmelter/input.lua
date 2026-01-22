@@ -10,12 +10,14 @@ for _, info in pairs(data.input_storage_blocks) do
 end
 
 function input.queueInputs()
-	-- The scram inventory should always be empty during stopping to be able to contain all inputs,
-	-- ergo it should always be smelted first.
-	util.parForEach(input._getOrderedFurnaces(), function(furnace)
-		util.moveItems(names.scram_inventory, furnace.furnace, furnace.i)
+	-- The scram inventories should always be empty during stopping to be able to contain all
+	-- inputs, ergo they should always be smelted first.
+	util.parForEach(input._getFurnaceScramMapping(), function(mapping)
+		util.moveItems(mapping.scram_inventory, mapping.furnace, mapping.scram_slot, nil, 1)
 	end)
-	assert(not next(names.scram_inventory.list()), "Full scram")
+	util.parForEach(names.scram_inventories, function(scram_inventory)
+		assert(not next(scram_inventory.list()), "Full scram")
+	end)
 
 	local schedule = input._computeSchedule()
 	if not schedule then
@@ -87,12 +89,24 @@ function input.queueInputs()
 	return schedule.eta
 end
 
-function input._getOrderedFurnaces()
-	local ordered_furnaces = {}
-	for i, furnace in pairs(names.all_furnaces) do
-		table.insert(ordered_furnaces, { i = i, furnace = furnace })
+function input._getFurnaceScramMapping()
+	local mapping = {}
+	for _, furnace in pairs(names.all_furnaces) do
+		table.insert(mapping, { furnace = furnace })
 	end
-	return ordered_furnaces
+
+	local j = 1
+	for _, scram_inventory in pairs(names.scram_inventories) do
+		for scram_slot = 1, scram_inventory.size() do
+			if j <= #mapping then
+				mapping[j].scram_inventory = scram_inventory
+				mapping[j].scram_slot = scram_slot
+			end
+			j = j + 1
+		end
+	end
+
+	return mapping
 end
 
 function input._computeSchedule()
@@ -165,9 +179,11 @@ function input._getInputSlots(categories)
 			for _, furnace in pairs(names.all_furnaces) do
 				table.insert(slots, { inventory = furnace, slot = 1 })
 			end
-		elseif category == "scram_inventory" then
-			for slot = 1, names.scram_inventory.size() do
-				table.insert(slots, { inventory = names.scram_inventory, slot = slot })
+		elseif category == "scram_inventories" then
+			for _, inventory in pairs(names.scram_inventories) do
+				for slot = 1, inventory.size() do
+					table.insert(slots, { inventory = inventory, slot = slot })
+				end
 			end
 		else
 			assert(false, "Invalid category")
@@ -245,12 +261,12 @@ function input.fixInputs()
 end
 
 function input.returnInput()
-	-- Move items from furnaces into the scram inventory. This ensures that a) the items are not
+	-- Move items from furnaces into the scram inventories. This ensures that a) the items are not
 	-- smelted and lost because the input inventory is full, b) the number of items cannot change in
 	-- runtime, racing with crafting.
-	util.parForEach(input._getOrderedFurnaces(), function(furnace)
-		util.moveItems(furnace.furnace, names.scram_inventory, 1, nil, furnace.i)
-		assert(not furnace.furnace.getItemDetail(1), "Full scram")
+	util.parForEach(input._getFurnaceScramMapping(), function(mapping)
+		util.moveItems(mapping.furnace, mapping.scram_inventory, 1, nil, mapping.scram_slot)
+		assert(not mapping.furnace.getItemDetail(1), "Full scram")
 	end)
 
 	-- Flush items and recrafted storage blocks.
@@ -259,7 +275,8 @@ function input.returnInput()
 	-- Pull from the holding inventory before the scram inventory to reduce the number of items in
 	-- the item slot. Recovery requires that if crafting is underway, the item slot has some free
 	-- space.
-	util.parForEach(input._getInputSlots({ "holding_inventory", "scram_inventory" }), function(slot)
+	local slots = input._getInputSlots({ "holding_inventory", "scram_inventories" })
+	util.parForEach(slots, function(slot)
 		local item = slot.inventory.getItemDetail(slot.slot)
 		if not item then
 			return
