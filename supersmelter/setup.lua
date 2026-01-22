@@ -1,3 +1,15 @@
+-- Can't use the implementation from `util` because `util` requires `names`.
+function parForEach(tbl, callback)
+	local closures = {}
+	for _, element in pairs(tbl) do
+		table.insert(closures, function()
+			return callback(element)
+		end)
+	end
+	return parallel.waitForAll(unpack(closures))
+end
+
+local inventories = nil
 local ok = true
 
 local function check(cond, message)
@@ -14,7 +26,8 @@ local function queryInventoryName(description)
 	local inventory = nil
 	while not inventory do
 		os.sleep(1)
-		inventory = peripheral.find("inventory", function(name, inventory)
+		parForEach(inventories, function(check_inventory)
+			local name = peripheral.getName(check_inventory)
 			local is_direct = (
 				name == "front"
 				or name == "back"
@@ -23,7 +36,9 @@ local function queryInventoryName(description)
 				or name == "top"
 				or name == "bottom"
 			)
-			return not is_direct and next(inventory.list())
+			if not is_direct and next(check_inventory.list()) then
+				inventory = check_inventory
+			end
 		end)
 	end
 	local name = peripheral.getName(inventory)
@@ -34,6 +49,30 @@ local function queryInventoryName(description)
 	end
 
 	return name
+end
+
+local function locate_unique_furnaces(furnaces, out, decorative_furnace)
+	local turtle_modem_name = peripheral.find("modem").getNameLocal()
+
+	turtle.select(1)
+	turtle.equipLeft()
+
+	local duplicates = {}
+	for _, furnace in pairs(furnaces) do
+		local name = peripheral.getName(furnace)
+		if name ~= decorative_furnace and not duplicates[name] then
+			furnace.pullItems(turtle_modem_name, 1, nil, 1)
+			parForEach(furnaces, function(furnace2)
+				if next(furnace2.list()) then
+					duplicates[peripheral.getName(furnace2)] = true
+				end
+			end)
+			furnace.pushItems(turtle_modem_name, 1, nil, 1)
+			table.insert(out, name)
+		end
+	end
+
+	turtle.equipLeft() -- unequip
 end
 
 local function main()
@@ -63,7 +102,9 @@ local function main()
 	end
 	check(is_turtle_inventory_empty, "All slots in turtle inventory must be empty")
 
-	peripheral.find("inventory", function(name, inventory)
+	inventories = { peripheral.find("inventory") }
+	parForEach(inventories, function(inventory)
+		local name = peripheral.getName(inventory)
 		check(not next(inventory.list()), string.format("Inventory %s must be empty", name))
 	end)
 
@@ -79,6 +120,15 @@ local function main()
 		decorative_furnace = queryInventoryName("decorative furnace")
 	end
 
+	print("Discovering working furnaces")
+	local furnaces = {}
+	locate_unique_furnaces({ peripheral.find("minecraft:furnace") }, furnaces, decorative_furnace)
+	locate_unique_furnaces(
+		{ peripheral.find("minecraft:blast_furnace") },
+		furnaces,
+		decorative_furnace
+	)
+
 	local holding_inventory = queryInventoryName("holding inventory")
 	local scram_inventory = queryInventoryName("scram inventory")
 	local input_inventory = queryInventoryName("input inventory")
@@ -92,6 +142,7 @@ local function main()
 		input_inventory = input_inventory,
 		fuel_inventory = fuel_inventory,
 		output_inventory = output_inventory,
+		furnaces = furnaces,
 	}
 
 	local file = fs.open(shell.resolve("config.txt"), "w")

@@ -10,12 +10,16 @@ if config.decorative_furnace ~= nil then
 	decorative_furnace = peripheral.wrap(config.decorative_furnace)
 end
 
-local normal_furnaces = { peripheral.find("minecraft:furnace", function(name, furnace)
-	return name ~= config.decorative_furnace
-end) }
-local blast_furnaces = { peripheral.find("minecraft:blast_furnace", function(name, furnace)
-	return name ~= config.decorative_furnace
-end) }
+local normal_furnaces = {}
+local blast_furnaces = {}
+for _, name in pairs(config.furnaces) do
+	local furnace = peripheral.wrap(name)
+	if peripheral.hasType(furnace, "minecraft:blast_furnace") then
+		table.insert(blast_furnaces, furnace)
+	else
+		table.insert(normal_furnaces, furnace)
+	end
+end
 
 return {
 	decorative_furnace = decorative_furnace,
