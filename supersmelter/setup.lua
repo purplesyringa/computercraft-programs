@@ -79,6 +79,10 @@ local function main()
 		)
 	end
 
+	if not check(turtle, "Not running on a turtle") then
+		return
+	end
+
 	local left = turtle.getEquippedLeft()
 	check(
 		left and left.name == "turtlematic:chunk_vial",
