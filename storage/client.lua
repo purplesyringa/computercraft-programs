@@ -55,12 +55,12 @@ local function renderScreen()
     term.setBackgroundColor(colors.black)
     term.clear()
 
-    term.setCursorPos(1, 1)
+    term.setCursorPos(8, 1)
     term.setBackgroundColor(colors.gray)
     term.setTextColor(colors.white)
     term.clearLine()
     term.write(search_query)
-    term.setCursorPos(term_width - 5, 1)
+    term.setCursorPos(1, 1)
     term.setBackgroundColor(colors.yellow)
     term.setTextColor(colors.black)
     term.write(string.format("%5d%%", fullness))
@@ -68,7 +68,7 @@ local function renderScreen()
     for y = 2, term_height - 1 do
         local item = filtered_index[scroll_pos + y - 2]
         if item then
-            term.setCursorPos(1, y)
+            term.setCursorPos(8, y)
             term.setBackgroundColor(colors.black)
             if util.getItemKey(item) == util.getItemKey(selected_item) then
                 term.setTextColor(colors.green)
@@ -77,7 +77,7 @@ local function renderScreen()
             end
             term.write(formatItemName(item))
         end
-        term.setCursorPos(term_width - 5, y)
+        term.setCursorPos(1, y)
         term.setBackgroundColor(colors.blue)
         term.setTextColor(colors.white)
         if item then
@@ -97,22 +97,24 @@ local function renderScreen()
         end
     end
 
-    term.setCursorPos(1, term_height)
-    term.setTextColor(colors.white)
     if selected_item then
+        term.setCursorPos(8, term_height)
+        term.setTextColor(colors.white)
         term.setBackgroundColor(colors.green)
         term.clearLine()
         term.write(string.format("Pulling %s", formatItemName(selected_item)))
-        term.setCursorPos(term_width - 5, term_height)
+        term.setCursorPos(1, term_height)
         term.setBackgroundColor(colors.red)
         term.write("Cancel")
     else
+        term.setCursorPos(1, term_height)
+        term.setTextColor(colors.white)
         term.setBackgroundColor(colors.gray)
         term.clearLine()
         term.write("Click row to pull completely")
     end
 
-    term.setCursorPos(cursor_pos, 1)
+    term.setCursorPos(7 + cursor_pos, 1)
     term.setCursorBlink(true)
     term.setTextColor(colors.white)
 end
