@@ -185,6 +185,9 @@ local function updateFilteredIndex()
         end
     end
     table.sort(filtered_index, function(a, b)
+        if a.count == b.count then
+            return util.getItemKey(a) < util.getItemKey(b)
+        end
         return a.count > b.count
     end)
 end
