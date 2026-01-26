@@ -268,9 +268,9 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
             local input_cell = self:takeEmptyCell()
             input_cells[slot_from] = input_cell
             input_cell.count = count_to_pull
-            task_set.spawn(function()
+            task_set.spawn(util.bind(pcall, function() -- protect against client disconnects
                 input_cell.chest.pullItems(client, slot_from, limit_to_pull, input_cell.slot)
-            end)
+            end))
         end
     end
 
@@ -294,7 +294,9 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
                     local cell_to_name = peripheral.getName(cell_to.chest)
                     cell_from.chest.pushItems(cell_to_name, cell_from.slot, cur_limit, cell_to.slot)
                 else
-                    cell_from.chest.pushItems(client, cell_from.slot, cur_limit, slot_to)
+                    pcall(function() -- protect against client disconnects
+                        cell_from.chest.pushItems(client, cell_from.slot, cur_limit, slot_to)
+                    end)
                 end
             end)
             return cell_from.count == 0
@@ -329,9 +331,9 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
                     item_info.chest_cells[i] = nil
                 end
             end
-            task_set.spawn(function()
+            task_set.spawn(util.bind(pcall, function() -- protect against client disconnects
                 output_cell.chest.pushItems(client, output_cell.slot, nil, slot_to)
-            end)
+            end))
             task_set.spawn(function()
                 local actual_key = self:importChestCell(output_cell)
                 -- If a push failed, there was a race, and we want to trigger a retry.
@@ -367,14 +369,14 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
                     if other_item.count == 0 then
                         other_inventory[slot_from] = nil
                     end
-                    task_set.spawn(function()
+                    task_set.spawn(util.bind(pcall, function() -- protect against client disconnects
                         tmp_cell.chest.pullItems(
                             other_client,
                             slot_from,
                             cur_limit,
                             tmp_cell.slot
                         )
-                    end)
+                    end))
                     task_set.spawn(function()
                         self:addGhostItems(other_item, cur_limit)
                         local actual_key = self:importChestCell(tmp_cell)
