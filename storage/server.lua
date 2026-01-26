@@ -52,8 +52,6 @@
 -- whenever such delayed operations complete, so they can re-request adjustment if new items become
 -- available.
 
-local w = fs.open("meow.txt", "w").write _G.write = function(s) w(s) return 0 end
-
 local async = require "async"
 local util = require "util"
 
