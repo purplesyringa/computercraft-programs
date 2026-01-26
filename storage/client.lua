@@ -1,15 +1,17 @@
 local async = require "async"
 local util = require "util"
 
-local wired_name
-peripheral.find("modem", function(name, modem)
-    rednet.open(name)
-    wired_name = modem.getNameLocal()
-end)
+local modem = peripheral.find("modem")
+assert(modem, "Modem not available")
+rednet.open(peripheral.getName(modem))
 
 os.setComputerLabel("Storage")
 
 local term_width, term_height = term.getSize()
+
+-- Detect accidental modem disconnects.
+local modem_connected = async.newNotify()
+local wired_name = modem.getNameLocal()
 
 local server_id = rednet.CHANNEL_BROADCAST
 
@@ -97,7 +99,13 @@ local function renderScreen()
         end
     end
 
-    if selected_item then
+    if wired_name == nil then
+        term.setCursorPos(1, term_height)
+        term.setTextColor(colors.white)
+        term.setBackgroundColor(colors.red)
+        term.clearLine()
+        term.write("Modem disconnected")
+    elseif selected_item then
         term.setCursorPos(8, term_height)
         term.setTextColor(colors.white)
         term.setBackgroundColor(colors.green)
@@ -398,14 +406,21 @@ async.spawn(function()
             })
         end
         recordInteraction()
-        rednet.send(server_id, {
-            type = "adjust_inventory",
-            client = wired_name,
-            current_inventory = current_inventory,
-            goal_inventory = goal_inventory,
-            preview = selected_item == nil,
-        }, "purple_storage")
-        inventory_adjusted.wait()
+        if wired_name == nil then
+            modem_connected.wait()
+        else
+            rednet.send(server_id, {
+                type = "adjust_inventory",
+                client = wired_name,
+                current_inventory = current_inventory,
+                goal_inventory = goal_inventory,
+                preview = selected_item == nil,
+            }, "purple_storage")
+            async.race({
+                util.bind(os.sleep, 1), -- timeout in case the modem is disconnected
+                inventory_adjusted.wait,
+            })
+        end
     end
 end)
 
@@ -433,6 +448,16 @@ async.spawn(function()
             if next(msg.items) then
                 handleIndexUpdate()
             else
+                renderScreen()
+            end
+        elseif msg.type == "peripherals_changed" then
+            local was_connected = wired_name ~= nil
+            wired_name = modem.getNameLocal()
+            local is_connected = wired_name ~= nil
+            if is_connected and not was_connected then
+                modem_connected.notify()
+            end
+            if is_connected ~= was_connected then
                 renderScreen()
             end
         end

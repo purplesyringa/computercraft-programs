@@ -498,6 +498,14 @@ async.subscribe("peripheral", peripherals_changed.notify)
 async.subscribe("peripheral_detach", peripherals_changed.notify)
 async.spawn(function()
     while true do
+        peripherals_changed.wait()
+        -- Notify clients that they might have been accidentally connected/disconnected and need to
+        -- check their state.
+        rednet.broadcast({ type = "peripherals_changed" }, "purple_storage")
+    end
+end)
+async.spawn(function()
+    while true do
         local index = index.lock()
         index.value = Index:new(function(items, fullness)
             broadcastPatchIndex(items, false, fullness)
