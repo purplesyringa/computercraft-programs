@@ -41,7 +41,7 @@ end
 
 function util.getItemKey(item)
     if item then
-        return string.format("%s %s %s", item.name, item.nbt, item.damage)
+        return string.format("%s %s", item.name, item.nbt)
     else
         return "empty"
     end
