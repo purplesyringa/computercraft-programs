@@ -260,10 +260,6 @@ async.subscribe("key", function(key_code)
         search_query = ""
         cursor_pos = 1
         handleSearchQueryUpdate()
-    elseif ctrl_pressed and key_code == keys.backspace then
-        search_query = search_query:sub(cursor_pos)
-        cursor_pos = 1
-        handleSearchQueryUpdate()
     elseif key_code == keys.right then
         if cursor_pos <= #search_query then
             cursor_pos = cursor_pos + 1
