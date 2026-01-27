@@ -233,7 +233,7 @@ end)
 local ctrl_pressed = false
 async.subscribe("key", function(key_code)
     recordInteraction()
-    if key_code == keys.backspace then
+    if key_code == keys.backspace or key_code == keys.capsLock then -- capslock for Colemak
         if cursor_pos > 1 then
             if ctrl_pressed then
                 search_query = search_query:sub(cursor_pos)
