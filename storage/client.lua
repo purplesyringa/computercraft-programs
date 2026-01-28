@@ -36,6 +36,20 @@ local function formatItemName(item)
         end
         return table.concat(enchantments, " + ")
     end
+
+    -- Smithing templates don't export their name anywhere. Match by display name because mods add
+    -- their own smithing templates without setting any recognizable tags. This assumes English
+    -- locale, but that makes some sense because we can't print non-Latin characters anyway.
+    if item.displayName == "Smithing Template" then
+        local i = item.name:find(":")
+        local name = item.name:sub(i + 1):gsub("_smithing_template$", "")
+        local words = {}
+        for word in name:gmatch("[^_]+") do
+            table.insert(words, word:sub(1, 1):upper() .. word:sub(2))
+        end
+        return table.concat(words, " ")
+    end
+
     return item.displayName
 end
 
