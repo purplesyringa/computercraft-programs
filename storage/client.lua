@@ -173,6 +173,11 @@ local function itemMatchesSearch(item)
     if checkNameOrDisplayName(item) then
         return true
     end
+    -- Some items, like smithing templates, are formatted into a name that is not present as
+    -- a substring in data. Recognize that.
+    if util.stringContainsCaseInsensitive(formatItemName(item), search_query) then
+        return true
+    end
     for _, lore in pairs(item.lore or {}) do
         if util.stringContainsCaseInsensitive(lore, search_query) then
             return true
