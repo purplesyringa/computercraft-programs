@@ -110,12 +110,8 @@ local function sumCounts(inv)
 end
 
 async.spawn(function()
-    local retryFailed = false
     while true do
-        if not retryFailed then
-            os.sleep(10)
-        end
-        retryFailed = false
+        local retryFailed = false
 
         local filtered_index = filterIndex()
         for _, item in pairs(filtered_index) do
@@ -128,6 +124,10 @@ async.spawn(function()
             end
         end
         waitAdjust({})
+
+        if not retryFailed then
+            os.sleep(10)
+        end
     end
 end)
 
