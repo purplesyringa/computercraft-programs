@@ -41,6 +41,7 @@ local CRAFTING_SLOTS = {
     9, 10, 11, -- 12
     -- 13, 14, 15, 16
 }
+local KEEP_COUNT = 32
 
 local inventory_adjusted = async.newNotify()
 
@@ -67,8 +68,8 @@ end
 local function filterIndex()
     local filtered_index = {}
     for _, item in pairs(index) do
-        if validItem(item) and item.count > 64 then
-            local count = 9 * math.floor((item.count - 32) / 9)
+        if validItem(item) and item.count >= KEEP_COUNT + 9 then
+            local count = 9 * math.floor((item.count - KEEP_COUNT) / 9)
             table.insert(filtered_index, util.itemWithCount(item, count))
         end
     end
