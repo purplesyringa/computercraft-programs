@@ -133,15 +133,10 @@ async.timeout(1, inventory_adjusted.wait)
 
 ### Triggering readjustment
 
-You may want to automatically trigger readjustment under two conditions: a) a user changing the client's inventory, b) an index update. We go over these points one by one.
-
-#### Inventory changes
-
-To recognize when a user adds or removes items from its inventory, the client can listen to the `turtle_inventory` event. Since this event can arrive during adjustment (either due to the user concurrently updating the inventory, or due to the server's own actions), you need to wait until adjustment completes before sending `adjust_inventory` again:
+The general shape of automatic readjustment is like this:
 
 ```lua
 local readjust = async.newNotify()
-async.subscribe("turtle_inventory", readjust.notify)
 async.spawn(function()
     while true do
         rednet.send(server_id, {
@@ -157,11 +152,25 @@ async.spawn(function()
 end)
 ```
 
+Readjustment should be serialized, with a request only being sent after the previous completes. A "notify" primitive implements the right semantics. It also allows readjustment to be triggered from multiple sources, which we now go over one by one.
+
+#### Inventory changes
+
+This is only necessary if you want a user to interact with your client's inventory.
+
+To recognize when a user adds or removes items from its inventory, the client can listen to the `turtle_inventory` event. Since this event can arrive during adjustment (either due to the user concurrently updating the inventory, or due to the server's own actions), you need to wait until adjustment completes before sending `adjust_inventory` again:
+
+```lua
+async.subscribe("turtle_inventory", readjust.notify)
+```
+
 Note that if `turtle_inventory` arrives for the second time due to the server's actions, the server will have nothing to do on this next adjustment request, and so `turtle_inventory` won't arrive for the third time and trigger an infinite loop.
 
 #### Index updates
 
-It is *incorrect* to trigger readjustment on every index change. Specifically, the server sends index updates even if *no item counts are changed* to propagate `fullness` updates. Readjustment should only be triggered if `items` is non-empty:
+You may want to trigger readjustment if new items or more items of a given type arrive in the index.
+
+Note that it is *incorrect* to trigger readjustment on every index change. Specifically, the server sends index updates even if *no item counts are changed* to propagate `fullness` updates. Readjustment should only be triggered if `items` is non-empty:
 
 ```lua
 if next(msg.items) then
@@ -170,6 +179,26 @@ end
 ```
 
 Note also that the server can send an index update for an item even if `count` stays the same, and readjustment *should* often be triggered under this condition. This situation occurs if the server pulls a preview from the client -- this does not affect the count of the items in the storage, since a preview is logically considered part of the storage, but it *does* allow more items to be pulled if you're pulling for preview.
+
+#### Inventory requests
+
+This is only necessary if you use previews.
+
+When the server reboots or reindexes the storage, it cannot automatically index your client's inventory for previews, since turtles don't implement the inventory API. Instead, the server sends a message asking clients to submit their inventories:
+
+```lua
+{
+    type = "request_inventory",
+}
+```
+
+The inventories should be submitted as the `current_inventory` field of the `request_adjustment` message, making the handling of this message trivial:
+
+```lua
+if msg.type == "request_inventory" then
+    readjust.notify()
+end
+```
 
 
 ### Connectivity checks
