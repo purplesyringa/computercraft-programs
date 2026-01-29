@@ -20,7 +20,7 @@ local INCLUDE_NAMES = {
     ["minecraft:coal"] = true,
     ["minecraft:diamond"] = true,
     ["minecraft:emerald"] = true,
-    ["minecraft:redstone_dust"] = true,
+    ["minecraft:redstone"] = true,
     ["minecraft:lapis_lazuli"] = true,
 }
 local INCLUDE_TAGS = {
