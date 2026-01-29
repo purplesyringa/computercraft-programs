@@ -169,7 +169,7 @@ if next(msg.items) then
 end
 ```
 
-Note also that the client can send an index update for an item even if `count` stays the same, and readjustment *should* often be triggered under this condition. This situation occurs if the server pulls a preview from the client -- this does not affect the count of the items in the storage, since a preview is logically considered part of the storage, but it *does* allow more items to be pulled if you're pulling for preview.
+Note also that the server can send an index update for an item even if `count` stays the same, and readjustment *should* often be triggered under this condition. This situation occurs if the server pulls a preview from the client -- this does not affect the count of the items in the storage, since a preview is logically considered part of the storage, but it *does* allow more items to be pulled if you're pulling for preview.
 
 
 ### Connectivity checks
