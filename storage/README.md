@@ -113,16 +113,17 @@ When the server finishes adjustment, it sends the following message:
 {
 	type = "inventory_adjusted",
 	new_inventory = { [slot] = item, ... },
+	needs_retry = false/true,
 }
 ```
 
-`new_inventory` contains the state of the inventory the server believes the client now has in the same format as `goal_inventory`. There are two subtle issues here:
+`new_inventory` contains the state of the inventory the server believes the client now has in the same format as `goal_inventory`. There are three subtle issues here:
 
-1. `new_inventory` may not be equal to `goal_inventory` if some requests could not be satisfied:
-	a. If the `count` in `goal_inventory` was higher than the number of items present, `new_inventory` may have a smaller `count` or even be `nil` in that slot. Note that you should always be ready for this situation, since another client can pulls items from the storage concurrently.
-	b. Pulling for preview will never forcibly pull from other clients' previews, so in that case you can get a smaller `count` even if `count` is within the number of items in the storage.
+1. `new_inventory` may not be equal to `goal_inventory` if some requests could not be satisfied because the goal `count` was higher than the number of items present. `new_inventory` may have a smaller `count` or even `nil` in that slot. You should always be prepared to deal with this, since another client can pulls items from the storage concurrently.
 
 2. `new_inventory` may not be equal to the actual inventory as seen by the client if a user changes the client's inventory concurrently. This is only an issue if you expect the client's inventory to be interacted with by anyone except the client.
+
+3. Pulling for other clients' previews is an edge case. First, the server never pulls from previews for previews, so in that case you can get a smaller `count` even if `count` is within the number of items in the storage. Second, pulling from previews is not immediate: the server merely pulls the previews into *the storage*, but not into *the active client*, since that would take more time than expected. This condition is signaled by `needs_retry`: if it's `true`, some items in the goal were satisfied by a preview and the request needs to be retried (with new `current_inventory`) to be completed. This design allows `goal_inventory` to be updated on the second invocation, making event-driven UI more responsive.
 
 `inventory_adjusted` always arrives within a few ticks after `adjust_inventory`, but can fail to arrive if the server stops or restarts. A 1-second timeout is recommended to avoid hangs, but you may need to adjust the timings depending on your hardware:
 

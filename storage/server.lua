@@ -256,6 +256,7 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
 
     -- Push lacking items.
     local new_inventory = {}
+    local needs_retry = false
     for slot_to, goal_item in pairs(goal_inventory) do
         local goal_key = util.getItemKey(goal_item)
 
@@ -349,6 +350,7 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
                     if other_item.count == 0 then
                         other_inventory[slot_from] = nil
                     end
+                    needs_retry = true
                     task_set.spawn(util.bind(pcall, function() -- protect against client disconnects
                         tmp_cell.chest.pullItems(
                             other_client,
@@ -403,7 +405,7 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
 
     self:triggerKeysChanged(changed_keys)
 
-    return new_inventory
+    return new_inventory, needs_retry
 end
 
 function Index:getItemCount(key)
@@ -505,13 +507,17 @@ async.spawn(function()
             local index = index.lock()
             local response
             if msg.type == "adjust_inventory" then
-                local new_inventory = index.value:adjustInventory(
+                local new_inventory, needs_retry = index.value:adjustInventory(
                     msg.client,
                     msg.current_inventory,
                     msg.goal_inventory,
                     msg.preview
                 )
-                response = { type = "inventory_adjusted", new_inventory = new_inventory }
+                response = {
+                    type = "inventory_adjusted",
+                    new_inventory = new_inventory,
+                    needs_retry = needs_retry,
+                }
             elseif msg.type == "request_index" then
                 response = {
                     type = "patch_index",
