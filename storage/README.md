@@ -152,7 +152,7 @@ async.spawn(function()
 end)
 ```
 
-Readjustment should be serialized, with a request only being sent after the previous completes. A "notify" primitive implements the right semantics. It also allows readjustment to be triggered from multiple sources, which we now go over one by one.
+Readjustment should be serialized, with a request only being sent after the previous one completes. A "notify" primitive implements the right semantics. It also allows readjustment to be triggered from multiple sources, which we now go over one by one.
 
 #### Inventory changes
 
@@ -182,9 +182,9 @@ Note also that the server can send an index update for an item even if `count` s
 
 #### Inventory requests
 
-This is only necessary if you use previews.
+This is only necessary if you pull for preview.
 
-When the server reboots or reindexes the storage, it cannot automatically index your client's inventory for previews, since turtles don't implement the inventory API. Instead, the server sends a message asking clients to submit their inventories:
+When the server reboots or reindexes the storage, it cannot automatically index previews in your client's inventory, since turtles don't implement the inventory API. Instead, the server sends a message asking clients to submit their inventories:
 
 ```lua
 {
@@ -192,7 +192,7 @@ When the server reboots or reindexes the storage, it cannot automatically index 
 }
 ```
 
-The inventories should be submitted as the `current_inventory` field of the `request_adjustment` message, making the handling of this message trivial:
+The inventories should be submitted as the `current_inventory` field of the `adjust_inventory` message, making the handling of this message trivial:
 
 ```lua
 if msg.type == "request_inventory" then
