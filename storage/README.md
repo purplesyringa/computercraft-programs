@@ -11,11 +11,16 @@ The storage requires a significant number of empty cells to operate due to the r
 The server can very quickly reindex the storage, taking 1 tick per chest. It could do everything in parallel, if not for [the 256 queued event limit](https://github.com/cc-tweaked/CC-Tweaked/issues/2371), but this should be plenty performant still. The storage is reindexed automatically when peripherals are added or removed, though doing this while clients are interacting with the storage can crash the server, so pay attention to that.
 
 
+## Add-ons
+
+The server exposes a simple protocol for implementing custom clients, so that you can request or deposit items programmatically. (Clients are always turtles.)
+
+This repository includes one such add-on, which you can install on a turtle anywhere in the wired network if you need it: a [compacting turtle](compacter.lua) that crafts nuggets into ingots and ingots into blocks, among others.
+
+If your use case calls for a custom client, consult the protocol description below and the example clients.
+
+
 ## Protocol
-
-The client-server protocol is designed to be simple to use for custom clients, so that you can request or deposit items programmatically.
-
-A client should always be a turtle.
 
 The rednet protocol used is `purple_storage`. The protocol supports automatic server discovery: the client should broadcast its messages until it receives a message from the server, at which point it knows what computer ID the server has and can send future messages directly.
 
