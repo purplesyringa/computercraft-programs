@@ -27,7 +27,7 @@ local INCLUDE_TAGS = {
     ["c:nuggets"] = true,
     ["c:ingots"] = true,
     ["c:raw_materials"] = true,
-    ["spectrum:gemstone_powders"] = true,
+    -- ["spectrum:gemstone_powders"] = true, -- Requires pigment pedestal
     ["spectrum:gemstone_shards"] = true,
 }
 local EXCLUDE_NAMES = {
@@ -81,15 +81,24 @@ local function currentInventory()
     end)
 end
 
+local inventory_adjusted = async.newNotify()
+local inventory_adjusted_message = nil
+
 local function waitAdjust(goal_inventory)
-    rednet.send(server_id, {
-        type = "adjust_inventory",
-        client = wired_name,
-        current_inventory = currentInventory(),
-        goal_inventory = goal_inventory,
-        preview = false,
-    }, "purple_storage")
-    return async.timeout(1, inventory_adjusted.wait) -- timeout in case the modem is disconnected
+    while true do
+        rednet.send(server_id, {
+            type = "adjust_inventory",
+            client = wired_name,
+            current_inventory = currentInventory(),
+            goal_inventory = goal_inventory,
+            preview = false,
+        }, "purple_storage")
+
+        inventory_adjusted.wait()
+        if not inventory_adjusted_message.needs_retry then
+            return
+        end
+    end
 end
 
 local function makeGoalOf(item)
@@ -115,8 +124,7 @@ async.spawn(function()
 
         local filtered_index = filterIndex()
         for _, item in pairs(filtered_index) do
-            local goal = makeGoalOf(item)
-            waitAdjust(goal)
+            waitAdjust(makeGoalOf(item))
             if sumCounts(currentInventory()) ~= item.count then
                 retryFailed = true
             else
@@ -136,6 +144,7 @@ async.spawn(function()
         local computer_id, msg = rednet.receive("purple_storage")
         if msg.type == "inventory_adjusted" then
             server_id = computer_id
+            inventory_adjusted_message = msg
             inventory_adjusted.notify()
         elseif msg.type == "patch_index" then
             server_id = computer_id
