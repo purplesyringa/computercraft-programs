@@ -28,7 +28,7 @@ When the client boots, it should send the following message:
 
 ```lua
 {
-	type = "request_index",
+    type = "request_index",
 }
 ```
 
@@ -36,8 +36,8 @@ The server will then reply with a message of the following kind:
 
 ```lua
 {
-	type = "patch_index",
-	items = { [key] = item, ... }
+    type = "patch_index",
+    items = { [key] = item, ... }
     reset = true,
     fullness = 0..100,
 }
@@ -89,11 +89,11 @@ The core of the protocol is *adjustment*. With `adjust_inventory`, a client can 
 
 ```lua
 local function loadInventorySync()
-	local inventory = {}
-	for slot = 1, 16 do
+    local inventory = {}
+    for slot = 1, 16 do
         inventory[slot] = turtle.getItemDetail(slot, true)
-	end
-	return inventory
+    end
+    return inventory
 end
 
 local function loadInventoryAsync()
@@ -111,9 +111,9 @@ When the server finishes adjustment, it sends the following message:
 
 ```lua
 {
-	type = "inventory_adjusted",
-	new_inventory = { [slot] = item, ... },
-	needs_retry = false/true,
+    type = "inventory_adjusted",
+    new_inventory = { [slot] = item, ... },
+    needs_retry = false/true,
 }
 ```
 
@@ -175,7 +175,7 @@ Note that it is *incorrect* to trigger readjustment on every index change. Speci
 
 ```lua
 if next(msg.items) then
-	readjust.notify()
+    readjust.notify()
 end
 ```
 
@@ -210,7 +210,7 @@ Specifically, each time a peripheral is connected or disconnected, the server br
 
 ```lua
 {
-	type = "peripherals_changed",
+    type = "peripherals_changed",
 }
 ```
 
