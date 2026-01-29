@@ -71,7 +71,7 @@ Note that when all items of a given type are removed, the item will have `count 
 
 ### Adjustment
 
-The core of the protocol is *adjustment*. With `adjust_inventory`, a client can request the server to adjust its inventory to a given state:
+The core of the protocol is *adjustment*. With `adjust_inventory`, a client can request the server to adjust its inventory to a given state. Excess items are deposited into the storage, while absent items are pulled from the storage.
 
 ```lua
 {
@@ -103,7 +103,7 @@ local function loadInventoryAsync()
 end
 ```
 
-`goal_inventory` should have the same format. An absent entry for a slot means that the slot should be cleared.
+`goal_inventory` should have the same format. An absent entry for a slot means that the slot should be emptied. For example, setting `goal_inventory = {}` deposits the entire inventory.
 
 `preview` indicates whether the pushed items should logically be still considered part of the storage, in that they are counted in `count` and can be forcibly pulled back by the server if necessary. `preview = true` makes the items available to other clients, while `preview = false` guarantees that the server will not touch the client's inventory.
 
