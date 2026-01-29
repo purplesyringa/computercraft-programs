@@ -5,7 +5,7 @@ local modem = peripheral.find("modem")
 assert(modem, "Modem not available")
 rednet.open(peripheral.getName(modem))
 
-local crafter = peripheral.find("minecraft:crafting_table")
+local crafter = peripheral.find("workbench")
 assert(crafter, "Crafting table not available")
 
 os.setComputerLabel("Compacting turtle")
