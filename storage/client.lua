@@ -26,7 +26,7 @@ local filtered_index = {} -- Type: { item, ... }, sorted by decreasing count
 local goal_inventory = {}
 -- If `nil`, we're in preview mode. Otherwise, the item we're trying to pull into all slots.
 local selected_item = nil
-local force_readjust = async.newNotify()
+local readjust = async.newNotify()
 
 local function formatItemName(item)
     if item.name == "minecraft:enchanted_book" and next(item.enchantments) then
@@ -229,7 +229,7 @@ local function handleSearchQueryUpdate()
     updateFilteredIndex()
     setPreviewGoal()
     renderScreen()
-    force_readjust.notify()
+    readjust.notify()
 end
 
 local interaction_timer = nil
@@ -273,7 +273,7 @@ async.subscribe("key", function(key_code)
             selected_item = nil
             setPreviewGoal()
             renderScreen()
-            force_readjust.notify()
+            readjust.notify()
         end
     elseif ctrl_pressed and key_code == keys["d"] then
         search_query = ""
@@ -344,7 +344,7 @@ async.subscribe("mouse_click", function(button, _, y)
     end
     if updated then
         renderScreen()
-        force_readjust.notify()
+        readjust.notify()
     end
 end)
 async.subscribe("mouse_scroll", function(direction)
@@ -352,9 +352,6 @@ async.subscribe("mouse_scroll", function(direction)
     scroll_pos = scroll_pos + direction * 3
     renderScreen()
 end)
-
-local expected_inventory = {}
-local inventory_adjusted = async.newNotify()
 
 local function handleIndexUpdate()
     updateFilteredIndex()
@@ -385,60 +382,33 @@ local function handleIndexUpdate()
 
     -- Force readjustment regardless of whether the goal inventory was changed, since the available
     -- count might have changed for already existing items.
-    force_readjust.notify()
+    readjust.notify()
 end
 
-local function isSameInventory(inv_a, inv_b)
-    for slot = 1, 16 do
-        local a = inv_a[slot]
-        local b = inv_b[slot]
-        if (a or b) and (util.getItemKey(a) ~= util.getItemKey(b) or a.count ~= b.count) then
-            return false
-        end
-    end
-    return true
-end
-
-local function loadInventory()
-    return async.parMap(util.iota(16), function(slot)
-        return turtle.getItemDetail(slot, true)
-    end)
-end
-
+local inventory_adjusted = async.newNotify()
+async.subscribe("turtle_inventory", readjust.notify)
 async.spawn(function()
     turtle.select(16)
     while true do
-        local inventory_changed = async.spawn(function()
-            os.pullEvent("turtle_inventory")
-        end)
-        local current_inventory = loadInventory()
-        if isSameInventory(current_inventory, expected_inventory) then
-            async.race({
-                function()
-                    inventory_changed.join()
-                    current_inventory = loadInventory()
-                end,
-                function()
-                    force_readjust.wait()
-                end,
-            })
-        end
-        recordInteraction()
         if wired_name == nil then
             modem_connected.wait()
-        else
-            rednet.send(server_id, {
-                type = "adjust_inventory",
-                client = wired_name,
-                current_inventory = current_inventory,
-                goal_inventory = goal_inventory,
-                preview = selected_item == nil,
-            }, "purple_storage")
-            async.race({
-                util.bind(os.sleep, 1), -- timeout in case the modem is disconnected
-                inventory_adjusted.wait,
-            })
         end
+        local current_inventory = async.parMap(util.iota(16), function(slot)
+            return turtle.getItemDetail(slot, true)
+        end)
+        rednet.send(server_id, {
+            type = "adjust_inventory",
+            client = wired_name,
+            current_inventory = current_inventory,
+            goal_inventory = goal_inventory,
+            preview = selected_item == nil,
+        }, "purple_storage")
+        async.race({
+            util.bind(os.sleep, 1), -- timeout in case the modem is disconnected
+            inventory_adjusted.wait,
+        })
+        readjust.wait()
+        recordInteraction()
     end
 end)
 
@@ -447,11 +417,10 @@ async.spawn(function()
         local computer_id, msg = rednet.receive("purple_storage")
         if msg.type == "inventory_adjusted" then
             server_id = computer_id
-            expected_inventory = msg.expected_inventory
             inventory_adjusted.notify()
         elseif msg.type == "request_inventory" then
             server_id = computer_id
-            force_readjust.notify()
+            readjust.notify()
         elseif msg.type == "patch_index" then
             server_id = computer_id
             if msg.reset then

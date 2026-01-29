@@ -1,42 +1,22 @@
 -- # Architecture overview
 --
--- The protocol is based on an infinite "adjust inventory to goal" loop, where both the goal and the
--- current state of the inventory are determined by the client.
+-- The protocol is based on an infinite "adjust inventory to goal" loop. The client listens to index
+-- changes and `turtle_inventory` events, and when it receives one, asks the server to adjust the
+-- inventory from a given state (the current inventory, loaded by the client) to a given state (the
+-- goal inventory, determined by the client).
 --
--- The design space here is very limited. Since the `turtle_inventory` event does not disambiguate
--- between user changes and inventory manipulation by the server, it is impossible for the client to
--- filter for user changes. And while the server knows what it modifies, the lack of a global
--- high-definition monotonic clock means it can't tie that to inventory changes reported by the
--- client over network.
+-- The client doesn't send a new request until the previous one completes. Note that when the server
+-- adjusts the inventory, it will most likely move some items around, triggering `turtle_inventory`
+-- again and retriggering the adjustment. This second adjustment will, on absence of races, not
+-- touch any items and thus won't trigger a livelock.
 --
--- For these reasons, the protocol is half-duplex and driven by the client. From the client POV, the
--- synchronization logic looks as follows:
+-- However, if a race does arise, this swiftly resolves any inconsistencies. If the user modifies
+-- the inventory at any point from the moment the client loads its current inventory to the point
+-- when the server reports success, this will emit `turtle_inventory` and trigger an adjustment.
 --
---     local expected_inventory = {}
---     while true do
---         local inventory_changed = async.spawn(function()
---             os.pullEvent("turtle_inventory")
---         end)
---         local current_inventory = loadInventory()
---         if current_inventory == expected_inventory then
---             async.race({
---                 function()
---                     inventory_changed.join()
---                     current_inventory = loadInventory()
---                 end,
---                 index_changed.wait,
---             })
---         end
---         expected_inventory = adjustInventory(current_inventory, goal_inventory)
---     end
---
--- The server trusts `current_inventory` provided by the client and makes decisions based on that,
--- and then returns the inventory it believes it has produced. If `current_inventory` is off, the
--- server will either return an inconsistent `expected_inventory`, or trigger a ghost change when
--- pulling in more items than expected, both of which the client will detect and retry.
---
--- All in all, all visible moves are scheduled without yielding. This doesn't mean they will occur
--- within a single tick, since Lua code runs in a parallel thread, but it's still fast.
+-- The server schedules all visible moves without yielding. This doesn't mean they will occur within
+-- a single tick, since Lua code runs in a parallel thread, but it will look almost immediate on
+-- good hardware.
 --
 -- # Storage
 --
@@ -275,7 +255,7 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
     end
 
     -- Push lacking items.
-    local expected_inventory = {}
+    local new_inventory = {}
     for slot_to, goal_item in pairs(goal_inventory) do
         local goal_key = util.getItemKey(goal_item)
 
@@ -347,7 +327,7 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
         -- since that doesn't happen immediately.
         if pushed > 0 then
             touchItem(goal_item)
-            expected_inventory[slot_to] = util.itemWithCount(goal_item, pushed)
+            new_inventory[slot_to] = util.itemWithCount(goal_item, pushed)
         end
 
         -- Try other clients' previews. We don't trust them, so instead of pushing immediately, we
@@ -409,7 +389,7 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
 
     -- Populate preview.
     if preview then
-        self.previews[client] = expected_inventory
+        self.previews[client] = new_inventory
     end
 
     -- Filter for actual changes before submitting index updates to avoid infinite loops.
@@ -423,7 +403,7 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
 
     self:triggerKeysChanged(changed_keys)
 
-    return expected_inventory
+    return new_inventory
 end
 
 function Index:getItemCount(key)
@@ -525,13 +505,13 @@ async.spawn(function()
             local index = index.lock()
             local response
             if msg.type == "adjust_inventory" then
-                local expected_inventory = index.value:adjustInventory(
+                local new_inventory = index.value:adjustInventory(
                     msg.client,
                     msg.current_inventory,
                     msg.goal_inventory,
                     msg.preview
                 )
-                response = { type = "inventory_adjusted", expected_inventory = expected_inventory }
+                response = { type = "inventory_adjusted", new_inventory = new_inventory }
             elseif msg.type == "request_index" then
                 response = {
                     type = "patch_index",
