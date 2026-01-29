@@ -42,6 +42,8 @@ local CRAFTING_SLOTS = {
     -- 13, 14, 15, 16
 }
 
+local inventory_adjusted = async.newNotify()
+
 local function validItem(item)
     if EXCLUDE_NAMES[item.name] then
         return false
@@ -107,7 +109,6 @@ local function sumCounts(inv)
     return res
 end
 
-local inventory_adjusted = async.newNotify()
 async.spawn(function()
     local retryFailed = false
     while true do
