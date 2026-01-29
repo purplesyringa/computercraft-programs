@@ -66,15 +66,13 @@ end
 
 local function filterIndex()
     local filtered_index = {}
-    local fast_retry = false
     for _, item in pairs(index) do
         if validItem(item) and item.count > 64 then
-            local count = 9 * math.min(64, math.floor((item.count - 32) / 9))
-            fast_retry = fast_retry or count == 9 * 64
+            local count = 9 * math.floor((item.count - 32) / 9)
             table.insert(filtered_index, util.itemWithCount(item, count))
         end
     end
-    return fast_retry, filtered_index
+    return filtered_index
 end
 
 local function currentInventory()
@@ -104,12 +102,12 @@ local function waitAdjust(goal_inventory)
 end
 
 local function makeGoalOf(item)
-    local goal_inventory = {}
-    local count = item.count / 9
+    local goal = {}
+    local count = math.min(64, item.count / 9)
     for _, slot in pairs(CRAFTING_SLOTS) do
-        goal_inventory[slot] = util.itemWithCount(item, count)
+        goal[slot] = util.itemWithCount(item, count)
     end
-    return goal_inventory
+    return goal, 9 * count
 end
 
 local function sumCounts(inv)
@@ -122,18 +120,21 @@ end
 
 async.spawn(function()
     while true do
-        local fast_retry, filtered_index = filterIndex()
+        local filtered_index = filterIndex()
         for _, item in pairs(filtered_index) do
-            waitAdjust(makeGoalOf(item))
-            if sumCounts(currentInventory()) ~= item.count then
-                fast_retry = true
-            else
+            while item.count > 0 do
+                local goal, count = makeGoalOf(item)
+                item.count = item.count - count
+                waitAdjust(goal)
+                if sumCounts(currentInventory()) ~= count then
+                    break
+                end
                 crafter.craft()
             end
         end
         waitAdjust({})
 
-        if not fast_retry then
+        if not next(filtered_index) then
             os.sleep(10)
         end
     end
