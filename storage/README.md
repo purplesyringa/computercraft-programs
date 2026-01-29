@@ -127,7 +127,7 @@ When the server finishes adjustment, it sends the following message:
 `inventory_adjusted` always arrives within a few ticks after `adjust_inventory`, but can fail to arrive if the server stops or restarts. A 1-second timeout is recommended to avoid hangs, but you may need to adjust the timings depending on your hardware:
 
 ```lua
-async.race({ util.bind(os.sleep, 1), inventory_adjusted.wait })
+async.timeout(1, inventory_adjusted.wait)
 ```
 
 

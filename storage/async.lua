@@ -145,6 +145,15 @@ function async.race(task_list)
     return ready.value, ready.key
 end
 
+function async.timeout(duration, f)
+    local value, key = async.race({ util.bind(os.sleep, duration), f })
+    if key == 1 then
+        return nil
+    else
+        return value
+    end
+end
+
 function async.parMap(tbl, callback)
     return async.gather(util.map(tbl, function(value, key)
         return util.bind(callback, value, key)

@@ -403,10 +403,7 @@ async.spawn(function()
             goal_inventory = goal_inventory,
             preview = selected_item == nil,
         }, "purple_storage")
-        async.race({
-            util.bind(os.sleep, 1), -- timeout in case the modem is disconnected
-            inventory_adjusted.wait,
-        })
+        async.timeout(1, inventory_adjusted.wait) -- timeout in case the modem is disconnected
         readjust.wait()
         recordInteraction()
     end
