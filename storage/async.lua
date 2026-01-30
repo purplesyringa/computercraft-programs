@@ -91,7 +91,7 @@ local function deliverEvent(key, ...)
     local woken_task_ids = table.move(a, 1, #a, #b + 1, b)
     subscriptions.any = nil
     subscriptions[key] = nil
-    for _, task_id in pairs(woken_task_ids) do
+    for _, task_id in ipairs(woken_task_ids) do
         resumeTask(task_id, key, ...)
     end
 end
