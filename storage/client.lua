@@ -406,7 +406,10 @@ async.spawn(function()
             goal_inventory = goal_inventory,
             preview = selected_item == nil,
         }, "purple_storage")
-        async.timeout(1, inventory_adjusted.wait) -- timeout in case the modem is disconnected
+        -- If we're disconnected from the wired network, but the modems are still wired, we'll
+        -- receive a message, but our inventory may fail to update, possibly partially. We'll
+        -- trigger readjustment when we're connected back, but for now this is everything we can do.
+        async.timeout(1, inventory_adjusted.wait)
         readjust.wait()
         recordInteraction()
     end
@@ -449,6 +452,9 @@ async.spawn(function()
             if is_connected ~= was_connected then
                 renderScreen()
             end
+            -- Schedule readjustment regardless of whether we recognized any changes, since they
+            -- could happen so quickly that they are undetectable.
+            readjust.notifyOne()
         end
     end
 end)
