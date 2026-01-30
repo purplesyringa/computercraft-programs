@@ -152,8 +152,9 @@ function Index:importChestCell(input_cell)
     local item_info = self.items[key]
 
     -- Move items to other chest cells associated with the key to utilize space better. Don't pull
-    -- into previews -- if a client wants that, it can request adjustment on an index update.
-    for _, output_cell in pairs(item_info.chest_cells) do
+    -- into previews -- if a client wants that, it can request adjustment on an index update. Force
+    -- iteration in a specific order to maintain the count monotonicity invariant.
+    for _, output_cell in ipairs(item_info.chest_cells) do
         local to_pull = math.min(item_info.item.maxCount - output_cell.count, input_cell.count)
         if to_pull > 0 then
             input_cell.count = input_cell.count - to_pull
