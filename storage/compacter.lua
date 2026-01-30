@@ -44,8 +44,6 @@ local CRAFTING_SLOTS = {
 }
 local KEEP_COUNT = 32
 
-local inventory_adjusted = async.newNotify()
-
 local function validItem(item)
     if EXCLUDE_NAMES[item.name] then
         return false
@@ -83,7 +81,7 @@ local function currentInventory()
     end)
 end
 
-local inventory_adjusted = async.newNotify()
+local inventory_adjusted = async.newNotifyWaiters()
 local inventory_adjusted_message = nil
 
 local function waitAdjust(goal_inventory)
@@ -148,7 +146,7 @@ async.spawn(function()
         if msg.type == "inventory_adjusted" then
             server_id = computer_id
             inventory_adjusted_message = msg
-            inventory_adjusted.notifyOne()
+            inventory_adjusted.notifyWaiters()
         elseif msg.type == "patch_index" then
             server_id = computer_id
             if msg.reset then
