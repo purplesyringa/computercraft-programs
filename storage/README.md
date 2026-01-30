@@ -74,6 +74,31 @@ end
 Note that when all items of a given type are removed, the item will have `count = 0`. You may wish to ignore all such items.
 
 
+### Ping
+
+The client can send the following message to request a ping:
+
+```lua
+{
+    type = "ping",
+    id = anything,
+}
+```
+
+The server will respond with:
+
+```lua
+{
+    type = "pong",
+    id = ...,
+}
+```
+
+...where `id` will match the `id` in the request.
+
+This API is useful as part of the timeout resolution step described later.
+
+
 ### Adjustment
 
 The core of the protocol is *adjustment*. With `adjust_inventory`, a client can request the server to adjust its inventory to a given state. Excess items are deposited into the storage, while absent items are pulled from the storage.
@@ -130,11 +155,13 @@ When the server finishes adjustment, it sends the following message:
 
 3. Pulling from other clients' previews is an edge case. First, the server never pulls from previews for previews, so in that case you can get a smaller `count` even if `count` is within the number of items in the storage. Second, pulling from previews is not immediate: the server merely pulls the previews into *the storage*, but not into *the active client*, since that would take more time than expected. This condition is signaled by `needs_retry`: if it's `true`, some items in the goal were scheduled to be satisfied by a preview and the request needs to be retried (with new `current_inventory`) to be completed. This design allows `goal_inventory` to be updated on the second invocation if goals change, making event-driven UI more responsive.
 
-`inventory_adjusted` always arrives within a few ticks after `adjust_inventory`, but can fail to arrive if the server stops or restarts. A 1-second timeout is recommended to avoid hangs, but you may need to adjust the timings depending on your hardware:
+#### Timeout handling
 
-```lua
-async.timeout(1, inventory_adjusted.wait)
-```
+Note that if you want to detect the server being shut down, crashing, or being disconnected from the network, you cannot just slap a timeout on receiving `inventory_adjusted`. It is *incorrect* to send `adjust_inventory` after the previous `adjust_inventory` request timed out.
+
+Specifically, while `inventory_adjusted` typically arrives within a few ticks after `adjust_inventory`, it can be delayed under lag. If the server eventually handles the first request, `current_inventory` of the second request will be outdated, causing the server to produce an unexpected inventory and making the client send new requests that further exacerbate the problem. This can result in infinite loops and non-convergent behavior even with otherwise reasonable clients.
+
+The correct recovery procedure after timeout is to send a ping and block until a pong with the same ID arrives. Pings are safe to timeout and resend. Since the server processes all messages sequentially, by the time a pong arrives, all previous adjustments must have been completed, and so it is safe to send `adjust_inventory` again.
 
 
 ### Triggering readjustment

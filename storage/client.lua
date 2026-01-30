@@ -385,6 +385,7 @@ local function handleIndexUpdate()
     readjust.notifyOne()
 end
 
+local awaited_pong = nil
 local inventory_adjusted = async.newNotifyWaiters()
 async.subscribe("turtle_inventory", readjust.notifyOne)
 async.spawn(function()
@@ -409,8 +410,30 @@ async.spawn(function()
         -- If we're disconnected from the wired network, but the modems are still wired, we'll
         -- receive a message, but our inventory may fail to update, possibly partially. We'll
         -- trigger readjustment when we're connected back, but for now this is everything we can do.
-        async.timeout(1, inventory_adjusted.wait)
-        readjust.wait()
+        local key = async.race({
+            sleep = util.bind(os.sleep, 1),
+            response = inventory_adjusted.wait,
+        })
+        if key == "sleep" then
+            -- Server died, was disconnected, or there's lag; either way, wait for the request to
+            -- complete before following up. Also trigger readjustment immediately, since we might
+            -- have lost index notifications.
+            local ping_id = math.random(1, 2147483647)
+            awaited_pong = {
+                id = ping_id,
+                received = async.newNotifyOne(),
+            }
+            local send_task = async.spawn(function()
+                while true do
+                    rednet.send(server_id, { type = "ping", id = ping_id }, "purple_storage")
+                    os.sleep(1)
+                end
+            end)
+            awaited_pong.received.wait()
+            send_task.cancel()
+        else
+            readjust.wait()
+        end
         recordInteraction()
     end
 end)
@@ -455,6 +478,10 @@ async.spawn(function()
             -- Schedule readjustment regardless of whether we recognized any changes, since they
             -- could happen so quickly that they are undetectable.
             readjust.notifyOne()
+        elseif msg.type == "pong" then
+            if awaited_pong and msg.id == awaited_pong.id then
+                awaited_pong.received.notifyOne()
+            end
         end
     end
 end)
