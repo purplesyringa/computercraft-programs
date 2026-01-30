@@ -141,7 +141,10 @@ function async.race(task_list)
             end
         end)
     end
-    async.waitOn(ready)
+    -- If some task completes immediately, `ready` can already be populated.
+    if ready.key ~= nil then
+        async.waitOn(ready)
+    end
     return ready.value, ready.key
 end
 
