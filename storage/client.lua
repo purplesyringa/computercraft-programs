@@ -31,7 +31,7 @@ local readjust = async.newNotify()
 local function formatItemName(item)
     if item.name == "minecraft:enchanted_book" and next(item.enchantments or {}) then
         local enchantments = {}
-        for _, enchantment in pairs(item.enchantments) do
+        for _, enchantment in ipairs(item.enchantments) do
             table.insert(enchantments, enchantment.displayName)
         end
         return table.concat(enchantments, " + ")
