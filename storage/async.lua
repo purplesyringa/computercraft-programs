@@ -236,20 +236,20 @@ function async.newMutex(value)
 end
 
 function async.newNotify()
-    local notified = false
+    local permit = false
     local trigger = {}
     return {
-        notify = function()
-            if not notified then
-                notified = true
+        notifyOne = function()
+            if not permit then
+                permit = true
                 async.wakeBy(trigger)
             end
         end,
         wait = function()
-            if not notified then
+            while not permit do
                 async.waitOn(trigger)
             end
-            notified = false
+            permit = false
         end,
     }
 end

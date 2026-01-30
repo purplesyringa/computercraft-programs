@@ -482,8 +482,8 @@ end
 
 -- Use notify to avoid reindexing several times when multiple peripherals are (dis)connected.
 local peripherals_changed = async.newNotify()
-async.subscribe("peripheral", peripherals_changed.notify)
-async.subscribe("peripheral_detach", peripherals_changed.notify)
+async.subscribe("peripheral", peripherals_changed.notifyOne)
+async.subscribe("peripheral_detach", peripherals_changed.notifyOne)
 async.spawn(function()
     while true do
         peripherals_changed.wait()

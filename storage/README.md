@@ -167,7 +167,7 @@ This is only necessary if you want a user to interact with your client's invento
 To recognize when a user adds or removes items from its inventory, the client can listen to the `turtle_inventory` event. Since this event can arrive during adjustment (either due to the user concurrently updating the inventory, or due to the server's own actions), you need to wait until adjustment completes before sending `adjust_inventory` again:
 
 ```lua
-async.subscribe("turtle_inventory", readjust.notify)
+async.subscribe("turtle_inventory", readjust.notifyOne)
 ```
 
 Note that if `turtle_inventory` arrives for the second time due to the server's actions, the server will have nothing to do on this next adjustment request, and so `turtle_inventory` won't arrive for the third time and trigger an infinite loop.
@@ -180,7 +180,7 @@ Note that it is *incorrect* to trigger readjustment on every index change. Speci
 
 ```lua
 if next(msg.items) then
-    readjust.notify()
+    readjust.notifyOne()
 end
 ```
 
@@ -202,7 +202,7 @@ The inventories should be submitted as the `current_inventory` field of the `adj
 
 ```lua
 if msg.type == "request_inventory" then
-    readjust.notify()
+    readjust.notifyOne()
 end
 ```
 

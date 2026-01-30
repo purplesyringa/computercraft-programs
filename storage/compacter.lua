@@ -148,7 +148,7 @@ async.spawn(function()
         if msg.type == "inventory_adjusted" then
             server_id = computer_id
             inventory_adjusted_message = msg
-            inventory_adjusted.notify()
+            inventory_adjusted.notifyOne()
         elseif msg.type == "patch_index" then
             server_id = computer_id
             if msg.reset then

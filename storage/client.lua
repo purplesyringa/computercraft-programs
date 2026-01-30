@@ -229,7 +229,7 @@ local function handleSearchQueryUpdate()
     updateFilteredIndex()
     setPreviewGoal()
     renderScreen()
-    readjust.notify()
+    readjust.notifyOne()
 end
 
 local interaction_timer = nil
@@ -273,7 +273,7 @@ async.subscribe("key", function(key_code)
             selected_item = nil
             setPreviewGoal()
             renderScreen()
-            readjust.notify()
+            readjust.notifyOne()
         end
     elseif ctrl_pressed and key_code == keys["d"] then
         search_query = ""
@@ -344,7 +344,7 @@ async.subscribe("mouse_click", function(button, _, y)
     end
     if updated then
         renderScreen()
-        readjust.notify()
+        readjust.notifyOne()
     end
 end)
 async.subscribe("mouse_scroll", function(direction)
@@ -382,11 +382,11 @@ local function handleIndexUpdate()
 
     -- Force readjustment regardless of whether the goal inventory was changed, since the available
     -- count might have changed for already existing items.
-    readjust.notify()
+    readjust.notifyOne()
 end
 
 local inventory_adjusted = async.newNotify()
-async.subscribe("turtle_inventory", readjust.notify)
+async.subscribe("turtle_inventory", readjust.notifyOne)
 async.spawn(function()
     turtle.select(16)
     while true do
@@ -414,10 +414,10 @@ async.spawn(function()
         local computer_id, msg = rednet.receive("purple_storage")
         if msg.type == "inventory_adjusted" then
             server_id = computer_id
-            inventory_adjusted.notify()
+            inventory_adjusted.notifyOne()
         elseif msg.type == "request_inventory" then
             server_id = computer_id
-            readjust.notify()
+            readjust.notifyOne()
         elseif msg.type == "patch_index" then
             server_id = computer_id
             if msg.reset then
@@ -439,7 +439,7 @@ async.spawn(function()
             wired_name = modem.getNameLocal()
             local is_connected = wired_name ~= nil
             if is_connected and not was_connected then
-                modem_connected.notify()
+                modem_connected.notifyOne()
             end
             if is_connected ~= was_connected then
                 renderScreen()
@@ -454,7 +454,7 @@ rednet.send(server_id, { type = "request_index" }, "purple_storage")
 -- a notification.
 wired_name = modem.getNameLocal()
 if wired_name ~= nil then
-    modem_connected.notify()
+    modem_connected.notifyOne()
 end
 
 async.drive()
