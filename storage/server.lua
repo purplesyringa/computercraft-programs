@@ -531,6 +531,13 @@ async.spawn(function()
                     reset = true,
                     fullness = index.value:getFullness(),
                 }
+            elseif msg.type == "ping" then
+                -- It is important that this happens under a lock, even though it doesn't access the
+                -- data, so that the timeout resolution algorithm from README works properly.
+                response = {
+                    type = "pong",
+                    id = msg.id,
+                }
             end
             if response then
                 rednet.send(computer_id, response, "purple_storage")
