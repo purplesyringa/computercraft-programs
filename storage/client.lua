@@ -385,7 +385,7 @@ local function handleIndexUpdate()
     readjust.notifyOne()
 end
 
-local inventory_adjusted = async.newNotifyOne()
+local inventory_adjusted = async.newNotifyWaiters()
 async.subscribe("turtle_inventory", readjust.notifyOne)
 async.spawn(function()
     turtle.select(16)
@@ -417,7 +417,7 @@ async.spawn(function()
         local computer_id, msg = rednet.receive("purple_storage")
         if msg.type == "inventory_adjusted" then
             server_id = computer_id
-            inventory_adjusted.notifyOne()
+            inventory_adjusted.notifyWaiters()
         elseif msg.type == "request_inventory" then
             server_id = computer_id
             readjust.notifyOne()
