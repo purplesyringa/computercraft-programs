@@ -235,23 +235,33 @@ function async.newMutex(value)
     }
 end
 
-function async.newNotify()
+function async.newNotifyOne()
     local permit = false
-    local trigger = {}
-    return {
-        notifyOne = function()
-            if not permit then
-                permit = true
-                async.wakeBy(trigger)
-            end
-        end,
-        wait = function()
-            while not permit do
-                async.waitOn(trigger)
-            end
-            permit = false
-        end,
-    }
+    local waiter = {}
+    waiter.notifyOne = function()
+        if not permit then
+            permit = true
+            async.wakeBy(waiter)
+        end
+    end
+    waiter.wait = function()
+        while not permit do
+            async.waitOn(waiter)
+        end
+        permit = false
+    end
+    return waiter
+end
+
+function async.newNotifyWaiters()
+    local waiter = {}
+    waiter.notifyWaiters = function()
+        async.wakeBy(waiter)
+    end
+    waiter.wait = function()
+        async.waitOn(waiter)
+    end
+    return waiter
 end
 
 function async.subscribe(event, callback)

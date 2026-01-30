@@ -10,7 +10,7 @@ os.setComputerLabel("Storage")
 local term_width, term_height = term.getSize()
 
 -- Detect accidental modem disconnects.
-local modem_connected = async.newNotify()
+local modem_connected = async.newNotifyWaiters()
 local wired_name = nil -- will be initialized later
 
 local server_id = rednet.CHANNEL_BROADCAST
@@ -26,7 +26,7 @@ local filtered_index = {} -- Type: { item, ... }, sorted by decreasing count
 local goal_inventory = {}
 -- If `nil`, we're in preview mode. Otherwise, the item we're trying to pull into all slots.
 local selected_item = nil
-local readjust = async.newNotify()
+local readjust = async.newNotifyOne()
 
 local function formatItemName(item)
     if item.name == "minecraft:enchanted_book" and next(item.enchantments or {}) then
@@ -385,11 +385,14 @@ local function handleIndexUpdate()
     readjust.notifyOne()
 end
 
-local inventory_adjusted = async.newNotify()
+local inventory_adjusted = async.newNotifyOne()
 async.subscribe("turtle_inventory", readjust.notifyOne)
 async.spawn(function()
     turtle.select(16)
     while true do
+        -- `if` instead of `while` is sufficient. `notifyWaiters` does not keep track of permits, so
+        -- if a modem is connected and immediately disconnected, there won't be an outdated permit
+        -- to wake us up immediately.
         if wired_name == nil then
             modem_connected.wait()
         end
@@ -439,7 +442,7 @@ async.spawn(function()
             wired_name = modem.getNameLocal()
             local is_connected = wired_name ~= nil
             if is_connected and not was_connected then
-                modem_connected.notifyOne()
+                modem_connected.notifyWaiters()
             end
             if is_connected ~= was_connected then
                 renderScreen()
@@ -454,7 +457,7 @@ rednet.send(server_id, { type = "request_index" }, "purple_storage")
 -- a notification.
 wired_name = modem.getNameLocal()
 if wired_name ~= nil then
-    modem_connected.notifyOne()
+    modem_connected.notifyWaiters()
 end
 
 async.drive()

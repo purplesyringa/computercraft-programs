@@ -481,7 +481,7 @@ local function broadcastPatchIndex(items, reset, fullness)
 end
 
 -- Use notify to avoid reindexing several times when multiple peripherals are (dis)connected.
-local peripherals_changed = async.newNotify()
+local peripherals_changed = async.newNotifyOne()
 async.subscribe("peripheral", peripherals_changed.notifyOne)
 async.subscribe("peripheral_detach", peripherals_changed.notifyOne)
 async.spawn(function()
