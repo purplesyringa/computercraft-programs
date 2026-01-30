@@ -18,10 +18,8 @@ end
 
 local function resumeTask(task_id, ...)
     local task = tasks[task_id]
-    if task.cancelled then
-        task.result = {}
-        tasks[task_id] = nil
-        async.wakeBy(task_id)
+    if not task then
+        -- The task was cancelled.
         return
     end
 
@@ -62,20 +60,23 @@ function async.spawn(closure)
                 error(result[2])
             end
         end),
-        cancelled = false,
     }
     tasks[task_id] = task
     resumeTask(task_id)
 
     return {
         join = function()
-            if coroutine.status(task.coroutine) ~= "dead" then
+            -- Avoid using `coroutine.status` here, since that doesn't capture cancellation.
+            if task.result == nil then
                 async.waitOn(task_id)
             end
             return table.unpack(task.result, 1, task.result.n)
         end,
         cancel = function()
-            task.cancelled = true
+            task.coroutine = nil -- help GC
+            task.result = {}
+            tasks[task_id] = nil
+            async.wakeBy(task_id)
         end,
     }
 end
