@@ -145,15 +145,17 @@ function async.race(task_list)
     if ready.key ~= nil then
         async.waitOn(ready)
     end
-    return ready.value, ready.key
+    return ready.key, table.unpack(ready.value, 1, ready.value.n)
 end
 
 function async.timeout(duration, f)
-    local value, key = async.race({ util.bind(os.sleep, duration), f })
-    if key == 1 then
-        return nil
-    else
-        return value
+    local result = table.pack(async.race({
+        sleep = util.bind(os.sleep, duration),
+        f = f,
+    }))
+    local key = result[1]
+    if key == "f" then
+        return table.unpack(result, 2, result.n)
     end
 end
 
