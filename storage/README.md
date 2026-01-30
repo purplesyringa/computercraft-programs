@@ -124,7 +124,7 @@ When the server finishes adjustment, it sends the following message:
 
 `new_inventory` contains the state of the inventory the server believes the client now has in the same format as `goal_inventory`. There are three subtle issues here:
 
-1. `new_inventory` may not be equal to `goal_inventory` if some requests could not be satisfied because the goal `count` was higher than the number of items present. `new_inventory` may have a smaller `count` or even `nil` in that slot. You should always be prepared to deal with this, since another client can pull items from the storage concurrently.
+1. `new_inventory` may not be equal to `goal_inventory` if some requests could not be satisfied because the goal `count` was higher than the number of items present. `new_inventory` may have a smaller `count` or even `nil` in that slot. If the same item is pulled into multiple slots, no guarantees are offered as to which slots will be populated. You should always be prepared to deal with this, since another client can pull items from the storage concurrently.
 
 2. `new_inventory` may not be equal to the actual inventory as seen by the client if a user changes the client's inventory concurrently. This is only an issue if you expect the client's inventory to be interacted with by anyone except the client.
 
