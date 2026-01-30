@@ -11,7 +11,7 @@ local term_width, term_height = term.getSize()
 
 -- Detect accidental modem disconnects.
 local modem_connected = async.newNotify()
-local wired_name = modem.getNameLocal()
+local wired_name = nil -- will be initialized later
 
 local server_id = rednet.CHANNEL_BROADCAST
 
@@ -449,5 +449,12 @@ async.spawn(function()
 end)
 
 rednet.send(server_id, { type = "request_index" }, "purple_storage")
+
+-- Check modem status only after we subscribe to rednet, since otherwise we could miss
+-- a notification.
+wired_name = modem.getNameLocal()
+if wired_name ~= nil then
+    modem_connected.notify()
+end
 
 async.drive()
