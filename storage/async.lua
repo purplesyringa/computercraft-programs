@@ -18,6 +18,12 @@ end
 
 local function resumeTask(task_id, ...)
     local task = tasks[task_id]
+    if task.cancelled then
+        task.result = {}
+        tasks[task_id] = nil
+        async.wakeBy(task_id)
+        return
+    end
 
     local out = table.pack(coroutine.resume(task.coroutine, ...))
     local ok = out[1]
@@ -56,6 +62,7 @@ function async.spawn(closure)
                 error(result[2])
             end
         end),
+        cancelled = false,
     }
     tasks[task_id] = task
     resumeTask(task_id)
@@ -66,6 +73,9 @@ function async.spawn(closure)
                 async.waitOn(task_id)
             end
             return table.unpack(task.result, 1, task.result.n)
+        end,
+        cancel = function()
+            task.cancelled = true
         end,
     }
 end
@@ -125,6 +135,7 @@ end
 
 function async.race(task_list)
     local ready = {}
+    local spawned_tasks = {}
     for key, value in pairs(task_list) do
         local f
         if type(value) == "function" then
@@ -132,18 +143,21 @@ function async.race(task_list)
         else
             f = value.join
         end
-        async.spawn(function()
+        table.insert(spawned_tasks, async.spawn(function()
             local return_value = table.pack(f())
             if ready.key == nil then
                 ready.key = key
                 ready.value = return_value
                 async.wakeBy(ready)
             end
-        end)
+        end))
     end
     -- If some task completes immediately, `ready` can already be populated.
     if ready.key ~= nil then
         async.waitOn(ready)
+    end
+    for _, task in pairs(spawned_tasks) do
+        task.cancel()
     end
     return ready.key, table.unpack(ready.value, 1, ready.value.n)
 end
