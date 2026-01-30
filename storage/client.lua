@@ -29,7 +29,7 @@ local selected_item = nil
 local readjust = async.newNotify()
 
 local function formatItemName(item)
-    if item.name == "minecraft:enchanted_book" and next(item.enchantments) then
+    if item.name == "minecraft:enchanted_book" and next(item.enchantments or {}) then
         local enchantments = {}
         for _, enchantment in pairs(item.enchantments) do
             table.insert(enchantments, enchantment.displayName)
