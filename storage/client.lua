@@ -417,6 +417,8 @@ async.spawn(function()
         local computer_id, msg = rednet.receive("purple_storage")
         if msg.type == "inventory_adjusted" then
             server_id = computer_id
+            -- `notifyWaiters` guarantees that a delayed response (occurring for whatever reason)
+            -- doesn't store a permit that can be interpreted as an immediate response later.
             inventory_adjusted.notifyWaiters()
         elseif msg.type == "request_inventory" then
             server_id = computer_id
