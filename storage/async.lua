@@ -60,6 +60,7 @@ function async.spawn(closure)
                 error(result[2])
             end
         end),
+        result = nil,
     }
     tasks[task_id] = task
     resumeTask(task_id)
