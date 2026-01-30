@@ -22,6 +22,7 @@ local INCLUDE_NAMES = {
     ["minecraft:emerald"] = true,
     ["minecraft:redstone"] = true,
     ["minecraft:lapis_lazuli"] = true,
+    ["minecraft:flint"] = true,
 }
 local INCLUDE_TAGS = {
     ["c:nuggets"] = true,
