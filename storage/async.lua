@@ -228,10 +228,10 @@ function async.newRwLock(value)
 end
 
 function async.newMutex(value)
-    local rwLock = async.newRwLock(value)
+    local rw_lock = async.newRwLock(value)
     return {
-        lock = rwLock.write,
-        force = rwLock.force,
+        lock = rw_lock.write,
+        force = rw_lock.force,
     }
 end
 
