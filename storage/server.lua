@@ -84,33 +84,46 @@ function Index:new(on_keys_changed)
     }, self)
 
     local chests = { peripheral.find("minecraft:chest") }
-    -- ComputerCraft limits the event queue to 256 events, so we have to query chests sequentially.
+
+    local task_set = async.newTaskSet()
+    local total_parallel_cells = 0
     for _, chest in pairs(chests) do
+        -- ComputerCraft limits the event queue to 256 events, so we have to batch requests. Set
+        -- a slightly smaller limit to allow other events to be handled, e.g. rednet.
+        if total_parallel_cells > 200 then
+            task_set.join()
+            task_set = async.newTaskSet()
+            total_parallel_cells = 0
+        end
+        total_parallel_cells = total_parallel_cells + chest.size()
         index.total_cells = index.total_cells + chest.size()
-        async.parMap(util.iota(chest.size()), function(slot)
-            local item = chest.getItemDetail(slot)
-            if item then
-                local key = util.getItemKey(item)
-                if not index.items[key] then
-                    index.items[key] = {
-                        item = item,
-                        ghost_count = 0,
-                        chest_cells = {},
-                    }
+        for slot = 1, chest.size() do
+            task_set.spawn(function()
+                local item = chest.getItemDetail(slot)
+                if item then
+                    local key = util.getItemKey(item)
+                    if not index.items[key] then
+                        index.items[key] = {
+                            item = item,
+                            ghost_count = 0,
+                            chest_cells = {},
+                        }
+                    end
+                    table.insert(index.items[key].chest_cells, {
+                        chest = chest,
+                        slot = slot,
+                        count = item.count,
+                    })
+                else
+                    table.insert(index.empty_cells, {
+                        chest = chest,
+                        slot = slot,
+                    })
                 end
-                table.insert(index.items[key].chest_cells, {
-                    chest = chest,
-                    slot = slot,
-                    count = item.count,
-                })
-            else
-                table.insert(index.empty_cells, {
-                    chest = chest,
-                    slot = slot,
-                })
-            end
-        end)
+            end)
+        end
     end
+    task_set.join()
 
     -- Prefer to put non-full cells closer to the end so that they can be quickly located, added,
     -- or removed.
