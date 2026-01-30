@@ -255,10 +255,15 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
         end
     end
 
-    -- Push lacking items.
+    -- Push lacking items. Use ordered iteration to ensure that if an item with a small count is
+    -- pulled into multiple slots, it's not scattered around.
     local new_inventory = {}
     local needs_retry = false
-    for slot_to, goal_item in pairs(goal_inventory) do
+    for slot_to = 1, 16 do
+        local goal_item = goal_inventory[slot_to]
+        if not goal_item then
+            goto next_goal_slot
+        end
         local goal_key = util.getItemKey(goal_item)
 
         local pushed = 0
