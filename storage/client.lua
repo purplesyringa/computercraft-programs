@@ -9,6 +9,28 @@ os.setComputerLabel("Storage")
 
 local term_width, term_height = term.getSize()
 
+-- Add missing colors for Minecraft formatting codes to the palette at unused indices.
+term.setPaletteColor(0x40, 0x992222) -- was pink, now dark red
+term.setPaletteColor(0x1000, 0x82e0e0) -- was brown, now aqua
+local mc_to_cc_colors = {
+    ["0"] = 0x8000,
+    ["1"] = 0x800,
+    ["2"] = 0x2000,
+    ["3"] = 0x200,
+    ["4"] = 0x40,
+    ["5"] = 0x400,
+    ["6"] = 0x2,
+    ["7"] = 0x100,
+    ["8"] = 0x80,
+    ["9"] = 0x8,
+    ["a"] = 0x20,
+    ["b"] = 0x1000,
+    ["c"] = 0x4000,
+    ["d"] = 0x4,
+    ["e"] = 0x10,
+    ["f"] = 0x1,
+}
+
 -- Detect accidental modem disconnects.
 local modem_connected = async.newNotifyWaiters()
 local wired_name = nil -- will be initialized later
@@ -66,6 +88,47 @@ local function formatItemCount(item)
     end
 end
 
+local SECTION_SIGN = "\xa7"
+
+local function parseFormattedText(text)
+    local out = {}
+    local color = nil
+    local i = 1
+    while true do
+        local next_formatting_code = text:find(SECTION_SIGN, i)
+        if next_formatting_code == nil then
+            break
+        end
+        table.insert(out, {
+            color = color,
+            text = text:sub(i, next_formatting_code - 1),
+        })
+        local ch = text:sub(next_formatting_code + 1, next_formatting_code + 1)
+        if mc_to_cc_colors[ch] then
+            color = mc_to_cc_colors[ch]
+        elseif ch == "r" then
+            color = nil
+        end
+        i = next_formatting_code + 2
+    end
+    table.insert(out, {
+        color = color,
+        text = text:sub(i),
+    })
+    return out
+end
+
+local function stripFormatting(text)
+    return text:gsub(SECTION_SIGN .. ".", "")
+end
+
+local function writeFormattedText(text, default_color)
+    for _, chunk in pairs(parseFormattedText(text)) do
+        term.setTextColor(chunk.color or default_color)
+        term.write(chunk.text)
+    end
+end
+
 local function renderScreen()
     scroll_pos = math.max(1, math.min(scroll_pos, #filtered_index - term_height + 3))
     term.setBackgroundColor(colors.black)
@@ -86,12 +149,11 @@ local function renderScreen()
         if item then
             term.setCursorPos(8, y)
             term.setBackgroundColor(colors.black)
+            local default_color = colors.white
             if util.getItemKey(item) == util.getItemKey(selected_item) then
-                term.setTextColor(colors.green)
-            else
-                term.setTextColor(colors.white)
+                default_color = colors.green
             end
-            term.write(formatItemName(item))
+            writeFormattedText(formatItemName(item), default_color)
         end
         term.setCursorPos(1, y)
         term.setBackgroundColor(colors.blue)
@@ -166,7 +228,7 @@ local function itemMatchesSearch(item)
     local function checkNameOrDisplayName(obj)
         return (
             util.stringContainsCaseInsensitive(obj.name, search_query)
-            or util.stringContainsCaseInsensitive(obj.displayName, search_query)
+            or util.stringContainsCaseInsensitive(stripFormatting(obj.displayName), search_query)
         )
     end
 
@@ -175,11 +237,14 @@ local function itemMatchesSearch(item)
     end
     -- Some items, like smithing templates, are formatted into a name that is not present as
     -- a substring in data. Recognize that.
-    if util.stringContainsCaseInsensitive(formatItemName(item), search_query) then
+    if util.stringContainsCaseInsensitive(
+        stripFormatting(formatItemName(item)),
+        search_query
+    ) then
         return true
     end
     for _, lore in pairs(item.lore or {}) do
-        if util.stringContainsCaseInsensitive(lore, search_query) then
+        if util.stringContainsCaseInsensitive(stripFormatting(lore), search_query) then
             return true
         end
     end
