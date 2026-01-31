@@ -136,7 +136,7 @@ function async.gather(task_list)
 end
 
 function async.race(task_list)
-    local ready = {}
+    local ready = { key = nil }
     local spawned_tasks = {}
     for key, value in pairs(task_list) do
         local f
@@ -155,7 +155,7 @@ function async.race(task_list)
         end))
     end
     -- If some task completes immediately, `ready` can already be populated.
-    if ready.key ~= nil then
+    if ready.key == nil then
         async.waitOn(ready)
     end
     for _, task in pairs(spawned_tasks) do
