@@ -385,21 +385,28 @@ local function handleIndexUpdate()
     readjust.notifyOne()
 end
 
+local function loadInventory()
+    return async.parMap(util.iota(16), function(slot)
+        return turtle.getItemDetail(slot, true)
+    end)
+end
+
 local awaited_pong = nil
 local inventory_adjusted = async.newNotifyWaiters()
 async.subscribe("turtle_inventory", readjust.notifyOne)
 async.spawn(function()
     turtle.select(16)
     while true do
-        -- `if` instead of `while` is sufficient. `notifyWaiters` does not keep track of permits, so
-        -- if a modem is connected and immediately disconnected, there won't be an outdated permit
-        -- to wake us up immediately.
-        if wired_name == nil then
-            modem_connected.wait()
+        local current_inventory = nil
+        if wired_name ~= nil then
+            current_inventory = loadInventory()
         end
-        local current_inventory = async.parMap(util.iota(16), function(slot)
-            return turtle.getItemDetail(slot, true)
-        end)
+        -- Handle TOCTOU where the modem is disconnected while `loadInventory` is underway.
+        while wired_name == nil do
+            modem_connected.wait()
+            current_inventory = loadInventory()
+        end
+
         rednet.send(server_id, {
             type = "adjust_inventory",
             client = wired_name,
