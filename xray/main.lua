@@ -1,8 +1,9 @@
 -- Inventory layout:
 -- Slot 1: universal scanner
 -- Slot 2: fuel
--- Slots 3-16: output (pre-initialized with 1 item in each as filter)
--- Equipment slots: diamond pickaxe, chunk vial
+-- Slot 3: ender modem
+-- Slots 4-16: output (pre-initialized with 1 item in each as filter)
+-- Equipment slots: left: diamond pickaxe, right: chunk vial
 -- Should be placed at the exactly specified Y level.
 
 local ore_filter = "minecraft:ancient_debris"
@@ -53,6 +54,18 @@ while true do
                 turtle.dig()
             end
         end
+    end
+
+    local function report(msg)
+        -- Temporarily replace the pickaxe with the ender modem and send a message.
+        turtle.select(3)
+        turtle.equipLeft()
+        while peripheral.wrap("left") == nil do
+            os.sleep(0.1)
+        end
+        rednet.open("left")
+        rednet.broadcast(msg, "xray")
+        turtle.equipLeft()
     end
 
     local function getToCoords(x, y, z)
@@ -127,6 +140,15 @@ while true do
         end
         local block = blocks[min_distance_key]
         blocks[min_distance_key] = nil
+        report({
+            label = os.getComputerLabel(),
+            fromX = blocks_walked + current_x,
+            fromY = current_y,
+            fromZ = current_z,
+            toX = blocks_walked + block.x,
+            toY = block.y,
+            toZ = block.z,
+        })
         getToCoords(block.x, block.y, block.z)
         total_ores_collected = total_ores_collected + 1
     end
