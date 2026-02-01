@@ -1,4 +1,4 @@
-local log = fs.open("log.txt", "w")
+local log = fs.open("log.txt", "a")
 
 peripheral.find("modem", rednet.open)
 

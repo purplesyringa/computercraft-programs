@@ -1,127 +1,177 @@
--- Inventory layout:
--- Slot 1: universal scanner
--- Slot 2: fuel
--- Slot 3: ender modem
--- Slots 4-16: output (pre-initialized with 1 item in each as filter)
--- Equipment slots: left: diamond pickaxe, right: chunk vial
--- Should be placed at the exactly specified Y level.
+local args = { ... }
+
+local base_x = tonumber(args[1])
+local base_y = tonumber(args[2])
+local base_z = tonumber(args[3])
+local return_at_count = tonumber(args[4])
+
+-- Count left turns, 0 means east. Populated later.
+local base_direction = nil
+local current_direction
+local principal_x
+local principal_y
 
 local ore_filter = "minecraft:ancient_debris"
-local initial_y = 16
-local return_at_count = 800
 
-local blocks_walked = 0
-local total_ores_collected = 0
+local current_x = base_x
+local current_y = base_y
+local current_z = base_z
+local sections_scanned = 0
+local ores_collected = 0
 
-while true do
+local function resetRotation()
+    while current_direction % 4 ~= base_direction % 4 do
+        turtle.turnLeft()
+        current_direction = current_direction + 1
+    end
+end
+
+local function scan()
     -- Scan for nearby ores with a stationary scanner to increase the radius and avoid wasting fuel.
     turtle.select(1)
     while not turtle.place() do
         turtle.dig()
     end
+    -- The scanner doesn't always get recognized immediately.
     local scanner = nil
     while scanner == nil do
         os.sleep(0.1)
         scanner = peripheral.wrap("front")
     end
     local blocks = scanner.scan("block", 24, ore_filter)
+
+    -- Recognize the direction based on the direction of the scanner, which is opposite the turtle's
+    -- direction.
+    if base_direction == nil then
+        local _, scanner_info = turtle.inspect()
+        base_direction = ({
+            east = 2,
+            north = 3,
+            west = 0,
+            south = 1,
+        })[scanner_info.state.facing]
+        current_direction = base_direction
+        principal_x = ({ 1, 0, -1, 0 })[1 + current_direction]
+        principal_z = ({ 0, -1, 0, 1 })[1 + current_direction]
+    end
+
     turtle.dig()
 
-    -- The scanner is always placed in the opposite direction to the turtle, so signs should be
-    -- flipped. The coordinates are also relative to the scanner, not the turtle, so there's
-    -- an off-by-one error as well.
     for key, block in pairs(blocks) do
-        block.x = -block.x + 1
-        block.z = -block.z
+        -- Convert away from the scanner's coordinate system. Signs are flipped because the
+        -- direction is inverted, and there's an off-by-one error because the coordinates are
+        -- relative to the scanner, not the turtle.
+        local dx = -block.x + 1
+        local dz = -block.z
+        if current_direction % 4 == 1 then
+            dx, dz = dz, -dx
+        elseif current_direction % 4 == 2 then
+            dx, dz = -dx, -dz
+        elseif current_direction % 4 == 3 then
+            dx, dz = -dz, dx
+        end
+        block.x = current_x + dx
+        block.z = current_z + dz
+        block.y = current_y + block.y
         -- Ignore blocks at Y = 4 and lower, since the turtle might get stuck in the bedrock floor.
-        if initial_y + block.y <= 4 then
+        if block.y <= 4 then
             blocks[key] = nil
         end
     end
 
+    return blocks
+end
+
+local function refuel()
+    -- `turtle.refuel` ceils by default, so compute the count manually.
     local fuel_to_consume = math.floor((turtle.getFuelLimit() - turtle.getFuelLevel()) / 800)
     turtle.select(2)
     turtle.refuel(fuel_to_consume)
+end
 
-    local current_x = 0
-    local current_y = 0
-    local current_z = 0
-    local current_direction = 0 -- counts left turns
+local function broadcast(msg)
+    -- Temporarily replace the pickaxe with the ender modem to send a message. Wouldn't want to
+    -- replace a chunk vial!
+    turtle.select(3)
+    turtle.equipLeft()
+    while peripheral.wrap("left") == nil do
+        os.sleep(0.1)
+    end
+    rednet.open("left")
+    rednet.broadcast(msg, "xray")
+    turtle.equipLeft()
+end
 
-    local function walkFor(n)
-        for i = 1, n do
-            while not turtle.forward() do
-                turtle.dig()
-            end
+local function walkFor(n)
+    for i = 1, n do
+        while not turtle.forward() do
+            turtle.dig()
         end
     end
+end
 
-    local function report(msg)
-        -- Temporarily replace the pickaxe with the ender modem and send a message.
-        turtle.select(3)
-        turtle.equipLeft()
-        while peripheral.wrap("left") == nil do
-            os.sleep(0.1)
-        end
-        rednet.open("left")
-        rednet.broadcast(msg, "xray")
-        turtle.equipLeft()
+local function getToCoords(x, y, z)
+    -- Translate to the local coordinate system.
+    local dx = x - current_x
+    local dz = z - current_z
+    if current_direction % 4 == 1 then
+        dx, dz = -dz, dx
+    elseif current_direction % 4 == 2 then
+        dx, dz = -dx, -dz
+    elseif current_direction % 4 == 3 then
+        dx, dz = dz, -dx
     end
-
-    local function getToCoords(x, y, z)
-        -- Translate to the local coordinate system.
-        local dx = x - current_x
-        local dz = z - current_z
-        if current_direction % 4 == 1 then
-            dx, dz = -dz, dx
-        elseif current_direction % 4 == 2 then
-            dx, dz = -dx, -dz
-        elseif current_direction % 4 == 3 then
-            dx, dz = dz, -dx
-        end
-        -- Optimize the number of rotations.
-        if dx > 0 then
-            walkFor(dx)
-        end
+    -- Optimize the number of rotations.
+    if dx > 0 then
+        walkFor(dx)
+    end
+    if dz > 0 then
+        turtle.turnRight()
+        current_direction = current_direction - 1
+        walkFor(dz)
+    elseif dz < 0 then
+        turtle.turnLeft()
+        current_direction = current_direction + 1
+        walkFor(-dz)
+    end
+    if dx < 0 then
         if dz > 0 then
             turtle.turnRight()
             current_direction = current_direction - 1
-            walkFor(dz)
         elseif dz < 0 then
             turtle.turnLeft()
             current_direction = current_direction + 1
-            walkFor(-dz)
+        else
+            turtle.turnLeft()
+            turtle.turnLeft()
+            current_direction = current_direction + 2
         end
-        if dx < 0 then
-            if dz > 0 then
-                turtle.turnRight()
-                current_direction = current_direction - 1
-            elseif dz < 0 then
-                turtle.turnLeft()
-                current_direction = current_direction + 1
-            else
-                turtle.turnLeft()
-                turtle.turnLeft()
-                current_direction = current_direction + 2
-            end
-            walkFor(-dx)
-        end
-        current_x = x
-        current_z = z
-
-        -- Vertical movement.
-        while current_y < y do
-            while not turtle.up() do
-                turtle.digUp()
-            end
-            current_y = current_y + 1
-        end
-        while current_y > y do
-            turtle.digDown()
-            turtle.down()
-            current_y = current_y - 1
-        end
+        walkFor(-dx)
     end
+    current_x = x
+    current_z = z
+
+    -- Vertical movement.
+    while current_y < y do
+        while not turtle.up() do
+            turtle.digUp()
+        end
+        current_y = current_y + 1
+    end
+    while current_y > y do
+        turtle.digDown()
+        turtle.down()
+        current_y = current_y - 1
+    end
+end
+
+while true do
+    if base_direction ~= nil then
+        -- Face the original direction so that we scan the same line of blocks every time.
+        resetRotation()
+    end
+    local blocks = scan()
+    refuel()
 
     while next(blocks) do
         -- Find the closest block to the current location.
@@ -140,35 +190,28 @@ while true do
         end
         local block = blocks[min_distance_key]
         blocks[min_distance_key] = nil
-        report({
+        broadcast({
             label = os.getComputerLabel(),
-            fromX = blocks_walked + current_x,
+            fromX = current_x,
             fromY = current_y,
             fromZ = current_z,
-            toX = blocks_walked + block.x,
+            toX = block.x,
             toY = block.y,
             toZ = block.z,
         })
         getToCoords(block.x, block.y, block.z)
-        total_ores_collected = total_ores_collected + 1
+        ores_collected = ores_collected + 1
     end
 
-    local function resetRotation()
-        while current_direction % 4 ~= 0 do
-            turtle.turnLeft()
-            current_direction = current_direction + 1
-        end
-    end
-
-    if total_ores_collected > return_at_count then
-        -- Return to base.
-        getToCoords(-blocks_walked, 0, 0)
+    if ores_collected > return_at_count then
+        -- Return to base and reset rotation for consistency.
+        getToCoords(base_x, base_y, base_z)
         resetRotation()
         break
     else
         -- Move to the next section and repeat.
-        getToCoords(49, 0, 0)
-        blocks_walked = blocks_walked + 49
-        resetRotation()
+        sections_scanned = sections_scanned + 1
+        local distance = sections_scanned * 49
+        getToCoords(base_x + principal_x * distance, base_y, base_z + principal_z * distance)
     end
 end
