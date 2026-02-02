@@ -86,17 +86,10 @@ local function scan()
     return blocks
 end
 
-local function refuel()
-    -- `turtle.refuel` ceils by default, so compute the count manually.
-    local fuel_to_consume = math.floor((turtle.getFuelLimit() - turtle.getFuelLevel()) / 800)
-    turtle.select(2)
-    turtle.refuel(fuel_to_consume)
-end
-
 local function broadcast(msg)
     -- Temporarily replace the pickaxe with the ender modem to send a message. Wouldn't want to
     -- replace a chunk vial!
-    turtle.select(3)
+    turtle.select(2)
     turtle.equipLeft()
     while peripheral.wrap("left") == nil do
         os.sleep(0.1)
@@ -182,9 +175,8 @@ end
 while true do
     -- Face the original direction so that we scan the same line of blocks every time.
     resetRotation()
-    local blocks = scan()
-    refuel()
 
+    local blocks = scan()
     while next(blocks) do
         -- Find the closest block to the current location.
         local min_distance = nil

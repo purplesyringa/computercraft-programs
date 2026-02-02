@@ -10,9 +10,8 @@ This is non-trivial, so read till the end.
 The turtle's inventory should be set up as follows:
 
 - Slot 1: universal scanner
-- Slot 2: (char)coal blocks as fuel (the turtle assumes a specific fuel quality, and you'll need a lot of fuel anyway, so this is the best option)
-- Slot 3: ender modem (for logging)
-- Slots 4-16: output (pre-initialized with 1 ancient debris in each as filter)
+- Slot 2: ender modem (for logging)
+- Slots 3-16: output slots. Must be pre-filled with 1 ancient debris in each slot as filter.
 - Left equipment slot: diamond pickaxe
 - Right equipment slot: chunk vial
 
@@ -20,7 +19,9 @@ The turtle must be run as `main X Y Z D C`, where:
 
 - `X`, `Y`, `Z` are the coordinates of the block the turtle is initially in. `X` and `Z` are used only for logging, so that the listener receives absolute coordiantes. You can specify `0` here if you're lazy and don't care about logs. `Y` should be specified exactly right so that the turtle doesn't get stuck in the bedrock floor. You should most likely place the turtle at `Y = 16`.
 - `D` is the direction the turtle is facing, that is, the direction you're facing when placing the turtle. It can be either of `east`, `north`, `west`, or `south`. This is only used to track absolute coordinates.
-- `C` is the approximate number of ancient debris the turtle should mine. The maximum reasonable value is `800`, since there isn't enough space for more ancient debris in the turtle inventory.
+- `C` is the approximate number of ancient debris the turtle should mine. The maximum reasonable value is `850`, since there isn't enough space for more ancient debris in the turtle inventory.
+
+The turtle must be populated with fuel and cannot refuel while digging. Collecting 1 ancient debris requires moving about 25 blocks on average, so for `C = 850`, you need about 21250 units of fuel; I recommend giving it some more just in case. That's above the limit for normal turtles, so you'll need to use advanced turtles if you need this much debris.
 
 Due to [a bug in Turtlematic](https://github.com/SirEdvin/Turtlematic/issues/27), chunk loading in the nether does not work properly, and this *will* break the turtle. You *need* to apply [a patch](https://github.com/SirEdvin/Turtlematic/pull/30) to the mod to fix it.
 
