@@ -115,6 +115,16 @@ local function walkFor(n)
 end
 
 local function getToCoords(x, y, z)
+    broadcast({
+        label = os.getComputerLabel(),
+        fromX = current_x,
+        fromY = current_y,
+        fromZ = current_z,
+        toX = x,
+        toY = y,
+        toZ = z,
+    })
+
     -- Translate to the local coordinate system.
     local dx = x - current_x
     local dz = z - current_z
@@ -192,15 +202,6 @@ while true do
         end
         local block = blocks[min_distance_key]
         blocks[min_distance_key] = nil
-        broadcast({
-            label = os.getComputerLabel(),
-            fromX = current_x,
-            fromY = current_y,
-            fromZ = current_z,
-            toX = block.x,
-            toY = block.y,
-            toZ = block.z,
-        })
         getToCoords(block.x, block.y, block.z)
         ores_collected = ores_collected + 1
     end
