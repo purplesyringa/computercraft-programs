@@ -3,13 +3,18 @@ local args = { ... }
 local base_x = tonumber(args[1])
 local base_y = tonumber(args[2])
 local base_z = tonumber(args[3])
-local return_at_count = tonumber(args[4])
+local direction = args[4]
+local return_at_count = tonumber(args[5])
 
--- Count left turns, 0 means east. Populated later.
-local base_direction = nil
-local current_direction
-local principal_x
-local principal_y
+local current_direction = ({ -- counts left turns from east
+    east = 0,
+    north = 1,
+    west = 2,
+    south = 3,
+})[direction]
+local base_direction = current_direction
+local principal_x = ({ 1, 0, -1, 0 })[1 + current_direction]
+local principal_z = ({ 0, -1, 0, 1 })[1 + current_direction]
 
 local ore_filter = "minecraft:ancient_debris"
 
@@ -39,36 +44,35 @@ local function scan()
         scanner = peripheral.wrap("front")
     end
     local blocks = scanner.scan("block", 24, ore_filter)
-
-    -- Recognize the direction based on the direction of the scanner, which is opposite the turtle's
-    -- direction.
-    if base_direction == nil then
-        local _, scanner_info = turtle.inspect()
-        base_direction = ({
-            east = 2,
-            north = 3,
-            west = 0,
-            south = 1,
-        })[scanner_info.state.facing]
-        current_direction = base_direction
-        principal_x = ({ 1, 0, -1, 0 })[1 + current_direction]
-        principal_z = ({ 0, -1, 0, 1 })[1 + current_direction]
-    end
-
+    local _, scanner_info = turtle.inspect()
+    local scanner_facing = scanner_info.state.facing
     turtle.dig()
 
     for key, block in pairs(blocks) do
-        -- Convert away from the scanner's coordinate system. Signs are flipped because the
-        -- direction is inverted, and there's an off-by-one error because the coordinates are
-        -- relative to the scanner, not the turtle.
-        local dx = -block.x + 1
-        local dz = -block.z
-        if current_direction % 4 == 1 then
-            dx, dz = dz, -dx
+        -- The scanner is stupid. Normally, it's faced in the opposite direction of the turtle, but
+        -- in lava, it seems to be placed in the same direction. This means that signs can be
+        -- flipped conditionally on the scanner's orientation, so we have to inspect it to fix the
+        -- issue. At least it scans the same area regardless of orientation.
+        local dx, dz
+        if scanner_facing == "east" then
+            dx, dz = block.x, block.z
+        elseif scanner_facing == "north" then
+            dx, dz = block.z, -block.x
+        elseif scanner_facing == "west" then
+            dx, dz = -block.x, -block.z
+        elseif scanner_facing == "south" then
+            dx, dz = -block.z, block.x
+        end
+        -- There's an off-by-one error because the coordinates are relative to the scanner, not the
+        -- turtle. But *this* depends on the turtle's orientation, not the scanner's.
+        if current_direction % 4 == 0 then
+            dx = dx + 1
+        elseif current_direction % 4 == 1 then
+            dz = dz - 1
         elseif current_direction % 4 == 2 then
-            dx, dz = -dx, -dz
+            dx = dx - 1
         elseif current_direction % 4 == 3 then
-            dx, dz = -dz, dx
+            dz = dz + 1
         end
         block.x = current_x + dx
         block.z = current_z + dz
@@ -166,10 +170,8 @@ local function getToCoords(x, y, z)
 end
 
 while true do
-    if base_direction ~= nil then
-        -- Face the original direction so that we scan the same line of blocks every time.
-        resetRotation()
-    end
+    -- Face the original direction so that we scan the same line of blocks every time.
+    resetRotation()
     local blocks = scan()
     refuel()
 
