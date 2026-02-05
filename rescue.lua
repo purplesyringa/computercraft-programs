@@ -1,8 +1,8 @@
 while true do
 	while not turtle.place() do turtle.dig() end
 	local scanner = nil
-	while not scanner do scanner = peripheral.wrap("forward") end
-	local scanned = scanner.scan("block", 24, "??:turtle")
+	while not scanner do scanner = peripheral.wrap("front") os.sleep(0.1) end
+	local scanned = scanner.scan("block", 24, "computercraft:turtle_normal")
 	for _, coords in pairs(scanned) do
 		local is_self = (coords.x == 1 or coords.x == -1) and coords.y == 0 and coords.z == 0
 		if not is_self then
