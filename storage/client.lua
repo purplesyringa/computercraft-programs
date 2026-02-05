@@ -305,7 +305,7 @@ local function recordInteraction()
     interaction_timer = os.startTimer(10)
 end
 async.subscribe("timer", function(id)
-    if id == interaction_timer and search_query ~= "" then
+    if id == interaction_timer and (search_query ~= "" or selected_item) then
         -- Assume the user has stopped interacting with the client.
         search_query = ""
         cursor_pos = 1
