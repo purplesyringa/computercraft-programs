@@ -495,11 +495,15 @@ end
 
 -- Use notify to avoid reindexing several times when multiple peripherals are (dis)connected.
 local reindex = async.newNotifyOne()
-function onPeripheralsChanged()
-    reindex.notifyOne()
-    -- Notify clients that they might have been accidentally connected/disconnected and need to
-    -- check their state.
-    rednet.broadcast({ type = "peripherals_changed" }, "purple_storage")
+function onPeripheralsChanged(name)
+    if name:find("minecraft:chest_") == 1 then
+        reindex.notifyOne()
+    end
+    if name:find("turtle_") == 1 then
+        -- Notify clients that they might have been accidentally connected/disconnected and need to
+        -- check their state.
+        rednet.broadcast({ type = "peripherals_changed" }, "purple_storage")
+    end
 end
 async.subscribe("peripheral", onPeripheralsChanged)
 async.subscribe("peripheral_detach", onPeripheralsChanged)

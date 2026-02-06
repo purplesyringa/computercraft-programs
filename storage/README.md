@@ -238,7 +238,7 @@ end
 
 The server can notify a client when the client's inventory is disconnected from the wired network. This can occur by accident if a user right-clicks the wired modem and acts as a sanity check. This is necessary because a turtle cannot detect this condition by itself except by polling.
 
-Specifically, each time a peripheral is connected or disconnected, the server broadcasts the following message:
+Specifically, each time a turtle is connected or disconnected, the server broadcasts the following message:
 
 ```lua
 {
