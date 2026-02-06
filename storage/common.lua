@@ -1,5 +1,6 @@
 local async = require "async"
 local util = require "util"
+local ui = require "ui"
 
 local common = {}
 
@@ -25,15 +26,14 @@ local mc_to_cc_colors = {
     ["f"] = 0x1,
 }
 
-local search_query = ""
-local cursor_pos = 1
+local search_field = ui.TextField:new()
 local scroll_pos = 1
 local index = {} -- Type: { [key] = item, ... }
 local fullness = 0 -- percentage
 common.filtered_index = {} -- Type: { item, ... }, sorted by decreasing count
 
 function common.hasSearchQuery()
-    return search_query ~= ""
+    return search_field.value ~= ""
 end
 
 function common.getVisibleItem(position)
@@ -173,7 +173,7 @@ end
 local function updateFilteredIndex()
     common.filtered_index = {}
     for _, item in pairs(index) do
-        if item.count > 0 and itemMatchesQuery(item, search_query) then
+        if item.count > 0 and itemMatchesQuery(item, search_field.value) then
             table.insert(common.filtered_index, item)
         end
     end
@@ -186,8 +186,7 @@ local function updateFilteredIndex()
 end
 
 function common.reset()
-    search_query = ""
-    cursor_pos = 1
+    search_field.clear()
     scroll_pos = 1
     updateFilteredIndex()
 end
@@ -204,14 +203,15 @@ function common.renderSearchBar()
     term.setBackgroundColor(colors.gray)
     term.setTextColor(colors.white)
     term.clearLine()
-    term.write(search_query)
+    term.write(search_field.value)
 
     term.setCursorPos(1, 1)
     term.setBackgroundColor(colors.yellow)
     term.setTextColor(colors.black)
     term.write(string.format("%5d%%", fullness))
 
-    term.setCursorPos(7 + cursor_pos, 1)
+    term.setTextColor(colors.white)
+    term.setCursorPos(7 + search_field.position, 1)
     term.setCursorBlink(true)
 end
 
@@ -250,53 +250,14 @@ function common.renderIndex(first_row, last_row, selected_item)
     end
 end
 
-common.ctrl_pressed = false
-async.subscribe("key", function(key_code)
-    if key_code == keys.leftCtrl or key_code == keys.rightCtrl then
-        common.ctrl_pressed = true
-    end
-end)
-async.subscribe("key_up", function(key_code)
-    if key_code == keys.leftCtrl or key_code == keys.rightCtrl then
-        common.ctrl_pressed = false
-    end
-end)
-
 function common.onKey(key_code, page_height)
-    if key_code == keys.backspace or key_code == keys.capsLock then -- capslock for Colemak
-        if cursor_pos > 1 then
-            if common.ctrl_pressed then
-                search_query = search_query:sub(cursor_pos)
-                cursor_pos = 1
-            else
-                search_query = search_query:sub(1, cursor_pos - 2) .. search_query:sub(cursor_pos)
-                cursor_pos = cursor_pos - 1
-            end
+    local old_search_query = search_field.value
+    if search_field:onKey(key_code) then
+        if search_field.value ~= old_search_query then
             updateFilteredIndex()
             return "search"
         end
-    elseif key_code == keys.delete then
-        if cursor_pos <= #search_query then
-            search_query = search_query:sub(1, cursor_pos - 1) .. search_query:sub(cursor_pos + 1)
-            updateFilteredIndex()
-            return "search"
-        end
-    elseif common.ctrl_pressed and key_code == keys.d then -- clear search
-        if search_query ~= "" then
-            common.reset()
-            updateFilteredIndex()
-            return "search"
-        end
-    elseif key_code == keys.right then
-        if cursor_pos <= #search_query then
-            cursor_pos = cursor_pos + 1
-            return "gui"
-        end
-    elseif key_code == keys.left then
-        if cursor_pos > 1 then
-            cursor_pos = cursor_pos - 1
-            return "gui"
-        end
+        return "gui"
     elseif key_code == keys.up then
         scroll_pos = scroll_pos - 1
         return "gui"
@@ -309,20 +270,12 @@ function common.onKey(key_code, page_height)
     elseif key_code == keys.pageDown then
         scroll_pos = scroll_pos + page_height
         return "gui"
-    elseif key_code == keys.home then
-        cursor_pos = 1
-        return "gui"
-    elseif key_code == keys["end"] then
-        cursor_pos = #search_query + 1
-        return "gui"
     end
     return nil
 end
 
 function common.onChar(ch)
-    if not common.ctrl_pressed then
-        search_query = search_query:sub(1, cursor_pos - 1) .. ch .. search_query:sub(cursor_pos)
-        cursor_pos = cursor_pos + 1
+    if search_field:onChar(ch) then
         updateFilteredIndex()
         return "search"
     end
