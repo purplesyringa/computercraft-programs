@@ -243,6 +243,7 @@ async.spawn(function()
             end
             renderScreen()
         elseif msg.type == "peripherals_changed" then
+            server_id = computer_id
             local was_connected = wired_name ~= nil
             wired_name = modem.getNameLocal()
             local is_connected = wired_name ~= nil
@@ -256,6 +257,7 @@ async.spawn(function()
             -- could happen so quickly that they are undetectable.
             readjust.notifyOne()
         elseif msg.type == "pong" then
+            server_id = computer_id
             if awaited_pong and msg.id == awaited_pong.id then
                 awaited_pong.received.notifyOne()
             end
