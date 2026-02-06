@@ -494,17 +494,15 @@ local function broadcastPatchIndex(items, reset, fullness)
 end
 
 -- Use notify to avoid reindexing several times when multiple peripherals are (dis)connected.
-local peripherals_changed = async.newNotifyOne()
-async.subscribe("peripheral", peripherals_changed.notifyOne)
-async.subscribe("peripheral_detach", peripherals_changed.notifyOne)
-async.spawn(function()
-    while true do
-        peripherals_changed.wait()
-        -- Notify clients that they might have been accidentally connected/disconnected and need to
-        -- check their state.
-        rednet.broadcast({ type = "peripherals_changed" }, "purple_storage")
-    end
-end)
+local reindex = async.newNotifyOne()
+function onPeripheralsChanged()
+    reindex.notifyOne()
+    -- Notify clients that they might have been accidentally connected/disconnected and need to
+    -- check their state.
+    rednet.broadcast({ type = "peripherals_changed" }, "purple_storage")
+end
+async.subscribe("peripheral", onPeripheralsChanged)
+async.subscribe("peripheral_detach", onPeripheralsChanged)
 async.spawn(function()
     while true do
         local index = index.lock()
@@ -515,7 +513,7 @@ async.spawn(function()
         -- Ask clients to submit their inventories, since we can't index them otherwise.
         rednet.broadcast({ type = "request_inventory" }, "purple_storage")
         index.unlock()
-        peripherals_changed.wait()
+        reindex.wait()
     end
 end)
 
