@@ -1,14 +1,63 @@
 # Storage
 
-An *instant* storage with a client-server model.
+An *instant* storage with a client-server model, with support for wireless item transfer and custom clients.
 
-The server, clients, and a number of chests need to be in the same wired network. A single server can deposit items to and withdraw items from multiple clients.
+What does "instant" mean? As you write the search query in the client, 1 stack of each matching item is pulled into its inventory for preview. These previews are interactive: if you take out some of the items, the preview is immediately replenished. The inventory is updated *atomically within a single tick*, assuming your server runs on good enough hardware, so it basically has the UX of a creative menu.
 
-As you write the search query in the client, 1 stack of each matching item is pulled into its inventory for preview. These previews are interactive: if you take out some of the items, the preview is immediately replenished. The inventory is updated *atomically within a single tick*, assuming your server runs on good enough hardware, so it feels very responsive. A lot of care is put into ensuring race conditions don't break anything. The server gracefully handles client disconnects.
+Wireless transfer is achieved with *ender storage* turtles. These don't have a preview, but can teleport to the storage and back thanks to the Turtlematic mod, resulting in a delay of 1-2 seconds. Unlike the main part of the storage, this one requires cooperation from multiple mods: Turtlematic for mimicking and warping, UnlimitedPeripheralWorks for hubs, Create for infinite lava sources, and Spectrum for a cool block to mimic (though the last part can be safely disabled).
+
+Custom clients can use the server's comprehensive but small API to integrate the storage into farms or consumers.
+
+
+## Design points
+
+A single server can concurrently deposit items to and withdraw items from multiple clients.
+
+A lot of care is put into ensuring race conditions don't break anything. The server gracefully handles client disconnects.
 
 The storage requires a significant number of empty cells to operate due to the race condition avoidance algorithms. I recommend allocating 1 empty double chest per client. If the server runs out of storage, it crashes by assertion; sorry.
 
 The server can very quickly reindex the storage. The storage is reindexed automatically when peripherals are added or removed, though doing this while clients are interacting with the storage can crash the server, so pay attention to that.
+
+
+## Setup
+
+Connect the server, stationary clients, and chests into a single wired network. Clients should be advanced turtles, and the server can be either a computer or a turtle, but ender storage is only supported with the latter.
+
+The server should run `server.lua` on startup, stationary clients should run `client.lua`, and ender clients should run `ender_client.lua`.
+
+Upon booting, the server will recognize all chests reachable by the wired network as the storage. You cannot blacklist chests, which is not a problem unless you want to use the same wired network for other purposes, in which case you can use barrels or other distinct containers.
+
+You might want to chunk-load the server and all clients if you're making a long-range network, since ComputerCraft seems to struggle with unloading computers safely.
+
+
+### Wireless
+
+For a purely wired setup, you're done. Keep reading for a wireless setup.
+
+Install an ender modem on the server and reboot it.
+
+Each ender client needs a "home", which is a location in the world where the turtle will teleport.
+
+This location must be directly connected to the storage with wired modems. Since the turtle can be placed in any orientation and can't detect it, the wired modem must be above the home rather than to the side. The modem must be in the `peripheral: true` state (i.e. have a red border around the black square) for the turtle to interact with it, but since the modem disables itself when all of its connections go away, you must place a "fake" inventory connected to the same modem, e.g. a furnace (the block should be non-flammable since we'll place lava in a bit).
+
+Since warping takes a lot of fuel, pretty much the only choice for fuel is lava buckets. The block below the turtle's home must be a regenerating lava source. One way to achieve this is to connect a hose pulley from Create to a bottomless supply of lava (i.e. 10k lava blocks, both source and flowing lava count) and pump the lava into the would-be lava source block.
+
+All in all, the setup should look like this: a lava source, above which is an empty space where the turtle will go, above which is an enabled modem connected to a "fake" inventory.
+
+Now we're ready to make clients. Be careful about placing or breaking turtles so as not to destroy them. One way to simplify this procedure is to remove lava during maintenance.
+
+For each wireless client, you'll need the following items:
+
+- Advanced turtle.
+- Mimic gadget.
+- Netherite peripheralium hub.
+- End automata core.
+- Ender modem.
+- Speaker.
+- Bucket.
+
+Place the turtle into the right space, load the rest of the items into its inventory, and start the client. It should install the upgrades, get fuel, configure the block it's in as its home, and then open a UI. At this point, the turtle can be broken and carried around.
 
 
 ## Add-ons
