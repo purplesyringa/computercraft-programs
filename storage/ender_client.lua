@@ -29,6 +29,8 @@ local function init()
     local p = {}
 
     for _, upgrade in pairs({
+        -- vanutp's patch for rendering mimicked blocks in item models doesn't scan hub internals
+        -- and only works reliably with the left slot.
         { name = "mimic", side = "left", item = "turtlematic:mimic_gadget" },
         { name = "hub", side = "right", item = "peripheralworks:netherite_peripheralium_hub" },
     }) do
