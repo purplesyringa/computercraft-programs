@@ -37,7 +37,7 @@ For a purely wired setup, you're done. Keep reading for a wireless setup.
 
 Install an ender modem on the server and reboot it.
 
-Each ender client needs a "home", which is a location in the world where the turtle will teleport.
+Each ender client needs a "home", which is a location in the world where the turtle will teleport. Since turtles can override any block while teleporting, including other turtles, make sure each client has its own home.
 
 This location must be directly connected to the storage with wired modems. Since the turtle can be placed in any orientation and can't detect it, the wired modem must be above the home rather than to the side. The modem must be in the `peripheral: true` state (i.e. have a red border around the black square) for the turtle to interact with it, but since the modem disables itself when all of its connections go away, you must place a "fake" inventory connected to the same modem, e.g. a furnace (the block should be non-flammable since we'll place lava in a bit).
 
