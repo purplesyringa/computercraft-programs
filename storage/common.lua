@@ -186,7 +186,7 @@ local function updateFilteredIndex()
 end
 
 function common.reset()
-    search_field.clear()
+    search_field:clear()
     scroll_pos = 1
     updateFilteredIndex()
 end

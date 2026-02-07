@@ -1,5 +1,3 @@
-local w = fs.open("meow.txt", "w").write _G.write = function(s) w(s) return 0 end
-
 local async = require "async"
 local common = require "common"
 local util = require "util"
