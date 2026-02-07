@@ -6,6 +6,11 @@ local modem = peripheral.find("modem")
 assert(modem, "Modem not available")
 rednet.open(peripheral.getName(modem))
 
+local mimic = peripheral.find("mimic")
+if mimic then
+    pcall(mimic.setMimic, { block = "spectrum:block/onyx_storage_block" })
+end
+
 os.setComputerLabel("Storage")
 
 local _, term_height = term.getSize()
