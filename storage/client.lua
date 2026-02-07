@@ -8,7 +8,7 @@ rednet.open(peripheral.getName(modem))
 
 local mimic = peripheral.find("mimic")
 if mimic then
-    pcall(mimic.setMimic, { block = "spectrum:block/onyx_storage_block" })
+    pcall(mimic.setMimic, { block = "spectrum:onyx_storage_block" })
 end
 
 os.setComputerLabel("Storage")
