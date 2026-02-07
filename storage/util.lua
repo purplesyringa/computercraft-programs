@@ -60,4 +60,13 @@ function util.stringContainsCaseInsensitive(haystack, needle)
     return string.find(haystack:lower(), needle:lower(), nil, true) ~= nil
 end
 
+function util.findInTable(tbl, needle)
+    for key, value in pairs(tbl) do
+        if value == needle then
+            return key
+        end
+    end
+    return nil
+end
+
 return util

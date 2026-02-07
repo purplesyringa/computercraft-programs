@@ -28,7 +28,7 @@ local mc_to_cc_colors = {
 
 local search_field = ui.TextField:new()
 local scroll_pos = 1
-local index = {} -- Type: { [key] = item, ... }
+common.index = {} -- Type: { [key] = item, ... }
 local fullness = 0 -- percentage
 common.filtered_index = {} -- Type: { item, ... }, sorted by decreasing count
 
@@ -65,7 +65,7 @@ function common.formatItemName(item)
     return item.displayName
 end
 
-local function formatItemCount(item)
+function common.formatItemCount(item)
     if item.maxCount < 64 or item.count < 320 then
         return string.format("%d", item.count)
     end
@@ -172,7 +172,7 @@ end
 
 local function updateFilteredIndex()
     common.filtered_index = {}
-    for _, item in pairs(index) do
+    for _, item in pairs(common.index) do
         if item.count > 0 and itemMatchesQuery(item, search_field.value) then
             table.insert(common.filtered_index, item)
         end
@@ -191,7 +191,7 @@ function common.reset()
     updateFilteredIndex()
 end
 
-local function writeFormattedText(text, default_color)
+function common.writeFormattedText(text, default_color)
     for _, chunk in pairs(parseFormattedText(text)) do
         term.setTextColor(chunk.color or default_color)
         term.write(chunk.text)
@@ -227,13 +227,13 @@ function common.renderIndex(first_row, last_row, highlighted_keys)
             if highlighted_keys[util.getItemKey(item)] then
                 default_color = colors.green
             end
-            writeFormattedText(common.formatItemName(item), default_color)
+            common.writeFormattedText(common.formatItemName(item), default_color)
         end
         term.setCursorPos(1, y)
         term.setBackgroundColor(colors.blue)
         term.setTextColor(colors.white)
         if item then
-            local count = string.format("%6s", formatItemCount(item))
+            local count = string.format("%6s", common.formatItemCount(item))
             local pos_s = count:find("s")
             if pos_s == nil then
                 term.write(count)
@@ -294,10 +294,10 @@ end
 
 function common.patchIndex(msg)
     if msg.reset then
-        index = {}
+        common.index = {}
     end
     for key, item in pairs(msg.items) do
-        index[key] = item
+        common.index[key] = item
     end
     fullness = msg.fullness
     updateFilteredIndex()
