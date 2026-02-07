@@ -278,7 +278,7 @@ local function renderItemUi()
 
     term.setTextColor(colors.lightGray)
     term.setCursorPos(8, 5)
-    term.write("How much to pull?")
+    term.write("How many to pull?")
     term.setCursorPos(8, 6)
     term.write("Either ")
     term.setTextColor(colors.green)
@@ -286,7 +286,7 @@ local function renderItemUi()
     term.setTextColor(colors.lightGray)
     term.write(" or formula")
     term.setCursorPos(8, 7)
-    term.write("Leave empty to remove")
+    term.write("Leave empty to remove.")
 
     local server_item = common.index[util.getItemKey(edited_item)]
     local server_count = 0
