@@ -26,7 +26,10 @@ local function renderScreen()
     term.setBackgroundColor(colors.black)
     term.clear()
 
-    common.renderIndex(2, term_height - 1, selected_item)
+    local highlighted_keys = {
+        [util.getItemKey(selected_item)] = true
+    }
+    common.renderIndex(2, term_height - 1, highlighted_keys)
 
     if wired_name == nil then
         term.setCursorPos(1, term_height)

@@ -215,7 +215,7 @@ function common.renderSearchBar()
     term.setCursorBlink(true)
 end
 
-function common.renderIndex(first_row, last_row, selected_item)
+function common.renderIndex(first_row, last_row, highlighted_keys)
     scroll_pos = math.max(1, math.min(scroll_pos, first_row + #common.filtered_index - last_row))
 
     for y = first_row, last_row do
@@ -224,7 +224,7 @@ function common.renderIndex(first_row, last_row, selected_item)
             term.setCursorPos(8, y)
             term.setBackgroundColor(colors.black)
             local default_color = colors.white
-            if util.getItemKey(item) == util.getItemKey(selected_item) then
+            if highlighted_keys[util.getItemKey(item)] then
                 default_color = colors.green
             end
             writeFormattedText(common.formatItemName(item), default_color)
