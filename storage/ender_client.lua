@@ -34,7 +34,13 @@ local function init()
         { name = "mimic", side = "left", item = "turtlematic:mimic_gadget" },
         { name = "hub", side = "right", item = "peripheralworks:netherite_peripheralium_hub" },
     }) do
-        if not peripheral.wrap(upgrade.side) then
+        local current
+        if upgrade.side == "left" then
+            current = turtle.getEquippedLeft()
+        else
+            current = turtle.getEquippedRight()
+        end
+        if not current then
             local slot = findSlot(upgrade.item)
             assert(slot ~= nil, upgrade.item .. " not found")
             turtle.select(slot)
