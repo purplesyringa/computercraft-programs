@@ -154,7 +154,8 @@ end
 
 rednet.open(peripheral.getName(p.ender_modem))
 os.setComputerLabel("Ender Storage")
-p.mimic.setMimic({ block = "spectrum:onyx_decostone" })
+p.mimic.setMimic({ block = "spectrum:amethyst_storage_block" })
+p.mimic.setTransformation("t(0.125,0.125,0.125);s(0.75,0.75,0.75)")
 
 local term_width, term_height = term.getSize()
 
