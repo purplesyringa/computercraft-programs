@@ -20,12 +20,12 @@ peripheral.find("modem", function(name, modem)
         rednet.open(name)
     end
 end)
+local server = rednet.lookup(PROTOCOL, "fileserver")
+if server == nil then
+    error("no nfs server")
+end
 
 local function nfscall(func, ...)
-    local server = rednet.lookup(PROTOCOL, "fileserver")
-    if server == nil then
-        error("no nfs server")
-    end
     local id = current_id
     current_id = (current_id + 1) % (0xFFFFFFFF + 1)
     rednet.send(server, table.pack(id, func, ...), PROTOCOL)
