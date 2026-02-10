@@ -753,7 +753,10 @@ async.subscribe("mouse_click", function(button, x, y)
     end
     local first_y = term_height - #items_to_withdraw
     if y >= 2 and y < first_y then
-        openItemDialog(common.getVisibleItem(y - 1))
+        local item = common.getVisibleItem(y - 1)
+        if item then
+            openItemDialog(item)
+        end
     elseif y >= first_y and y < term_height then
         openItemDialog(items_to_withdraw[y - first_y + 1])
     elseif y == term_height then
