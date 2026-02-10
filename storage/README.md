@@ -1,63 +1,77 @@
 # Storage
 
-An *instant* storage with a client-server model, with support for wireless item transfer and custom clients.
+An *instant* storage with a client-server model, with support for custom clients and wireless item transfer across the overworld and the Nether.
 
-What does "instant" mean? As you write the search query in the client, 1 stack of each matching item is pulled into its inventory for preview. These previews are interactive: if you take out some of the items, the preview is immediately replenished. The inventory is updated *atomically within a single tick*, assuming your server runs on good enough hardware, so it basically has the UX of a creative menu.
+What does "instant" mean? As you write the search query in the client, 1 stack of each matching item is pulled into its inventory for preview. These previews are interactive: if you take out some of the items, the preview is immediately replenished. The inventory is updated *atomically within a single tick*, so it basically has the UX of a creative menu (assuming your server runs on good enough hardware and you don't have multiple clients competing over scarce items). This feature relies exclusively on CC:Tweaked and does not need any other supportive mods -- it's as vanilla as it gets for CC.
 
-Wireless transfer is achieved with *ender storage* turtles. These don't have a preview, but can teleport to the storage and back thanks to the Turtlematic mod, resulting in a delay of 1-2 seconds. Unlike the main part of the storage, this one requires cooperation from multiple mods: Turtlematic for mimicking and warping, UnlimitedPeripheralWorks for hubs, Create for infinite lava sources, and Spectrum for a cool block to mimic (though the last part can be safely disabled).
+Wireless transfer is achieved with *ender storage* turtles. These don't have a preview, but can teleport to the storage and back thanks to the Turtlematic mod, resulting in a delay of 1-2 seconds. Unlike the main part of the storage, this one requires cooperation from multiple mods: Turtlematic for mimicking, warping, and the lava bucket periphereal, UnlimitedPeripheralWorks for hubs, Create for infinite lava sources, and Spectrum for a cool block to mimic (though the last part can be safely disabled).
 
 Custom clients can use the server's comprehensive but small API to integrate the storage into farms or consumers.
 
 
 ## Design points
 
-A single server can concurrently deposit items to and withdraw items from multiple clients.
+A single server can deposit items to and withdraw items from multiple clients. A lot of care is put into ensuring race conditions don't break anything. The server gracefully handles client disconnects, players interacting with the turtle while the server pulls from it, etc.
 
-A lot of care is put into ensuring race conditions don't break anything. The server gracefully handles client disconnects.
+The storage requires a significant number of empty cells to operate due to the race condition avoidance algorithms. Prefer allocating 1 empty double chest per client. If the server runs out of storage, it crashes by assertion; sorry.
 
-The storage requires a significant number of empty cells to operate due to the race condition avoidance algorithms. I recommend allocating 1 empty double chest per client. If the server runs out of storage, it crashes by assertion; sorry.
-
-The server can very quickly reindex the storage. The storage is reindexed automatically when peripherals are added or removed, though doing this while clients are interacting with the storage can crash the server, so pay attention to that.
+The server can quickly reindex the storage. The storage is reindexed automatically when peripherals are added or removed, though doing this while clients are interacting with the storage can crash the server, so pay attention to that.
 
 
 ## Setup
 
-Connect the server, stationary clients, and chests into a single wired network. Clients should be advanced turtles, and the server can be either a computer or a turtle, but ender storage is only supported with the latter.
+There are two parts to set up: the wired part and, optionally, the wireless part.
 
-The server should run `server.lua` on startup, stationary clients should run `client.lua`, and ender clients should run `ender_client.lua`.
+### Wired
 
-Upon booting, the server will recognize all chests reachable by the wired network as the storage. You cannot blacklist chests, which is not a problem unless you want to use the same wired network for other purposes, in which case you can use barrels or other distinct containers.
+The wired setup is very simple.
 
-You might want to chunk-load the server and all clients if you're making a long-range network, since ComputerCraft seems to struggle with unloading computers safely.
-
+The server is a computer or a turtle running `server.lua` on startup. The clients are advanced turtles running `client.lua` on startup. They should be connected via a wired network, along with some chests. Upon booting, the server will recognize all connected chests as storage (blacklist is not supported). You might want to chunk-load the server and all clients if you're making a long-range network, since ComputerCraft seems to struggle with unloading computers safely. You're now all set.
 
 ### Wireless
 
-For a purely wired setup, you're done. Keep reading for a wireless setup.
+First, install an ender modem somewhere on the wired network and reboot the server.
 
-Install an ender modem on the server and reboot it.
+We're now going to set up *homes* for ender clients. These are locations in the world where the turtles will teleport to connect to the storage. Since turtles can break other turtles when warping, each ender client should have its own home. Homes have a specific 1-wide tileable layout, so you can place multiple homes next to each other. All homes should be chunk-loaded.
 
-Each ender client needs a "home", which is a location in the world where the turtle will teleport. Since turtles can override any block while teleporting, including other turtles, make sure each client has its own home.
+Since turtles cannot warp across dimensions, there are separate homes in the overworld and the Nether. The overworld home is connected directly to the wired network and an infinite source of lava, e.g. from Create: warping takes a lot of fuel, so lava is pretty much the only option. The Nether home is connected to the overworld home via a portal.
 
-This location must be directly connected to the storage with wired modems. Since the turtle can be placed in any orientation and can't detect it, the wired modem must be above the home rather than to the side. The modem must be in the `peripheral: true` state (i.e. have a red border around the black square) for the turtle to interact with it, but since the modem disables itself when all of its connections go away, you must place a "fake" inventory connected to the same modem, e.g. a furnace (the block should be non-flammable since we'll place lava in a bit).
+The overworld home looks like this:
 
-Since warping takes a lot of fuel, pretty much the only choice for fuel is lava buckets. The block below the turtle's home must be a regenerating lava source. One way to achieve this is to connect a hose pulley from Create to a bottomless supply of lava (i.e. 10k lava blocks, both source and flowing lava count) and pump the lava into the would-be lava source block.
+![Overworld home](screenshots/overworld_home.png)
 
-All in all, the setup should look like this: a lava source, above which is an empty space where the turtle will go, above which is an enabled modem connected to a "fake" inventory.
+- The turtle at the top is an *ender helper*, which executes tasks on behalf of the client when it's in the Nether.
+- The pipe should be connected to a pump, refilling the lava source block.
+- Make sure that all modems are enabled and connected to one wired network with the storage.
+- The block to the right of lava is a dropper. Its orientation does not matter, and it serves exclusively as a non-flammable peripheral to keep the modem enabled when the client is away.
+- The rail is oriented towards the portal; you will need to play around with rails to place multiple such rails side by side, so maybe build that part first.
+- The turtle at the bottom is the ender storage turtle. When it's away, there will be flowing lava in its space, that's fine. You'll need to break the turtle for maintenance, so make sure you have a way of removing lava sources during that time.
 
-Now we're ready to make clients. Be careful about placing or breaking turtles so as not to destroy them. One way to simplify this procedure is to remove lava during maintenance.
+The Nether home looks like this:
 
-For each wireless client, you'll need the following items:
+![Nether home](screenshots/nether_home.png)
 
-- Advanced turtle.
+- The portal must be oriented in the same direction as the overworld home, such that rails of slices reliably connect to each other.
+- The rail is oriented towards the portal. Cue the same issues.
+- Make sure that all modems are enabled, and that the two rows of modems are connected into one wired network with a cable.
+- The turtle is the ender storage turtle.
+- The chest minecart is empty.
+- The chest is empty and keeps the top modem enabled when the turtle is away.
+
+The ender helper should run `ender_helper.lua` on startup and needs a diamond sword in an equipment slot.
+
+The ender client should run `ender_client.lua` on startup and needs the following items:
+
 - Mimic gadget.
 - Netherite peripheralium hub.
 - End automata core.
+- Netherite end automata core.
 - Ender modem.
 - Speaker.
 - Bucket.
+- Diamond sword.
 
-Place the turtle into the right space, load the rest of the items into its inventory, and start the client. It should install the upgrades, get fuel, configure the block it's in as its home, and then open a UI. At this point, the turtle can be broken and carried around.
+To set it up, place an advanced turtle into its overworld home, move all of the items above into its inventory, and run `ender_client.lua`. The turtle should install the upgrades, get fuel, configure the block it's in as its home, and then open a UI. Break the turtle and place it into its Nether home next. The turtle should record the location as its Nether home and open the UI again. The turtle can now be broken and used in both dimensions.
 
 
 ## Add-ons
@@ -202,7 +216,7 @@ When the server finishes adjustment, it sends the following message:
 
 2. `new_inventory` may not be equal to the actual inventory as seen by the client if a user changes the client's inventory concurrently. This is only an issue if you expect the client's inventory to be interacted with by anyone except the client.
 
-3. Pulling from other clients' previews is an edge case. First, the server never pulls from previews for previews, so in that case you can get a smaller `count` even if `count` is within the number of items in the storage. Second, pulling from previews is not immediate: the server merely pulls the previews into *the storage*, but not into *the active client*, since that would take more time than expected. This condition is signaled by `needs_retry`: if it's `true`, some items in the goal were scheduled to be satisfied by a preview and the request needs to be retried (with new `current_inventory`) to be completed. This design allows `goal_inventory` to be updated on the second invocation if goals change, making event-driven UI more responsive.
+3. Pulling from other clients' previews is an edge case. First, the server never pulls from previews for previews, so in that case you can get a smaller `count` even if `count` is within the number of items in the storage. Second, pulling from previews can fail if the clients the storage tried to pull items from are disconnected or a player took items away concurrently. This condition is signaled by `needs_retry`: if it's `true`, the server realized its information about previews is outdated and the request needs to be retried (with new `current_inventory`) to be completed. This design allows `goal_inventory` to be updated on the second invocation if goals change, making event-driven UI more responsive.
 
 #### Timeout handling
 
@@ -218,7 +232,7 @@ The correct recovery procedure after timeout is to send a ping and block until a
 The general shape of automatic readjustment is like this:
 
 ```lua
-local readjust = async.newNotify()
+local readjust = async.newNotifyOne()
 async.spawn(function()
     while true do
         rednet.send(server_id, {
