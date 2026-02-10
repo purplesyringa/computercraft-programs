@@ -1,14 +1,17 @@
+local w = fs.open("meow.txt", "w").write _G.write = function(s) w(s) return 0 end
+
 local async = require "async"
 local common = require "common"
 local ui = require "ui"
 local util = require "util"
 
 local function init()
-    -- We can occasionally be in a state where not all peripherals are present. This occurs a) if the
-    -- server shuts down/the chunk is unloaded while we're refueling, b) after initial boot. Let's
-    -- simplify recovery and setup.
+    -- We can occasionally be in a state where not all peripherals are present. This occurs a) if
+    -- the server shuts down/the chunk is unloaded while we're refueling, b) after initial boot.
+    -- Let's simplify recovery and setup as much as we can.
 
-    -- Populate lazily to reduce startup cost on normal loads.
+    -- Populate lazily to reduce startup cost on normal loads, as the turtle restarts each time it's
+    -- placed.
     local slot_by_type = nil
     local function findSlot(item_type)
         if slot_by_type == nil then
@@ -60,10 +63,16 @@ local function init()
     end
     for _, upgrade in pairs({
         {
-            name = "end_automata",
+            name = "overworld_end_automata",
             item = "turtlematic:end_automata_core",
             upgrade = "turtlematic:end_automata",
             id = "endAutomata_1",
+        },
+        {
+            name = "nether_end_automata",
+            item = "turtlematic:netherite_end_automata_core",
+            upgrade = "turtlematic:netherite_end_automata",
+            id = "endAutomata_2",
         },
         {
             name = "ender_modem",
@@ -81,28 +90,39 @@ local function init()
             name = "lava_bucket",
             item = "minecraft:lava_bucket",
             upgrade = "turtlematic:lava_bucket",
-            id = "lava_bucket_1",
+            id = nil,
+        },
+        {
+            name = "pickaxe",
+            item = "minecraft:diamond_pickaxe",
+            upgrade = "minecraft:diamond_pickaxe",
+            id = nil,
         }
     }) do
         if not present_upgrades[upgrade.upgrade] then
             local slot = findSlot(upgrade.item)
             if not slot and upgrade.name == "lava_bucket" then
-                -- Special case: try to fill an empty bucket.
+                -- Special case: try to fill an empty bucket. This succeeds in the overworld and
+                -- fails in the nether, but that seems fine.
                 slot = findSlot("minecraft:bucket")
                 if slot ~= nil then
+                    local down = turtle.inspectDown()
+                    assert(not (down and down.name == "minecraft:fire"), "stuck in the nether")
                     turtle.select(slot)
-                    turtle.placeDown()
+                    turtle.placeUp()
                     while turtle.getItemDetail(slot).name ~= "minecraft:lava_bucket" do
-                        turtle.placeDown()
+                        turtle.placeUp()
                     end
                 end
             end
             assert(slot ~= nil, upgrade.item .. " not found")
             p.hub.equip(slot)
         end
-        local wrapped = peripheral.wrap(upgrade.id)
-        assert(wrapped, upgrade.item .. " not found")
-        p[upgrade.name] = wrapped
+        if upgrade.id ~= nil then
+            local wrapped = peripheral.wrap(upgrade.id)
+            assert(wrapped, upgrade.item .. " not found")
+            p[upgrade.name] = wrapped
+        end
     end
 
     return p
@@ -110,8 +130,21 @@ end
 
 local p = init()
 
-local function refuel()
-    local n = math.floor((turtle.getFuelLimit() - turtle.getFuelLevel()) / 1000)
+os.setComputerLabel("Ender Storage")
+
+local function setMimic()
+    p.mimic.setMimic({ block = "supplementaries:lapis_bricks" })
+    -- p.mimic.setMimic({ block = "spectrum:amethyst_storage_block" })
+    p.mimic.setTransformation("t(0.125,0.125,0.125);s(0.75,0.75,0.75)")
+end
+setMimic()
+
+local function getRefuelAmount()
+    return math.floor((turtle.getFuelLimit() - turtle.getFuelLevel()) / 1000)
+end
+
+local function refuelInOverworld()
+    local n = getRefuelAmount()
     if n == 0 then
         return
     end
@@ -120,42 +153,60 @@ local function refuel()
     -- assert. Ask for detail to make sure we run on the main thread, since otherwise there doesn't
     -- seem to be any synchronization.
     if turtle.getItemDetail(16, true) then
-        error_message = "Storage full??"
-        return
+        return "Storage full??"
     end
 
+    -- Lava buckets are valid peripherals, so we store the bucket in the peripheralium hub.
+    -- `unequip` always populates the first available slot, so we have to free up the first slot
+    -- since we don't know which one it'll choose otherwise.
     turtle.select(1)
     turtle.transferTo(16)
-
-    -- Lava buckets are valid peripherals, so we can store a bucket within the peripheralium hub.
-    -- `unequip` always populates the first available slot, which is guaranteed to be 1.
     p.hub.unequip("turtlematic:lava_bucket")
 
     for _ = 1, n do
         turtle.refuel()
-        turtle.placeDown()
+        turtle.placeUp()
         while turtle.getItemDetail(1).name ~= "minecraft:lava_bucket" do
-            turtle.placeDown()
+            turtle.placeUp()
         end
     end
 
     p.hub.equip(1)
-
     turtle.select(16)
     turtle.transferTo(1)
 end
 
 -- Set up before listening to events.
-if not next(p.end_automata.points()) then
-    print("Setting up")
-    refuel()
-    p.end_automata.savePoint("home")
+local function setup()
+    -- Calling any warping APIs immediately binds the end automata to the current dimension if it's
+    -- not already bound. Assume the first setup runs in the overworld, but otherwise don't make any
+    -- assumptions.
+    local ok, result = pcall(p.overworld_end_automata.points)
+    if ok then
+        if not next(result) then
+            print("Setting up overworld")
+            refuelInOverworld()
+            p.overworld_end_automata.savePoint("home")
+        end
+        return "overworld"
+    end
+
+    -- We're not in the overworld, so probably in the nether.
+    ok, result = pcall(p.nether_end_automata.points)
+    if ok then
+        if not next(result) then
+            print("Setting up the nether")
+            p.nether_end_automata.savePoint("home")
+        end
+        return "nether"
+    end
+
+    error("Storage is not accessible from this dimension.")
 end
 
+local current_dimension = setup()
+
 rednet.open(peripheral.getName(p.ender_modem))
-os.setComputerLabel("Ender Storage")
-p.mimic.setMimic({ block = "spectrum:amethyst_storage_block" })
-p.mimic.setTransformation("t(0.125,0.125,0.125);s(0.75,0.75,0.75)")
 
 local term_width, term_height = term.getSize()
 
@@ -165,7 +216,7 @@ local awaited_pong = nil
 local inventory_adjusted = async.newNotifyWaiters()
 local inventory_adjusted_message = nil
 
-local function adjustInventory(wired_name, goal_inventory)
+local function adjustInventoryWired(wired_name, goal_inventory)
     -- The previous operation might have timed out, so we need to send a ping and wait for a pong to
     -- ensure the messages are processed up until that point. Wasting a bit of time here is not
     -- a big deal due to the warp cooldown anyway.
@@ -175,7 +226,7 @@ local function adjustInventory(wired_name, goal_inventory)
         received = async.newNotifyOne(),
         server_id = nil,
     }
-    rednet.send(rednet.CHANNEL_BROADCAST, { type = "ping", id = ping_id }, "purple_storage")
+    rednet.broadcast({ type = "ping", id = ping_id }, "purple_storage")
     awaited_pong.received.wait()
     local server_id = awaited_pong.server_id
 
@@ -319,7 +370,7 @@ local function renderItemUi()
 end
 
 local function parseCount(s, stack_size)
-    s = s:match("^%s*(.-)%s*$")
+    s = s:match("^%s*(.-)%s*$") -- trim
     if s == "" then
         return true, 0
     end
@@ -437,23 +488,185 @@ local function onInteraction()
     end
 end
 
+local function getEndAutomata()
+    return p[current_dimension .. "_end_automata"]
+end
+
 local function warp(point_name)
+    local automata = getEndAutomata()
     while true do
-        local ok, err = p.end_automata.warpToPoint(point_name)
+        local ok, err = automata.warpToPoint(point_name)
         if ok then
             return
         end
         if err ~= "warp is on cooldown" then
             error(err)
         end
-        os.sleep(p.end_automata.getCooldown("warp") / 1000)
+        os.sleep(automata.getCooldown("warp") / 1000)
     end
+end
+
+local function connectToWiredModem()
+    local wired_modem = nil
+    while not wired_modem do
+        os.sleep(0.1)
+        wired_modem = peripheral.find("modem", function(_, modem)
+            return not modem.isWireless()
+        end)
+    end
+    local wired_name = wired_modem.getNameLocal()
+    assert(wired_name, "modem disconnected from network")
+    return wired_name
+end
+
+local function adjustInventoryOverworld(wired_name, goal_inventory)
+    -- The server might be dead, disconnected, or there might be lag. Either way, we can't just sit
+    -- here forever, since the player might move around and forget where they left the client, so
+    -- we just timeout and come back. If the server eventually wakes up and tries to interact with
+    -- the client, we'll already have left the wired network by that point, so it'll fail silently;
+    -- or if we return back by that point, we'll quickly sort it out by ping-pong.
+    local key = async.race({
+        sleep = util.bind(os.sleep, 5),
+        adjust = util.bind(adjustInventoryWired, wired_name, goal_inventory),
+    })
+    if key == "sleep" then
+        return "Operation timed out"
+    end
+    -- We only refuel if we've successfully interacted with the server, since otherwise we might
+    -- race and the server will take our lava bucket away, which would be disastrous. We'd love to
+    -- refuel unconditionally, since otherwise we can run out of fuel, but that probably won't end
+    -- up mattering: an advanced turtle filled to the brim can do 500 round trips over a 10k
+    -- distance.
+    return refuelInOverworld()
+end
+
+local waiting_on_order = nil
+
+local function adjustInventoryNether(wired_name, goal_inventory)
+    -- We only see peripherals in front of and to the back of ourselves, since we have equipment. So
+    -- if we don't see a rail, we just need to turn once.
+    if not (
+        peripheral.hasType("front", "minecraft:powered_rail")
+        or peripheral.hasType("back", "minecraft:powered_rail")
+    ) then
+        turtle.turnLeft()
+    end
+
+    local rail, cart = common.wrapRailWired()
+
+    -- Before we mutate anything, sanity checks don't need to panic.
+    if not rail then
+        return "No minecart"
+    end
+
+    async.parMap(util.iota(16), function(slot)
+        rail.pullItems(wired_name, slot, nil, slot)
+    end)
+
+    -- Unlike the overworld, the helper can always refill our bucket, because the server operates
+    -- directly on the cart, so we're free to drink it now if necessary. We can only request
+    -- a single bucket of lava to be refilled, but it's sufficient for a 250k long roundtrip,
+    -- which should be plenty.
+    local need_refuel = getRefuelAmount() > 0
+    if need_refuel then
+        -- All slots are empty, so this should populate slot 1.
+        p.hub.unequip("turtlematic:lava_bucket")
+        turtle.select(1)
+        turtle.refuel()
+        rail.pullItems(wired_name, 1, nil, 27)
+    end
+
+    -- Place an order, using the cart's UUID as a unique key. The cart retains its UUID when it
+    -- passes through the portal, so this is a major simplification.
+    waiting_on_order = {
+        cart = cart.uuid,
+        delivered = async.newNotifyOne(),
+    }
+    rednet.broadcast({
+        type = "place_order",
+        cart = cart.uuid,
+        goal_inventory = goal_inventory,
+    }, "purple_storage")
+
+    common.sendCartToPortal(rail)
+
+    -- We're now waiting on the helper. After the cart comes back, we'll need to break it, but we
+    -- have to face it to do that. Since turtle movement is blocking, now's the best time to turn
+    -- towards the rail while overlapping it with waiting.
+    while true do
+        local ok, block = turtle.inspect()
+        if ok and block.name == "minecraft:powered_rail" then
+            break
+        end
+        turtle.turnLeft()
+    end
+
+    -- There is no timeout logic here: if we timed out due to lag and warped away, and then the cart
+    -- arrived, it'd derail, since we'd no longer be standing in its way. However, the helper is
+    -- much simpler than the storage, so there should be fewer odd failure modes that necessiate
+    -- timing out; and a client can only break its own helper if things go south, so other clients
+    -- should stay operational.
+    waiting_on_order.delivered.wait()
+
+    -- The cart should appear soon, so busy waiting is fine.
+    while rail.size() == 0 do
+        os.sleep(0.1)
+    end
+
+    -- If adjustment failed due to timeout, the cart can contain both an item in slot 16 and
+    -- a refilled lava bucket. Take out the latter first, since otherwise we might not have space.
+    if need_refuel then
+        rail.pushItems(wired_name, 27, nil, 1)
+        p.hub.equip(1)
+    end
+
+    local is_ok = waiting_on_order.response.error_message == nil
+
+    async.parMap(util.iota(16), function(slot)
+        local to_slot = slot
+        if is_ok and slot == 1 then
+            to_slot = 16
+        end
+        rail.pushItems(wired_name, slot, nil, to_slot)
+    end)
+
+    if is_ok then
+        -- We've guaranteed to have a free 16th slot (or rather 1st, since we've adjusted indexes
+        -- that way when pulling items from the cart), so the cooldown can now be reset for future
+        -- interactions. But we need a tool to dig with, and it has to be directly in the hand: the
+        -- hub doesn't work. So we replace the mimic with the pickaxe, dig, and then turn everything
+        -- back as it was.
+        p.hub.unequip("minecraft:diamond_pickaxe")
+        turtle.select(1)
+        turtle.equipLeft()
+        p.hub.equip(1)
+        common.resetCartCooldown(wired_name, 1)
+        p.hub.unequip("turtlematic:mimic")
+        turtle.equipLeft()
+        p.hub.equip(1)
+        turtle.select(16)
+        turtle.transferTo(1)
+        -- The mimic's name shouldn't have changed because it's unique.
+        setMimic()
+    else
+        -- Resetting cooldown requires the 16th slot to be empty, but our entire inventory might be
+        -- full since adjustment didn't complete. Wait for the cooldown to end naturally. We should
+        -- probably move this sleep to the start of the next operation, but this only occurs on
+        -- failures and should be rare if the storage is always online.
+        os.sleep(15)
+    end
+
+    return waiting_on_order.response.error_message
 end
 
 local committing = false
 
 local function commitOperation()
-    assert(not committing, "cannot commit while committing")
+    if committing then
+        -- If the user interacts with the turtle while it's teleporting away, ignore that.
+        -- Reentering would be disasterous.
+        return
+    end
     committing = true
 
     local goal_inventory = {}
@@ -468,40 +681,22 @@ local function commitOperation()
         end
     end
 
-    assert(p.end_automata.savePoint("outskirts"), "failed to save point")
+    local automata = getEndAutomata()
+
+    assert(automata.savePoint("outskirts"), "failed to save point")
 
     p.speaker.playSound("entity.enderman.teleport")
     warp("home")
 
-    local wired_modem = nil
-    while not wired_modem do
-        os.sleep(0.1)
-        wired_modem = peripheral.find("modem", function(_, modem)
-            return not modem.isWireless()
-        end)
-    end
-    local wired_name = wired_modem.getNameLocal()
-    assert(wired_name, "modem disconnected from network")
-
-    -- The server might be dead, disconnected, or there might be lag. Either way, we can't just sit
-    -- here forever, since the player might move around and forget where they left the client, so
-    -- we just timeout and come back. If the server eventually wakes up and tries to interact with
-    -- the client, we'll already have left the wired network by that point, so it'll fail silently;
-    -- or if we return back by that point, we'll quickly sort it out by ping-pong.
-    local key = async.race({
-        sleep = util.bind(os.sleep, 5),
-        adjust = util.bind(adjustInventory, wired_name, goal_inventory),
-    })
-    if key == "sleep" then
-        error_message = "Operation timed out"
+    local wired_name = connectToWiredModem()
+    if current_dimension == "overworld" then
+        error_message = adjustInventoryOverworld(wired_name, goal_inventory)
     else
+        error_message = adjustInventoryNether(wired_name, goal_inventory)
+    end
+
+    if error_message == nil then
         items_to_withdraw = {}
-        -- We only refuel if we've successfully interacted with the server, since otherwise we might
-        -- race and the server will take our lava bucket away, which would be disastrous. We'd love
-        -- to refuel unconditionally, since otherwise we can run out of fuel, but that probably
-        -- won't end up mattering: an advanced turtle filled to the brim can do 500 round trips over
-        -- a 10k distance.
-        refuel()
     end
 
     warp("outskirts")
@@ -627,10 +822,15 @@ async.spawn(function()
                 awaited_pong.server_id = computer_id
                 awaited_pong.received.notifyOne()
             end
+        elseif msg.type == "order_delivered" then
+            if waiting_on_order and msg.cart == waiting_on_order.cart then
+                waiting_on_order.response = msg
+                waiting_on_order.delivered.notifyOne()
+            end
         end
     end
 end)
 
-rednet.send(rednet.CHANNEL_BROADCAST, { type = "request_index" }, "purple_storage")
+rednet.broadcast({ type = "request_index" }, "purple_storage")
 
 async.drive()
