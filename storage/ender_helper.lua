@@ -51,11 +51,14 @@ local function handleOrder(rail, goal_inventory)
     -- Get ready to break the cart: take out the bucket and items.
     local has_bucket = rail.pushItems(wired_name, 27, nil, 1) ~= 0
 
-    local server_id = ping()
+    local server_id
     local current_inventory = async.parMap(util.iota(16), rail.getItemDetail)
     local key = async.race({
         sleep = util.bind(os.sleep, 15),
-        adjust = util.bind(adjustInventory, server_id, rail, current_inventory, {}),
+        adjust = function()
+            server_id = ping()
+            adjustInventory(server_id, rail, current_inventory, {})
+        end,
     })
     -- If adjustment times out, the cart is not guaranteed to be empty, so we can't reset its
     -- cooldown by breaking it. But since we timeout for 15s, the natural cooldown has already
