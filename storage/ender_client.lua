@@ -497,12 +497,16 @@ local function warp(point_name)
     while true do
         local ok, err = automata.warpToPoint(point_name)
         if ok then
-            return
+            return true
         end
-        if err ~= "warp is on cooldown" then
+        if err == "warp is on cooldown" then
+            os.sleep(automata.getCooldown("warp") / 1000)
+        elseif err == "Move forbidden" then
+            -- the chunk is unloaded
+            return false
+        else
             error(err)
         end
-        os.sleep(automata.getCooldown("warp") / 1000)
     end
 end
 
@@ -694,21 +698,26 @@ local function commitOperation()
     assert(automata.savePoint("outskirts"), "failed to save point")
 
     p.speaker.playSound("entity.enderman.teleport")
-    warp("home")
-
-    local wired_name = connectToWiredModem()
-    if current_dimension == "overworld" then
-        error_message = adjustInventoryOverworld(wired_name, goal_inventory)
+    if not warp("home") then
+        error_message = "Storage unloaded"
     else
-        error_message = adjustInventoryNether(wired_name, goal_inventory)
-    end
+        local wired_name = connectToWiredModem()
+        if current_dimension == "overworld" then
+            error_message = adjustInventoryOverworld(wired_name, goal_inventory)
+        else
+            error_message = adjustInventoryNether(wired_name, goal_inventory)
+        end
 
-    if error_message == nil then
-        items_to_withdraw = {}
-    end
+        if error_message == nil then
+            items_to_withdraw = {}
+        end
 
-    warp("outskirts")
-    p.speaker.playSound("entity.enderman.teleport")
+        if warp("outskirts") then
+            p.speaker.playSound("entity.enderman.teleport")
+        else
+            error_message = "Outskirts unloaded"
+        end
+    end
 
     committing = false
     renderScreen()
