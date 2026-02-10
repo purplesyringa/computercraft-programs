@@ -277,6 +277,7 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
         if not goal_item then
             goto next_goal_slot
         end
+        touchItem(goal_item)
         local goal_key = util.getItemKey(goal_item)
 
         local pushed = 0
@@ -346,7 +347,6 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
         -- Populate expected inventory from `pushed` before trying to load other clients' previews,
         -- since that doesn't happen immediately.
         if pushed > 0 then
-            touchItem(goal_item)
             new_inventory[slot_to] = util.itemWithCount(goal_item, pushed)
         end
 
