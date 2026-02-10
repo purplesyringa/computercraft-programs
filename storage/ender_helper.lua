@@ -61,7 +61,7 @@ local function handleOrder(rail, goal_inventory)
     -- cooldown by breaking it. But since we timeout for 15s, the natural cooldown has already
     -- passed and we don't have to worry about it.
     if key == "adjust" then
-        common.resetCartCooldown(wired_name, 1)
+        common.resetCartCooldown(wired_name, 2)
         rail = common.wrapRailWired() -- name is reset when the rail is removed and re-placed
         key = async.race({
             sleep = util.bind(os.sleep, 5),
