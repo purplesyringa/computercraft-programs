@@ -14,9 +14,9 @@
 -- the inventory at any point from the moment the client loads its current inventory to the point
 -- when the server reports success, this will emit `turtle_inventory` and trigger an adjustment.
 --
--- The server schedules all visible moves without yielding. This doesn't mean they will occur within
--- a single tick, since Lua code runs in a parallel thread, but it will look almost immediate on
--- good hardware.
+-- The server usually schedules all visible moves without yielding. This doesn't mean they will
+-- occur within a single tick, since Lua code runs in a parallel thread, but it will look almost
+-- immediate on good hardware. An exception is pulling from previews, which we discuss later.
 --
 -- # Storage
 --
@@ -25,12 +25,8 @@
 --
 -- Since users may racily change client inventories, we always interact with clients through
 -- an emphemeral chest cell. This way we can inspect the type of the pulled item before depositing
--- it, and pull items back to storage if pushing fails.
---
--- This means that we momentarily don't know which items are actually present; to keep statistics
--- pretty, we treat such "ghost" items optimistically while in-flight. The clients are notified
--- whenever such delayed operations complete, so they can re-request adjustment if new items become
--- available.
+-- it, and pull items back to storage if pushing fails. The server serializes operations, so the
+-- index is never visible while items are in flight.
 
 local async = require "async"
 local util = require "util"
@@ -50,7 +46,6 @@ function Index:new(on_keys_changed)
         -- Type: {
         --     [key] = {
         --         item, -- full item information, except `count`
-        --         ghost_count, -- the number of in-flight items we assume to be in storage
         --         chest_cells = {
         --             {
         --                 chest, -- wrapped chest inventory
@@ -105,7 +100,6 @@ function Index:new(on_keys_changed)
                     if not index.items[key] then
                         index.items[key] = {
                             item = item,
-                            ghost_count = 0,
                             chest_cells = {},
                         }
                     end
@@ -144,7 +138,7 @@ function Index:takeEmptyCell()
     return empty_cell
 end
 
-function Index:importChestCell(input_cell)
+function Index:importChestCell(input_cell, on_before_import)
     local input_item = input_cell.chest.getItemDetail(input_cell.slot)
     if not input_item then
         table.insert(self.empty_cells, input_cell)
@@ -154,11 +148,13 @@ function Index:importChestCell(input_cell)
     input_cell.count = input_item.count
 
     local key = util.getItemKey(input_item)
+    if on_before_import then
+        on_before_import(key)
+    end
 
     if not self.items[key] then
         self.items[key] = {
             item = input_item,
-            ghost_count = 0,
             chest_cells = {},
         }
     end
@@ -192,56 +188,36 @@ function Index:importChestCell(input_cell)
     return key
 end
 
-function Index:addGhostItems(item, count)
-    local key = util.getItemKey(item)
-    if not self.items[key] then
-        self.items[key] = {
-            item = item,
-            ghost_count = 0,
-            chest_cells = {},
-        }
-    end
-    local item_info = self.items[key]
-    item_info.ghost_count = item_info.ghost_count + count
-end
-
-function Index:removeGhostItems(item, count)
-    local item_info = self.items[util.getItemKey(item)]
-    item_info.ghost_count = item_info.ghost_count - count
-end
-
 function Index:adjustInventory(client, current_inventory, goal_inventory, preview)
     -- The high-level logic here is:
     --
     -- 1. Move wrong inventory items to "holding" cells.
     -- 2. For each slot, pull insufficient items from inventory, chests, and previews. When pulling
-    --    from chests, we move items through a holding cell. When pulling from previews, we only
-    --    schedule the pulling and don't wait for it; when it completes, we notify the client to
-    --    retry.
+    --    from chests and previews, we move items through holding cells. For previews, we validate
+    --    that the type is what we expect.
     -- 3. Import items from holding cells. This accounts for failed moves and depositing items.
     --
     -- We need to be careful not to broadcast index updates for untouched items, since that would
     -- cause the client to trigger a retry, leading to an infinite loop without any useful work.
 
+    -- Track keys whose counts were changed -- both total counts and counts accessible for preview
+    -- (i.e. chests only). This is necessary because clients rely on index updates to trigger
+    -- readjustment, which can fail due to items being in preview, even as the total count remains
+    -- unchanged.
+    --
+    -- The key should always be touched *before* modifying its counts.
     local touched_keys = {}
-    local function touchItem(item)
-        local key = util.getItemKey(item)
-        if touched_keys[key] == nil then
-            touched_keys[key] = self:getItemCount(key)
+    local function touchKey(key)
+        if key ~= nil and touched_keys[key] == nil then
+            touched_keys[key] = self:getItemCounts(key)
         end
     end
 
-    -- `changed_keys` plays two roles here. It tracks the items whose a) counts, b) ghost counts
-    -- were changed. This is necessary because clients rely on index updates to trigger
-    -- readjustment, which can fail due to items being in ghost state, even as the count is
-    -- unaffected. So we emit updates for changed counts via `touched_keys`, but also forcibly for
-    -- ghost items regardless of counts.
-    local changed_keys = {}
     local task_set = async.newTaskSet()
 
     -- Clear preview.
     for _, item in pairs(self.previews[client] or {}) do
-        touchItem(item)
+        touchKey(util.getItemKey(item))
     end
     self.previews[client] = nil
 
@@ -277,8 +253,8 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
         if not goal_item then
             goto next_goal_slot
         end
-        touchItem(goal_item)
         local goal_key = util.getItemKey(goal_item)
+        touchKey(goal_key)
 
         local pushed = 0
         local current_item = current_inventory[slot_to]
@@ -311,7 +287,8 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
             local input_key = util.getItemKey(current_inventory[slot_from])
             if input_key == goal_key and input_cell.count > 0 then
                 pushItems(input_cell)
-                -- Don't delete the cell entirely, since we still want to return it.
+                -- If the input cell is now empty, don't delete it, since we still want to return it
+                -- to storage.
             end
         end
 
@@ -336,58 +313,73 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
                 output_cell.chest.pushItems(client, output_cell.slot, nil, slot_to)
             end))
             task_set.spawn(function()
-                local actual_key = self:importChestCell(output_cell)
-                -- If a push failed, there was a race, and we want to trigger a retry.
-                if actual_key ~= nil then
-                    changed_keys[actual_key] = true
-                end
+                -- No need to touch the actual key here because we trust the chest, and so the key
+                -- is `goal_key`, which we've already touched.
+                self:importChestCell(output_cell)
             end)
         end
 
-        -- Populate expected inventory from `pushed` before trying to load other clients' previews,
-        -- since that doesn't happen immediately.
-        if pushed > 0 then
-            new_inventory[slot_to] = util.itemWithCount(goal_item, pushed)
-        end
-
-        -- Try other clients' previews. We don't trust them, so instead of pushing immediately, we
-        -- trigger the appropriate number of items to be withdrawn, and then rely on the client to
-        -- re-request adjustment once that completes.
-        if preview then
-            goto next_goal_slot
-        end
-        for other_client, other_inventory in pairs(self.previews) do
-            for slot_from, other_item in pairs(other_inventory) do
+        if not preview then
+            -- Try other clients' previews. We can't just schedule withdrawal and expect our client
+            -- to ask again, since the original client might steal the items for preview, so this
+            -- has to be blocking.
+            for other_client, other_inventory in pairs(self.previews) do
                 if pushed == goal_item.count then
-                    goto next_goal_slot
+                    break
                 end
-                if util.getItemKey(other_item) == goal_key then
-                    local tmp_cell = self:takeEmptyCell()
-                    local cur_limit = math.min(goal_item.count - pushed, other_item.count)
-                    pushed = pushed + cur_limit
-                    other_item.count = other_item.count - cur_limit
-                    if other_item.count == 0 then
-                        other_inventory[slot_from] = nil
+                for slot_from, other_item in pairs(other_inventory) do
+                    if pushed == goal_item.count then
+                        break
                     end
-                    needs_retry = true
-                    task_set.spawn(util.bind(pcall, function() -- protect against client disconnects
-                        tmp_cell.chest.pullItems(
-                            other_client,
-                            slot_from,
-                            cur_limit,
-                            tmp_cell.slot
-                        )
-                    end))
-                    task_set.spawn(function()
-                        self:addGhostItems(other_item, cur_limit)
-                        local actual_key = self:importChestCell(tmp_cell)
-                        if actual_key ~= nil then
-                            changed_keys[actual_key] = true
-                        end
-                        self:removeGhostItems(other_item, cur_limit)
-                    end)
+                    if util.getItemKey(other_item) == goal_key then
+                        local tmp_cell = self:takeEmptyCell()
+                        local cur_limit = math.min(goal_item.count - pushed, other_item.count)
+                        pushed = pushed + cur_limit
+                        task_set.spawn(util.bind(pcall, function() -- protect against client disconnects
+                            tmp_cell.chest.pullItems(
+                                other_client,
+                                slot_from,
+                                cur_limit,
+                                tmp_cell.slot
+                            )
+                        end))
+                        task_set.spawn(function()
+                            local item = tmp_cell.chest.getItemDetail(tmp_cell.slot)
+                            if item and util.getItemKey(item) == goal_key then
+                                if item.count < cur_limit then
+                                    -- The client must've had fewer items than we expected -- treat
+                                    -- this as corruption.
+                                    other_inventory[slot_from] = nil
+                                    needs_retry = true
+                                else
+                                    other_item.count = other_item.count - item.count
+                                    if other_item.count == 0 then
+                                        other_inventory[slot_from] = nil
+                                    end
+                                end
+                                async.spawn(function()
+                                    tmp_cell.chest.pushItems(client, tmp_cell.slot, nil, slot_to)
+                                end)
+                            else
+                                -- The other client's preview seems to be incorrect, possibly due to
+                                -- a race or a disconnect. Either way, treat that specific item as
+                                -- absent, since we haven't witnessed other corruption yet.
+                                other_inventory[slot_from] = nil
+                                needs_retry = true
+                            end
+                            -- If pulling from preview succeeds, we still don't know if pushing to
+                            -- the client suceeds, so we just import the chest cell without assuming
+                            -- anything. Note that if there was a race and we pulled an unexpected
+                            -- item, it also needs to be touched!
+                            self:importChestCell(tmp_cell, touchKey)
+                        end)
+                    end
                 end
             end
+        end
+
+        if pushed > 0 then
+            new_inventory[slot_to] = util.itemWithCount(goal_item, pushed)
         end
 
         ::next_goal_slot::
@@ -395,16 +387,9 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
 
     -- Import what the client wants to get rid of. This includes empty cells, since we want to
     -- return them to `empty_cells`.
-    for slot_from, input_cell in pairs(input_cells) do
+    for _, input_cell in pairs(input_cells) do
         task_set.spawn(function()
-            local ghost_count = input_cell.count
-            local item = current_inventory[slot_from]
-            self:addGhostItems(item, ghost_count)
-            local actual_key = self:importChestCell(input_cell)
-            if actual_key then
-                changed_keys[actual_key] = true
-            end
-            self:removeGhostItems(item, ghost_count)
+            self:importChestCell(input_cell, touchKey)
         end)
     end
 
@@ -413,45 +398,58 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
         self.previews[client] = new_inventory
     end
 
+    task_set.join()
+
     -- Filter for actual changes before submitting index updates to avoid infinite loops.
-    for key, old_count in pairs(touched_keys) do
-        if self:getItemCount(key) ~= old_count then
+    local changed_keys = {}
+    for key, old_counts in pairs(touched_keys) do
+        local new_counts = self:getItemCounts(key)
+        if new_counts.total ~= old_counts.total or new_counts.chest ~= old_counts.chest then
             changed_keys[key] = true
         end
     end
-
-    task_set.join()
-
     self:triggerKeysChanged(changed_keys)
 
     return new_inventory, needs_retry
 end
 
-function Index:getItemCount(key)
+function Index:getItemCounts(key)
     local item_info = self.items[key]
     if not item_info then
-        return 0
+        return {
+            preview = 0,
+            chest = 0,
+            total = 0,
+        }
     end
-    local count = item_info.ghost_count
+
+    local preview_count = 0
     for _, inventory in pairs(self.previews) do
         for _, item in pairs(inventory) do
             if util.getItemKey(item) == key then
-                count = count + item.count
+                preview_count = preview_count + item.count
             end
         end
     end
+
     -- Chest cells are ordered by decreasing count, so if we iterate backwards, once we encounter
     -- a full stack, the rest must be also full.
+    local chest_count = 0
     for i = #item_info.chest_cells, 1, -1 do
         local cell = item_info.chest_cells[i]
         if cell.count == item_info.item.maxCount then
-            count = count + cell.count * i
+            chest_count = chest_count + cell.count * i
             break
         else
-            count = count + cell.count
+            chest_count = chest_count + cell.count
         end
     end
-    return count
+
+    return {
+        preview = preview_count,
+        chest = chest_count,
+        total = preview_count + chest_count,
+    }
 end
 
 function Index:triggerKeysChanged(changed_keys)
@@ -462,7 +460,7 @@ function Index:triggerKeysChanged(changed_keys)
     for key, _ in pairs(changed_keys) do
         local item_info = self.items[key]
         if item_info then
-            items[key] = util.itemWithCount(item_info.item, self:getItemCount(key))
+            items[key] = util.itemWithCount(item_info.item, self:getItemCounts(key).total)
         end
     end
     self.on_keys_changed(items, self:getFullness())
@@ -471,7 +469,7 @@ end
 function Index:formatIndex()
     local items = {}
     for key, item_info in pairs(self.items) do
-        items[key] = util.itemWithCount(item_info.item, self:getItemCount(key))
+        items[key] = util.itemWithCount(item_info.item, self:getItemCounts(key).total)
     end
     return items
 end
