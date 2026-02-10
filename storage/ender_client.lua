@@ -629,6 +629,7 @@ local function adjustInventoryNether(wired_name, goal_inventory)
         equipMimic()
         -- We should probably move this sleep to the start of the next operation, but this only
         -- occurs on failures and should be rare if the storage is always online.
+        os.sleep(15)
     end
 
     async.parMap(util.iota(16), function(slot)
