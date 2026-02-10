@@ -93,9 +93,9 @@ local function init()
             id = nil,
         },
         {
-            name = "pickaxe",
-            item = "minecraft:diamond_pickaxe",
-            upgrade = "minecraft:diamond_pickaxe",
+            name = "sword",
+            item = "minecraft:diamond_sword",
+            upgrade = "minecraft:diamond_sword",
             id = nil,
         }
     }) do
@@ -605,9 +605,9 @@ local function adjustInventoryNether(wired_name, goal_inventory)
         turtle.turnLeft()
     end
 
-    -- On a similar note, we need to hold a diamond pickaxe directly in our hands, so swap it with
-    -- the mimic.
-    p.hub.unequip("minecraft:diamond_pickaxe")
+    -- On a similar note, we need to hold a diamond sword directly in our hands, so swap it with the
+    -- mimic.
+    p.hub.unequip("minecraft:diamond_sword")
     turtle.select(1)
     turtle.equipLeft()
     p.hub.equip(1)
@@ -662,7 +662,7 @@ local function adjustInventoryNether(wired_name, goal_inventory)
         -- We've guaranteed to have a free 16th slot (or rather 1st, since we've adjusted indexes
         -- that way when pulling items from the cart), so the cooldown can now be reset for future
         -- interactions.
-        common.resetCartCooldown(wired_name, 1)
+        common.resetCartCooldown(1)
         equipMimic()
         turtle.select(16)
         turtle.transferTo(1)

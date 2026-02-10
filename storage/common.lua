@@ -350,58 +350,9 @@ function common.sendCartToPortal(rail)
     rail.pushMinecarts(true)
 end
 
--- Invalidates wired rail peripheral name.
-function common.resetCartCooldown(wired_name, empty_slot)
-    -- Reset the cart's portal cooldown by breaking and re-placing it.
+function common.resetCartCooldown(empty_slot)
     turtle.select(empty_slot)
-
-    -- The cart is considered to be on the rail almost as soon as its hitbox intersects it, but we
-    -- need it to travel about 1 more block to reliably intersect the fire and be picked up by the
-    -- hopper. It seems like the implicit delay from all the operations performed before this
-    -- function and the cart retaining momentum for a while after breaking the block is sufficient.
-    turtle.dig()
-
-    -- `dig` blocks for a fixed number of ticks, so by the time it completes, the cart should
-    -- already be broken.
-    turtle.place()
-
-    -- Find the cart in *any* of the hoppers. Searching only our hopper would be cleaner, but
-    -- requires setup, which we want to avoid. Since broken carts are indistinguishable, it's fine
-    -- to steal someone else's cart.
-    --
-    -- There is no race here as long as all clients iterate over hoppers in the same order. The
-    -- proof goes something like this:
-    --
-    -- We maintain an invariant that, at each point, there is a bijection between turtles and carts
-    -- in hoppers, such that the cart is to the right of the corresponding turtle's iterator. When
-    -- a new cart is broken, the turtle starts at the beginning of the list and so the bijection is
-    -- trivially extended, mapping the turtle to its cart. When a turtle fails to find a cart at its
-    -- current iterator and increments the iterator, the bijection remains intact and valid. When
-    -- a turtle takes its own cart, the bijection is trivially shrunk.
-    --
-    -- The interesting part is when some turtle A steals a cart from turtle B. Since turtle B's
-    -- iterator is to the left of B's cart, B's cart is at turtle A's iterator, and turtle A's
-    -- iterator is to the left of A's cart, it is valid to readjust the bijection to point turtle B
-    -- at A's cart and remove turtle A and cart B. This step relies on transitivity and the orders
-    -- of A and B being compatible.
-
-    -- Hoppers are only accessible via network, so the names match across clients.
-    local hoppers = { peripheral.find("minecraft:hopper") }
-    table.sort(hoppers, function(a, b)
-        return peripheral.getName(a) < peripheral.getName(b)
-    end)
-
-    -- `async.parMap` does not guarantee iteration order.
-    local tasks = async.newTaskSet()
-    local found_cart = false
-    for _, hopper in ipairs(hoppers) do
-        tasks.spawn(function()
-            found_cart = found_cart or hopper.pushItems(wired_name, 1, nil, empty_slot) == 1
-        end)
-    end
-    tasks.join()
-    assert(found_cart, "cart not returned")
-
+    turtle.attack()
     turtle.place()
 end
 

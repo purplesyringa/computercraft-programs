@@ -11,6 +11,8 @@ assert(wired_modem, "wired modem not found")
 local wired_name = wired_modem.getNameLocal()
 assert(wired_name, "modem disconnected from network")
 
+redstone.setOutput("front", true)
+
 local awaited_pong = nil
 local inventory_adjusted = async.newNotifyWaiters()
 local inventory_adjusted_message = nil
@@ -61,8 +63,7 @@ local function handleOrder(rail, goal_inventory)
     -- cooldown by breaking it. But since we timeout for 15s, the natural cooldown has already
     -- passed and we don't have to worry about it.
     if key == "adjust" then
-        common.resetCartCooldown(wired_name, 2)
-        rail = common.wrapRailWired() -- name is reset when the rail is removed and re-placed
+        common.resetCartCooldown(2)
         key = async.race({
             sleep = util.bind(os.sleep, 5),
             adjust = util.bind(adjustInventory, server_id, rail, {}, goal_inventory),
