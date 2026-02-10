@@ -131,8 +131,7 @@ local p = init()
 os.setComputerLabel("Ender Storage")
 
 local function setMimic()
-    p.mimic.setMimic({ block = "supplementaries:lapis_bricks" })
-    -- p.mimic.setMimic({ block = "spectrum:amethyst_storage_block" })
+    p.mimic.setMimic({ block = "spectrum:amethyst_storage_block" })
     p.mimic.setTransformation("t(0.125,0.125,0.125);s(0.75,0.75,0.75)")
 end
 setMimic()
