@@ -303,22 +303,20 @@ function common.patchIndex(msg)
     updateFilteredIndex()
 end
 
--- Returns `nil` if there is the directly connected rail doesn't have a minecart.
-function common.wrapRailWired()
+-- Returns `nil, nil` if the rail doesn't have a minecart.
+function common.wrapRailWired(side)
     -- We can only move items between ourselves and the rail over wired network, since we can't name
     -- ourselves for the rail, and the wired name doesn't work outside wired networks. We're
     -- connected to the rail directly and we know there is a cart there, so we can use its UUID to
     -- find a matching rail on the wired network.
-    local direct_rail = nil
-    local wired_rails = {}
-    peripheral.find("minecraft:powered_rail", function(name, wrapped)
-        if name == "front" or name == "back" or name == "left" or name == "right" then
-            direct_rail = wrapped
-        else
-            table.insert(wired_rails, wrapped)
-        end
-    end)
+    local direct_rail = peripheral.wrap(side)
     assert(direct_rail, "No rail")
+
+    local wired_rails = {
+        peripheral.find("minecraft:powered_rail", function(name)
+            return name ~= side
+        end)
+    }
 
     local carts = async.gather({
         direct_rail = direct_rail.getMinecarts,
@@ -329,7 +327,7 @@ function common.wrapRailWired()
         end,
     })
     if not next(carts.direct_rail) then
-        return nil
+        return nil, nil
     end
     assert(#carts.direct_rail == 1, "multiple minecarts on the rail")
     local cart = carts.direct_rail[1]
@@ -348,12 +346,6 @@ function common.sendCartToPortal(rail)
     -- the cart to the overworld.
     rail.pushMinecarts(false)
     rail.pushMinecarts(true)
-end
-
-function common.resetCartCooldown(empty_slot)
-    turtle.select(empty_slot)
-    turtle.attack()
-    turtle.place()
 end
 
 return common

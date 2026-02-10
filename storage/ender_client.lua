@@ -1,5 +1,3 @@
-local w = fs.open("meow.txt", "w").write _G.write = function(s) w(s) return 0 end
-
 local async = require "async"
 local common = require "common"
 local ui = require "ui"
@@ -547,19 +545,10 @@ end
 local waiting_on_order = nil
 
 local function adjustInventoryNether(wired_name, goal_inventory)
-    -- We only see peripherals in front of and to the back of ourselves, since we have equipment. So
-    -- if we don't see a rail, we just need to turn once.
-    if not (
-        peripheral.hasType("front", "minecraft:powered_rail")
-        or peripheral.hasType("back", "minecraft:powered_rail")
-    ) then
-        turtle.turnLeft()
-    end
-
-    local rail, cart = common.wrapRailWired()
+    local rail, cart = common.wrapRailWired("bottom")
 
     -- Before we mutate anything, sanity checks don't need to panic.
-    if not rail then
+    if not cart then
         return "No minecart"
     end
 
@@ -592,29 +581,21 @@ local function adjustInventoryNether(wired_name, goal_inventory)
         goal_inventory = goal_inventory,
     }, "purple_storage")
 
+    -- Pushing the cart gives it high velocity even on unpowered rails.
     common.sendCartToPortal(rail)
 
-    -- We're now waiting on the helper. After the cart comes back, we'll need to break it, but we
-    -- have to face it to do that. Since turtle movement is blocking, now's the best time to turn
-    -- towards the rail while overlapping it with waiting.
-    while true do
-        local ok, block = turtle.inspect()
-        if ok and block.name == "minecraft:powered_rail" then
-            break
-        end
-        turtle.turnLeft()
-    end
-
-    -- On a similar note, we need to hold a diamond sword directly in our hands, so swap it with the
-    -- mimic.
+    -- We're now waiting on the helper. After the cart comes back, we'll need to break it, and for
+    -- that we need to hold a diamond sword directly in our hands rather than in the peripheralium
+    -- hub, so swap it with the mimic while no one can see us. Since turtle movement is blocking,
+    -- now's the best time to do this.
     p.hub.unequip("minecraft:diamond_sword")
     turtle.select(1)
     turtle.equipLeft()
     p.hub.equip(1)
 
-    -- There is no timeout logic here: if we timed out due to lag and warped away, and then the cart
-    -- arrived, it'd derail, since we'd no longer be standing in its way. However, the helper is
-    -- much simpler than the storage, so there should be fewer odd failure modes that necessiate
+    -- There is no timeout logic here: if we tried to warp away on time out, the cart would at some
+    -- point arrive in non-empty state, which we don't know how to deal with. Since the helper is
+    -- much simpler than the storage server, there should be fewer odd failure modes that necessiate
     -- timing out; and a client can only break its own helper if things go south, so other clients
     -- should stay operational.
     waiting_on_order.delivered.wait()
@@ -642,9 +623,9 @@ local function adjustInventoryNether(wired_name, goal_inventory)
     end
 
     if not is_ok then
-        -- Resetting cooldown requires the 16th slot and the minecart to be empty, but we might not
-        -- have enough space for that, since adjustment didn't complete, so wait for the cooldown to
-        -- end naturally and equip the mimic back while we still have empty space.
+        -- Resetting cooldown requires an empty slot and for the minecart to be empty, but we might
+        -- not have enough space for that if adjustment didn't complete, so wait for the cooldown to
+        -- end naturally and equip the mimic back while we have empty space.
         equipMimic()
         -- We should probably move this sleep to the start of the next operation, but this only
         -- occurs on failures and should be rare if the storage is always online.
@@ -659,10 +640,12 @@ local function adjustInventoryNether(wired_name, goal_inventory)
     end)
 
     if is_ok then
-        -- We've guaranteed to have a free 16th slot (or rather 1st, since we've adjusted indexes
-        -- that way when pulling items from the cart), so the cooldown can now be reset for future
-        -- interactions.
-        common.resetCartCooldown(1)
+        -- We're guaranteed to have a free slot on successful adjustment, and we arranged for that
+        -- slot to be 1, which is necessary for `equipMimic` to work.
+        turtle.select(1)
+        turtle.attackDown()
+        turtle.placeDown()
+
         equipMimic()
         turtle.select(16)
         turtle.transferTo(1)
