@@ -601,6 +601,13 @@ local function adjustInventoryNether(wired_name, goal_inventory)
         turtle.turnLeft()
     end
 
+    -- On a similar note, we need to hold a diamond pickaxe directly in our hands, so swap it with
+    -- the mimic.
+    p.hub.unequip("minecraft:diamond_pickaxe")
+    turtle.select(1)
+    turtle.equipLeft()
+    p.hub.equip(1)
+
     -- There is no timeout logic here: if we timed out due to lag and warped away, and then the cart
     -- arrived, it'd derail, since we'd no longer be standing in its way. However, the helper is
     -- much simpler than the storage, so there should be fewer odd failure modes that necessiate
@@ -622,6 +629,23 @@ local function adjustInventoryNether(wired_name, goal_inventory)
 
     local is_ok = waiting_on_order.response.error_message == nil
 
+    local function equipMimic()
+        p.hub.unequip("turtlematic:mimic")
+        turtle.equipLeft()
+        p.hub.equip(1)
+        -- The mimic's name shouldn't have changed because it's unique.
+        setMimic()
+    end
+
+    if not is_ok then
+        -- Resetting cooldown requires the 16th slot and the minecart to be empty, but we might not
+        -- have enough space for that, since adjustment didn't complete, so wait for the cooldown to
+        -- end naturally and equip the mimic back while we still have empty space.
+        equipMimic()
+        -- We should probably move this sleep to the start of the next operation, but this only
+        -- occurs on failures and should be rare if the storage is always online.
+    end
+
     async.parMap(util.iota(16), function(slot)
         local to_slot = slot
         if is_ok and slot == 1 then
@@ -633,27 +657,11 @@ local function adjustInventoryNether(wired_name, goal_inventory)
     if is_ok then
         -- We've guaranteed to have a free 16th slot (or rather 1st, since we've adjusted indexes
         -- that way when pulling items from the cart), so the cooldown can now be reset for future
-        -- interactions. But we need a tool to dig with, and it has to be directly in the hand: the
-        -- hub doesn't work. So we replace the mimic with the pickaxe, dig, and then turn everything
-        -- back as it was.
-        p.hub.unequip("minecraft:diamond_pickaxe")
-        turtle.select(1)
-        turtle.equipLeft()
-        p.hub.equip(1)
+        -- interactions.
         common.resetCartCooldown(wired_name, 1)
-        p.hub.unequip("turtlematic:mimic")
-        turtle.equipLeft()
-        p.hub.equip(1)
+        equipMimic()
         turtle.select(16)
         turtle.transferTo(1)
-        -- The mimic's name shouldn't have changed because it's unique.
-        setMimic()
-    else
-        -- Resetting cooldown requires the 16th slot to be empty, but our entire inventory might be
-        -- full since adjustment didn't complete. Wait for the cooldown to end naturally. We should
-        -- probably move this sleep to the start of the next operation, but this only occurs on
-        -- failures and should be rare if the storage is always online.
-        os.sleep(15)
     end
 
     return waiting_on_order.response.error_message
