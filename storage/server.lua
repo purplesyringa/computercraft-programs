@@ -176,6 +176,7 @@ function Index:new(on_keys_changed)
                     task_set = async.newTaskSet()
                     total_parallel_cells = 0
                 end
+                total_parallel_cells = total_parallel_cells + 1
                 task_set.spawn(function()
                     chest_cell.chest.pushItems(
                         peripheral.getName(bundle.bundle),
