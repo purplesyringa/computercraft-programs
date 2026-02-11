@@ -30,9 +30,7 @@ local function init()
     local p = {}
 
     for _, upgrade in pairs({
-        -- vanutp's patch for rendering mimicked blocks in item models doesn't scan hub internals
-        -- and only works reliably with the left slot.
-        { name = "mimic", side = "left", item = "turtlematic:mimic_gadget" },
+        { name = "sword", side = "left", item = "minecraft:diamond_sword" },
         { name = "hub", side = "right", item = "peripheralworks:netherite_peripheralium_hub" },
     }) do
         local current
@@ -85,15 +83,15 @@ local function init()
             id = "speaker_1",
         },
         {
+            name = "mimic",
+            item = "turtlematic:mimic_gadget",
+            upgrade = "turtlematic:mimic",
+            id = "mimic_1",
+        },
+        {
             name = "lava_bucket",
             item = "minecraft:lava_bucket",
             upgrade = "turtlematic:lava_bucket",
-            id = nil,
-        },
-        {
-            name = "sword",
-            item = "minecraft:diamond_sword",
-            upgrade = "minecraft:diamond_sword",
             id = nil,
         }
     }) do
@@ -583,15 +581,9 @@ local function adjustInventoryNether(wired_name, goal_inventory)
     -- Pushing the cart gives it high velocity even on unpowered rails.
     common.sendCartToPortal(rail)
 
-    -- We're now waiting on the helper. After the cart comes back, we'll need to break it, and for
-    -- that we need to hold a diamond sword directly in our hands rather than in the peripheralium
-    -- hub, so swap it with the mimic while no one can see us. Since turtle movement is blocking,
-    -- now's the best time to do this.
-    p.hub.unequip("minecraft:diamond_sword")
-    turtle.select(1)
-    turtle.equipLeft()
-    p.hub.equip(1)
-
+    -- We're now waiting on the helper. There isn't much we can overlap: we already have a sword in
+    -- our hand, and the cart is under us, so we don't need to turn to attack it.
+    --
     -- There is no timeout logic here: if we tried to warp away on time out, the cart would at some
     -- point arrive in non-empty state, which we don't know how to deal with. Since the helper is
     -- much simpler than the storage server, there should be fewer odd failure modes that necessiate
@@ -613,42 +605,23 @@ local function adjustInventoryNether(wired_name, goal_inventory)
 
     local is_ok = waiting_on_order.response.error_message == nil
 
-    local function equipMimic()
-        p.hub.unequip("turtlematic:mimic")
-        turtle.equipLeft()
-        p.hub.equip(1)
-        -- The mimic's name shouldn't have changed because it's unique.
-        setMimic()
-    end
-
     if not is_ok then
         -- Resetting cooldown requires an empty slot and for the minecart to be empty, but we might
         -- not have enough space for that if adjustment didn't complete, so wait for the cooldown to
-        -- end naturally and equip the mimic back while we have empty space.
-        equipMimic()
-        -- We should probably move this sleep to the start of the next operation, but this only
-        -- occurs on failures and should be rare if the storage is always online.
+        -- end naturally. We should probably move this sleep to the start of the next operation, but
+        -- this only occurs on failures and should be rare if the storage is always online.
         os.sleep(15)
     end
 
     async.parMap(util.iota(16), function(slot)
-        local to_slot = slot
-        if is_ok and slot == 1 then
-            to_slot = 16
-        end
-        rail.pushItems(wired_name, slot, nil, to_slot)
+        rail.pushItems(wired_name, slot, nil, slot)
     end)
 
     if is_ok then
-        -- We're guaranteed to have a free slot on successful adjustment, and we arranged for that
-        -- slot to be 1, which is necessary for `equipMimic` to work.
-        turtle.select(1)
+        -- We're guaranteed to have a free 16th slot on successful adjustment.
+        turtle.select(16)
         turtle.attackDown()
         turtle.placeDown()
-
-        equipMimic()
-        turtle.select(16)
-        turtle.transferTo(1)
     end
 
     return waiting_on_order.response.error_message

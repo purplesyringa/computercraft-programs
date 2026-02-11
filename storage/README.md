@@ -30,7 +30,9 @@ The server is a computer or a turtle running `server.lua` on startup. The client
 
 ### Wireless
 
-First, install an ender modem somewhere on the wired network and reboot the server.
+First, note that Turtlematic mod is extremely buggy, and you will need to install [vanutp's patches](https://github.com/vanutp-forks/Turtlematic/tree/vanutp-build) for the storage to work properly.
+
+Install an ender modem somewhere on the wired network and reboot the server.
 
 We're now going to set up *homes* for ender clients. These are locations in the world where the turtles will teleport to connect to the storage. Since turtles can break other turtles when warping, each ender client should have its own home. Homes have a specific 1-wide tileable layout, so you can place multiple homes next to each other. All homes should be chunk-loaded.
 
