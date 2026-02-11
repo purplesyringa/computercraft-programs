@@ -439,9 +439,9 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
                                 needs_retry = true
                             end
                             -- If pulling from preview succeeds, we still don't know if pushing to
-                            -- the client suceeds, so we just import the chest cell without assuming
-                            -- anything. Note that if there was a race and we pulled an unexpected
-                            -- item, it also needs to be touched!
+                            -- the client succeeds, so we just import the chest cell without
+                            -- assuming anything. Note that if there was a race and we pulled
+                            -- an unexpected item, it also needs to be touched!
                             self:importChestCell(tmp_cell, touchKey)
                         end)
                     end

@@ -586,9 +586,9 @@ local function adjustInventoryNether(wired_name, goal_inventory)
     --
     -- There is no timeout logic here: if we tried to warp away on time out, the cart would at some
     -- point arrive in non-empty state, which we don't know how to deal with. Since the helper is
-    -- much simpler than the storage server, there should be fewer odd failure modes that necessiate
-    -- timing out; and a client can only break its own helper if things go south, so other clients
-    -- should stay operational.
+    -- much simpler than the storage server, there should be fewer odd failure modes that
+    -- necessitate timing out; and a client can only break its own helper if things go south, so
+    -- other clients should stay operational.
     waiting_on_order.delivered.wait()
 
     -- The cart should appear soon, so busy waiting is fine.
@@ -632,7 +632,7 @@ local committing = false
 local function commitOperation()
     if committing then
         -- If the user interacts with the turtle while it's teleporting away, ignore that.
-        -- Reentering would be disasterous.
+        -- Reentering would be disastrous.
         return
     end
     committing = true
