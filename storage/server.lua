@@ -89,17 +89,10 @@ function Index:new(on_keys_changed)
     local chests = { peripheral.find("minecraft:chest") }
     local bundles = { peripheral.find("spectrum:bottomless_bundle") }
 
-    local task_set = async.newTaskSet()
-    local total_parallel_cells = 0
+    -- ComputerCraft limits the event queue to 256 events, so we have to batch requests. Set
+    -- a slightly smaller limit to allow other events to be handled, e.g. rednet.
+    local task_set = async.newTaskSet(200)
     for _, chest in pairs(chests) do
-        -- ComputerCraft limits the event queue to 256 events, so we have to batch requests. Set
-        -- a slightly smaller limit to allow other events to be handled, e.g. rednet.
-        if total_parallel_cells > 200 then
-            task_set.join()
-            task_set = async.newTaskSet()
-            total_parallel_cells = 0
-        end
-        total_parallel_cells = total_parallel_cells + chest.size()
         index.total_cells = index.total_cells + chest.size()
         for slot = 1, chest.size() do
             task_set.spawn(function()
@@ -127,28 +120,30 @@ function Index:new(on_keys_changed)
             end)
         end
     end
-    task_set.join()
-    async.parMap(bundles, function(bundle)
-        local out = async.gather({
-            item = util.bind(bundle.getItemDetail, 1),
-            limit = util.bind(bundle.getItemLimit, 1),
-        })
-        if out.item then
-            local key = util.getItemKey(out.item)
-            if not index.items[key] then
-                index.items[key] = {
-                    item = out.item,
-                    chest_cells = {},
-                    bundles = {},
-                }
-            end
-            table.insert(index.items[key].bundles, {
-                bundle = bundle,
-                count = out.item.count - 1, -- leave the indicator in place
-                limit = out.limit - 1,
+    for _, bundle in pairs(bundles) do
+        task_set.spawn(function()
+            local out = async.gather({
+                item = util.bind(bundle.getItemDetail, 1),
+                limit = util.bind(bundle.getItemLimit, 1),
             })
-        end
-    end)
+            if out.item then
+                local key = util.getItemKey(out.item)
+                if not index.items[key] then
+                    index.items[key] = {
+                        item = out.item,
+                        chest_cells = {},
+                        bundles = {},
+                    }
+                end
+                table.insert(index.items[key].bundles, {
+                    bundle = bundle,
+                    count = out.item.count - 1, -- leave the indicator in place
+                    limit = out.limit - 1,
+                })
+            end
+        end)
+    end
+    task_set.join()
 
     -- Prefer to put non-full cells closer to the end so that they can be quickly located, added,
     -- or removed.
@@ -159,8 +154,6 @@ function Index:new(on_keys_changed)
     end
 
     -- Move matching items from chests to bundles.
-    task_set = async.newTaskSet()
-    total_parallel_cells = 0
     for _, item_info in pairs(index.items) do
         for _, bundle in pairs(item_info.bundles) do
             for i = #item_info.chest_cells, 1, -1 do
@@ -171,12 +164,6 @@ function Index:new(on_keys_changed)
                 local cur_limit = math.min(bundle.limit - bundle.count, chest_cell.count)
                 bundle.count = bundle.count + cur_limit
                 chest_cell.count = chest_cell.count - cur_limit
-                if total_parallel_cells == 200 then
-                    task_set.join()
-                    task_set = async.newTaskSet()
-                    total_parallel_cells = 0
-                end
-                total_parallel_cells = total_parallel_cells + 1
                 task_set.spawn(function()
                     chest_cell.chest.pushItems(
                         peripheral.getName(bundle.bundle),

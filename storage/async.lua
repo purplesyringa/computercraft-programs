@@ -82,11 +82,27 @@ function async.spawn(closure)
     }
 end
 
-function async.newTaskSet()
+function async.newTaskSet(concurrency_limit)
     local local_tasks = {}
+    local n_active_tasks = 0
+    local next_id = 1
     return {
         spawn = function(closure)
-            table.insert(local_tasks, async.spawn(closure))
+            while n_active_tasks == concurrency_limit do
+                async.waitOn(local_tasks)
+            end
+            local id = next_id
+            next_id = next_id + 1
+            n_active_tasks = n_active_tasks + 1
+            local task = async.spawn(function()
+                closure()
+                local_tasks[id] = nil
+                n_active_tasks = n_active_tasks - 1
+                async.wakeBy(local_tasks)
+            end)
+            if task.result == nil then
+                local_tasks[id] = task
+            end
         end,
         join = function()
             for _, task in pairs(local_tasks) do
