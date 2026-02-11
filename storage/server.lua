@@ -568,7 +568,7 @@ end
 -- Use notify to avoid reindexing several times when multiple peripherals are (dis)connected.
 local reindex = async.newNotifyOne()
 local function onPeripheralsChanged(name)
-    if name:find("minecraft:chest_") == 1 then
+    if name:find("minecraft:chest_") == 1 or name:find("spectrum:bottomless_bundle_") == 1 then
         reindex.notifyOne()
     end
     if name:find("turtle_") == 1 then
