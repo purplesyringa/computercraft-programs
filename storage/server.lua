@@ -20,7 +20,7 @@
 --
 -- # Storage
 --
--- Items are stored in two places: the attached chests and the clients' inventories (to show
+-- Items are stored in two places: the attached chests/bundles and the clients' inventories (to show
 -- previews to users). The server can move preview items to another client if it needs them more.
 --
 -- Since users may racily change client inventories, we always interact with clients through
@@ -54,6 +54,14 @@ function Index:new(on_keys_changed)
         --             },
         --             ...
         --         },
+        --         bundles = {
+        --             {
+        --                 bundle, -- wrapped bundle inventory
+        --                 count,
+        --                 limit,
+        --             },
+        --             ...
+        --         },
         --     },
         --     ...
         -- }
@@ -79,6 +87,7 @@ function Index:new(on_keys_changed)
     }, self)
 
     local chests = { peripheral.find("minecraft:chest") }
+    local bundles = { peripheral.find("spectrum:bottomless_bundle") }
 
     local task_set = async.newTaskSet()
     local total_parallel_cells = 0
@@ -101,6 +110,7 @@ function Index:new(on_keys_changed)
                         index.items[key] = {
                             item = item,
                             chest_cells = {},
+                            bundles = {},
                         }
                     end
                     table.insert(index.items[key].chest_cells, {
@@ -118,6 +128,27 @@ function Index:new(on_keys_changed)
         end
     end
     task_set.join()
+    async.parMap(bundles, function(bundle)
+        local out = async.gather({
+            item = util.bind(bundle.getItemDetail, 1),
+            limit = util.bind(bundle.getItemLimit, 1),
+        })
+        if out.item then
+            local key = util.getItemKey(out.item)
+            if not index.items[key] then
+                index.items[key] = {
+                    item = out.item,
+                    chest_cells = {},
+                    bundles = {},
+                }
+            end
+            table.insert(index.items[key].bundles, {
+                bundle = bundle,
+                count = out.item.count - 1, -- leave the indicator in place
+                limit = out.limit - 1,
+            })
+        end
+    end)
 
     -- Prefer to put non-full cells closer to the end so that they can be quickly located, added,
     -- or removed.
@@ -156,13 +187,30 @@ function Index:importChestCell(input_cell, on_before_import)
         self.items[key] = {
             item = input_item,
             chest_cells = {},
+            bundles = {},
         }
     end
     local item_info = self.items[key]
 
-    -- Move items to other chest cells associated with the key to utilize space better. Don't pull
-    -- into previews -- if a client wants that, it can request adjustment on an index update. Force
-    -- iteration in a specific order to maintain the count monotonicity invariant.
+    -- Move items to bundles and other chest cells associated with the key to utilize space better.
+    -- Don't pull into previews -- if a client wants that, it can request adjustment on an index
+    -- update.
+    for _, bundle in pairs(item_info.bundles) do
+        local to_pull = math.min(bundle.limit - bundle.count, input_cell.count)
+        if to_pull > 0 then
+            input_cell.count = input_cell.count - to_pull
+            bundle.count = bundle.count + to_pull
+            async.spawn(function()
+                bundle.bundle.pullItems(
+                    peripheral.getName(input_cell.chest),
+                    input_cell.slot,
+                    to_pull
+                )
+            end)
+        end
+    end
+
+    -- Force iteration in a specific order to maintain the count monotonicity invariant.
     for _, output_cell in ipairs(item_info.chest_cells) do
         local to_pull = math.min(item_info.item.maxCount - output_cell.count, input_cell.count)
         if to_pull > 0 then
@@ -255,6 +303,7 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
         end
         local goal_key = util.getItemKey(goal_item)
         touchKey(goal_key)
+        local item_info = self.items[goal_key]
 
         local pushed = 0
         local current_item = current_inventory[slot_to]
@@ -292,11 +341,12 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
             end
         end
 
-        -- Try validated chests.
-        local item_info = self.items[goal_key]
-        if pushed < goal_item.count and item_info and next(item_info.chest_cells) then
+        -- Try validated chests and bundles.
+        if pushed < goal_item.count and item_info then
             -- Push through an empty cell. If pushing to client fails, we'll be able to reimport it.
             local output_cell = self:takeEmptyCell()
+
+            -- Chests.
             for i = #item_info.chest_cells, 1, -1 do
                 if pushed == goal_item.count then
                     break
@@ -309,6 +359,27 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
                     item_info.chest_cells[i] = nil
                 end
             end
+
+            -- Bundles. This happens after chests because, if an item is available in both
+            -- locations, we'd rather free up finite chest space.
+            for _, bundle in pairs(item_info.bundles) do
+                if pushed == goal_item.count then
+                    break
+                end
+                if bundle.count > 0 then
+                    local cur_limit = math.min(goal_item.count - pushed, bundle.count)
+                    pushed = pushed + cur_limit
+                    bundle.count = bundle.count - cur_limit
+                    task_set.spawn(util.bind(
+                        bundle.bundle.pushItems,
+                        peripheral.getName(output_cell.chest),
+                        1,
+                        cur_limit,
+                        output_cell.slot
+                    ))
+                end
+            end
+
             task_set.spawn(util.bind(pcall, function() -- protect against client disconnects
                 output_cell.chest.pushItems(client, output_cell.slot, nil, slot_to)
             end))
@@ -404,7 +475,7 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
     local changed_keys = {}
     for key, old_counts in pairs(touched_keys) do
         local new_counts = self:getItemCounts(key)
-        if new_counts.total ~= old_counts.total or new_counts.chest ~= old_counts.chest then
+        if new_counts.total ~= old_counts.total or new_counts.preview ~= old_counts.preview then
             changed_keys[key] = true
         end
     end
@@ -418,7 +489,6 @@ function Index:getItemCounts(key)
     if not item_info then
         return {
             preview = 0,
-            chest = 0,
             total = 0,
         }
     end
@@ -432,23 +502,27 @@ function Index:getItemCounts(key)
         end
     end
 
+    local total_count = preview_count
+
     -- Chest cells are ordered by decreasing count, so if we iterate backwards, once we encounter
     -- a full stack, the rest must be also full.
-    local chest_count = 0
     for i = #item_info.chest_cells, 1, -1 do
         local cell = item_info.chest_cells[i]
         if cell.count == item_info.item.maxCount then
-            chest_count = chest_count + cell.count * i
+            total_count = total_count + cell.count * i
             break
         else
-            chest_count = chest_count + cell.count
+            total_count = total_count + cell.count
         end
+    end
+
+    for _, bundle in pairs(item_info.bundles) do
+        total_count = total_count + bundle.count
     end
 
     return {
         preview = preview_count,
-        chest = chest_count,
-        total = preview_count + chest_count,
+        total = total_count,
     }
 end
 

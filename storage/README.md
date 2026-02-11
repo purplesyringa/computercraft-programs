@@ -28,6 +28,8 @@ The wired setup is very simple.
 
 The server is a computer or a turtle running `server.lua` on startup. The clients are advanced turtles running `client.lua` on startup. They should be connected via a wired network, along with some chests. Upon booting, the server will recognize all connected chests as storage (blacklist is not supported). You might want to chunk-load the server and all clients if you're making a long-range network, since ComputerCraft seems to struggle with unloading computers safely. You're now all set.
 
+The server also supports bottomless bundles from Spectrum as a storage. It cannot allocate items to bundles automatically, so you will need to pre-populate each bundle with 1 item as an indicator. This indicator is not considered in the item count, and the server will make sure not to lose it.
+
 ### Wireless
 
 First, note that Turtlematic mod is extremely buggy, and you will need to install [vanutp's patches](https://github.com/vanutp-forks/Turtlematic/tree/vanutp-build) for the storage to work properly.
@@ -212,7 +214,7 @@ When the server finishes adjustment, it sends the following message:
 }
 ```
 
-`new_inventory` contains the state of the inventory the server believes the client now has in the same format as `goal_inventory`. There are three subtle issues here:
+`new_inventory` contains the state of the inventory the server believes the client now has in the same format as `goal_inventory`. There are multiple subtle issues here:
 
 1. `new_inventory` may not be equal to `goal_inventory` if some requests could not be satisfied because the goal `count` was higher than the number of items present. `new_inventory` may have a smaller `count` or even `nil` in that slot. If the same item is pulled into multiple slots, no guarantees are offered as to which slots will be populated. You should always be prepared to deal with this, since another client can pull items from the storage concurrently.
 
