@@ -28,7 +28,7 @@ The wired setup is very simple.
 
 The server is a computer or a turtle running `server.lua` on startup. The clients are advanced turtles running `client.lua` on startup. They should be connected via a wired network, along with some chests. Upon booting, the server will recognize all connected chests as storage (blacklist is not supported). You might want to chunk-load the server and all clients if you're making a long-range network, since ComputerCraft seems to struggle with unloading computers safely. You're now all set.
 
-The server also supports bottomless bundles from Spectrum as a storage. It cannot allocate items to bundles automatically, so you will need to pre-populate each bundle with 1 item as an indicator. This indicator is not considered in the item count, and the server will make sure not to lose it.
+The server also supports bottomless bundles from Spectrum as storage. It cannot allocate items to bundles automatically, so you will need to pre-populate each bundle with 1 item as an indicator. This indicator is not considered in the item count, and the server will make sure not to lose it. When such bundles are added, the server moves matching items from chests to bundles to free up space for other item types.
 
 ### Wireless
 

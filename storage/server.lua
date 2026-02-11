@@ -158,6 +158,42 @@ function Index:new(on_keys_changed)
         end)
     end
 
+    -- Move matching items from chests to bundles.
+    task_set = async.newTaskSet()
+    total_parallel_cells = 0
+    for _, item_info in pairs(index.items) do
+        for _, bundle in pairs(item_info.bundles) do
+            for i = #item_info.chest_cells, 1, -1 do
+                if bundle.count == bundle.limit then
+                    break
+                end
+                local chest_cell = item_info.chest_cells[i]
+                local cur_limit = math.min(bundle.limit - bundle.count, chest_cell.count)
+                bundle.count = bundle.count + cur_limit
+                chest_cell.count = chest_cell.count - cur_limit
+                if total_parallel_cells == 200 then
+                    task_set.join()
+                    task_set = async.newTaskSet()
+                    total_parallel_cells = 0
+                end
+                task_set.spawn(function()
+                    chest_cell.chest.pushItems(
+                        peripheral.getName(bundle.bundle),
+                        chest_cell.slot,
+                        cur_limit
+                    )
+                end)
+                if chest_cell.count == 0 then
+                    item_info.chest_cells[i] = nil
+                    table.insert(index.empty_cells, chest_cell)
+                else
+                    break
+                end
+            end
+        end
+    end
+    task_set.join()
+
     return index
 end
 
