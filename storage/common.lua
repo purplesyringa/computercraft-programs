@@ -341,9 +341,9 @@ function common.wrapRailWired(side)
 end
 
 function common.sendCartToPortal(rail)
-    -- Push the cart in both directions at once. Since the cart is close to the turtle, it can speed
-    -- up in the direction of the portal much more than in the opposite one, so this reliably sends
-    -- the cart to the overworld.
+    -- Push the cart in both directions at once. Since the cart is close to one end of the rail, it
+    -- can speed up in the direction of the portal much more than in the opposite one, so this
+    -- reliably sends the cart across dimensions.
     rail.pushMinecarts(false)
     rail.pushMinecarts(true)
 end

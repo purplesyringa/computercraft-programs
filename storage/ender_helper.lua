@@ -101,7 +101,7 @@ async.spawn(function()
             local order = orders[cart.uuid]
             -- An order might be missing if we're currently sending this cart to the nether.
             if order then
-                -- Tell other carts to stop spinning for this cart.
+                -- Tell other helpers to stop spinning for this cart.
                 rednet.broadcast({ type = "order_taken", cart = cart.uuid }, "purple_storage")
                 orders[cart.uuid] = nil
                 local error_message = handleOrder(rail, order.goal_inventory)
