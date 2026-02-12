@@ -88,6 +88,7 @@ function async.newTaskSet(concurrency_limit)
     local next_id = 1
     return {
         spawn = function(closure)
+            -- This works correctly for `concurrency_limit = nil`.
             while n_active_tasks == concurrency_limit do
                 async.waitOn(local_tasks)
             end
