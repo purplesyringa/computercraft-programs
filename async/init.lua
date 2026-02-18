@@ -316,6 +316,49 @@ function async.newMutex(value)
     }
 end
 
+function async.newSemaphore(value)
+    local released = {}
+    return {
+        acquire = function()
+            while value == 0 do
+                async.waitOn(released)
+            end
+            value = value - 1
+        end,
+        release = function(delta)
+            if delta == nil then
+                delta = 1
+            end
+            assert(delta >= 0, "negative increment")
+            assert(delta % 1 == 0, "float increment")
+            if delta > 0 then
+                value = value + delta
+                async.wakeBy(released)
+            end
+        end,
+    }
+end
+
+function async.newQueue()
+    local queue = { head = 1, tail = 1 }
+    return {
+        get = function()
+            while queue.head == queue.tail do
+                async.waitOn(queue)
+            end
+            local values = queue[queue.head]
+            queue[queue.head] = nil
+            queue.head = queue.head + 1
+            return table.unpack(values)
+        end,
+        put = function(...)
+            queue[queue.tail] = table.pack(...)
+            queue.tail = queue.tail + 1
+            async.wakeBy(queue)
+        end,
+    }
+end
+
 function async.newNotifyOne()
     local permit = false
     local waiter = {}
