@@ -354,9 +354,16 @@ function async.subscribe(event, callback)
     async.spawn(function()
         while true do
             local args = table.pack(os.pullEvent(event))
-            async.spawn(function()
+            local coro = coroutine.create(function()
                 callback(table.unpack(args, 2, args.n))
             end)
+            local ok, err = coroutine.resume(coro)
+            if not ok then
+                error(err)
+            end
+            if coroutine.status(coro) ~= "dead" then
+                error("event handlers must not yield")
+            end
         end
     end)
 end
