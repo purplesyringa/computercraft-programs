@@ -138,10 +138,12 @@ function async.drive()
             woken_keys.head = woken_keys.head + 1
         end
         if not next(tasks) then
-            return
+            break
         end
         deliverEvent(os.pullEvent())
     end
+
+    driven = false
 end
 
 function async.gather(task_list)
