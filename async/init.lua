@@ -141,7 +141,9 @@ function async.newTaskSet(concurrency_limit)
             next_id = next_id + 1
             local task = async.spawn(function()
                 local result = table.pack(pcall(closure))
-                semaphore.release()
+                if semaphore then
+                    semaphore.release()
+                end
                 local_tasks[id] = nil
                 async.wakeBy(local_tasks)
                 if result[1] then
