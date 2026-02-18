@@ -11,6 +11,13 @@ local function wrapOne(func)
     end
 end
 
+local function readToString(path)
+    local file = fs.open(path, "r")
+    local contents = file.readAll()
+    file.close()
+    return contents
+end
+
 local nfs = {
     complete = function(pattern, ...) return fs.complete(ROOT .. "/" .. pattern, "", ...) end,
     find = function(path)
@@ -35,17 +42,21 @@ local nfs = {
 
     -- Internal functions
     _read = function(path)
-        local file = fs.open(fs.combine(ROOT, path), "r")
-        local contents = file.readAll()
-        file.close()
-        return contents
+        return readToString(fs.combine(ROOT, path))
+    end,
+    _driver = function()
+        return readToString(fs.combine(fs.getDir(shell.getRunningProgram()), "driver.lua"))
     end,
 }
 
 while true do
     local computer, message = rednet.receive(PROTOCOL)
-    local response = table.pack(pcall(function()
-        return nfs[message[2]](table.unpack(message, 3, message.n))
-    end))
-    rednet.send(computer, response, PROTOCOL .. message[1])
+    if message == "driver" then
+        rednet.send(computer, nfs._driver(), PROTOCOL)
+    else
+        local response = table.pack(pcall(function()
+            return nfs[message[2]](table.unpack(message, 3, message.n))
+        end))
+        rednet.send(computer, response, PROTOCOL .. message[1])
+    end
 end
