@@ -40,7 +40,7 @@ local function resumeTask(task_id, ...)
         if task.parent then
             tasks[task.parent].children[task_id] = nil
         end
-        for child_id, _ in task.children do
+        for child_id, _ in pairs(task.children) do
             local child_task = tasks[child_id]
             child_task.parent = task.parent
             if task.parent then
@@ -78,6 +78,21 @@ local function spawn(closure, detached)
         children = {},
         parent = nil,
     }
+    task.cancel = function()
+        current_task_id = task_id
+        coroutine.resume(task.coroutine, "terminate")
+        current_task_id = nil
+        task.coroutine = nil -- help GC
+        task.result = {}
+        if task.parent then
+            tasks[task.parent].children[task_id] = nil
+        end
+        tasks[task_id] = nil
+        async.wakeBy(task_id)
+        for child_id, _ in pairs(task.children) do
+            tasks[child_id].cancel()
+        end
+    end
     tasks[task_id] = task
 
     if not detached and current_task_id ~= nil then
@@ -98,21 +113,7 @@ local function spawn(closure, detached)
             end
             return table.unpack(task.result, 1, task.result.n)
         end,
-        cancel = function()
-            current_task_id = task_id
-            coroutine.resume(task.coroutine, "terminate")
-            current_task_id = nil
-            task.coroutine = nil -- help GC
-            task.result = {}
-            if task.parent then
-                tasks[task.parent].children[task_id] = nil
-            end
-            tasks[task_id] = nil
-            async.wakeBy(task_id)
-            for child_id, _ in task.children do
-                tasks[child_id].cancel()
-            end
-        end,
+        cancel = task.cancel,
     }
 end
 
