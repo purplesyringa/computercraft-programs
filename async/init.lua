@@ -213,7 +213,7 @@ end
 
 function async.race(task_list)
     local ready = { key = nil }
-    local spawned_tasks = {}
+    local task_set = async.newTaskSet()
     for key, value in pairs(task_list) do
         local f
         if type(value) == "function" then
@@ -221,22 +221,20 @@ function async.race(task_list)
         else
             f = value.join
         end
-        table.insert(spawned_tasks, async.spawn(function()
+        task_set.spawn(function()
             local return_value = table.pack(f())
             if ready.key == nil then
                 ready.key = key
                 ready.value = return_value
                 async.wakeBy(ready)
             end
-        end))
+        end)
     end
     -- If some task completes immediately, `ready` can already be populated.
     if ready.key == nil then
         async.waitOn(ready)
     end
-    for _, task in pairs(spawned_tasks) do
-        task.cancel()
-    end
+    task_set.cancel()
     return ready.key, table.unpack(ready.value, 1, ready.value.n)
 end
 
