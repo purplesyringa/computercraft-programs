@@ -2,7 +2,8 @@ local async = {}
 
 local tasks = {} -- { [task_id] = task }
 local next_task_id = 1
-local subscriptions = {} -- { [awaited_event_or_key] = { task, ... } }
+local subscriptions = {} -- { [awaited_event_or_key] = { task_id, ... } }
+local rpc_subscriptions = { head = 1, tail = 1 } -- queue of task IDs
 local woken_keys = { head = 1, tail = 1 } -- queue
 local driven = false
 local current_task_id = nil
@@ -22,7 +23,7 @@ local function resumeTask(task_id, ...)
     local task = tasks[task_id]
     if not task then
         -- The task was cancelled.
-        return
+        return false
     end
 
     current_task_id = task_id
@@ -49,15 +50,47 @@ local function resumeTask(task_id, ...)
         end
         tasks[task_id] = nil
         async.wakeBy(task_id)
+        return true
     else
         local filter = params[1]
         if filter == nil then
             filter = "any"
         end
-        if not subscriptions[filter] then
-            subscriptions[filter] = {}
+        -- Put remote calls to peripherals to a separate queue to resolve them more efficiently.
+        --
+        -- This check is very hacky, but it's pretty much the only option: we cannot trust
+        -- `task_complete` subscriptions from any other source to be in the right order, and even
+        -- overriding `peripheral.call` doesn't help, as there could be a coroutine in-between
+        -- sending subscriptions at the wrong moment, breaking the entire event loop and not just
+        -- itself.
+        --
+        -- Using `debug.getinfo` guarantees that the request originated from the true native code as
+        -- opposed to `coroutine.yield`.
+        if (
+            filter == "task_complete"
+            and debug.getinfo(task.coroutine, 1).source == "@/rom/apis/peripheral.lua"
+        ) then
+            -- When events come, we'll need to detect if we made any progress. Basically the only
+            -- way to check that is to see if the active frame changed, and the only way to do that
+            -- that I'm aware of is via a local. Choose the `name` parameter of `peripheral.call`,
+            -- since it's not used after yielding.
+            local name, value = debug.getlocal(task.coroutine, 1, 1)
+            assert(name == "name", "unexpected local name")
+            if value == "__purplesyringa_async_marker" then
+                -- No progress, so no need to resubscribe -- we're still in queue.
+                return false
+            end
+            debug.setlocal(task.coroutine, 1, 1, "__purplesyringa_async_marker")
+            rpc_subscriptions[rpc_subscriptions.tail] = task_id
+            rpc_subscriptions.tail = rpc_subscriptions.tail + 1
+            return true
+        else
+            if not subscriptions[filter] then
+                subscriptions[filter] = {}
+            end
+            table.insert(subscriptions[filter], task_id)
+            return true
         end
-        table.insert(subscriptions[filter], task_id)
     end
 end
 
@@ -172,6 +205,7 @@ end
 
 local function deliverEvent(key, ...)
     assert(key ~= "any", "event `any` is invalid")
+
     local a = subscriptions.any or {}
     local b = subscriptions[key] or {}
     local woken_task_ids = table.move(a, 1, #a, #b + 1, b)
@@ -179,6 +213,35 @@ local function deliverEvent(key, ...)
     subscriptions[key] = nil
     for _, task_id in ipairs(woken_task_ids) do
         resumeTask(task_id, key, ...)
+    end
+
+    if key == "task_complete" then
+        -- We know that only one task wants to handle this event, and we want to guess which one it
+        -- is.
+        --
+        -- Since all native functions are synchronous, `task_complete` events arrive in the same
+        -- order as async operations are scheduled. Since we only put coroutines yielding from
+        -- within the official peripheral API in `rpc_subscriptions`, we can be certain that the
+        -- orders match. Even if someone plays around with coroutines, they'll eventually have to
+        -- call `coroutine.yield` manually to listen to the event, which puts the handler in
+        -- `subscriptions` as opposed to `rpc_subscriptions`.
+        --
+        -- The task we're looking for is most likely the first one. It's not guaranteed to be such,
+        -- since earlier tasks could lose their wake-ups. It can also just not be present in the
+        -- list at all, e.g. if the task was cancelled or the user ran `command.execAsync`. But the
+        -- common case is it's the first one, and that's what we optimize for.
+        local i = rpc_subscriptions.head
+        while i < rpc_subscriptions.tail and not resumeTask(rpc_subscriptions[i], key, ...) do
+            i = i + 1
+        end
+        if i < rpc_subscriptions.tail then
+            -- Found a matching task. Earlier tasks are guaranteed not to receive any updates, so we
+            -- can remove them from the queue.
+            while rpc_subscriptions.head <= i do
+                rpc_subscriptions[rpc_subscriptions.head] = nil
+                rpc_subscriptions.head = rpc_subscriptions.head + 1
+            end
+        end
     end
 end
 

@@ -20,9 +20,9 @@ ComputerCraft has a hard limit of 256 events in queue, so wake-ups may be lost i
 
 ### Performance
 
-When an event arrives, the runtime only wakes up tasks with matching filters and doesn't iterate over other tasks, but this optimization relies on tasks actually communicating their filters. A common offender is the built-in [`parallel`](https://tweaked.cc/module/parallel.html) module, which catches all events, so you should prefer filter-aware `async.gather` and `async.race` methods instead.
+When an event arrives, the runtime only wakes up tasks with matching filters and doesn't iterate over other tasks, but this optimization relies on tasks actually communicating their filters. A common offender is the built-in [`parallel`](https://tweaked.cc/module/parallel.html) module, whose runners catch all events. Prefer filter-aware `async.gather` and `async.race` methods instead.
 
-Note that ComputerCraft's builtin functions have very coarse-grained filters, like [`rednet_message`](https://tweaked.cc/event/rednet_message.html) or [`task_complete`](https://tweaked.cc/event/task_complete.html), so if you call [`list`](https://tweaked.cc/generic_peripheral/inventory.html#v:list) on 100 inventories in parallel, tasks will be resumed about 5000 times. You can thus only rely on optimality for distinct events or the runtime's own events, like joining tasks.
+ComputerCraft's builtin functions have very coarse-grained filters. For example, [`rednet_message`](https://tweaked.cc/event/rednet_message.html) does not filter based on the protocol. Most prominently, [`task_complete`](https://tweaked.cc/event/task_complete.html) is used for all peripheral calls and does not offer any way to detect which coroutine wants to handle which event. The runtime contains a hacky best-effort optimization based on debug APIs, but it only works well if tasks waiting on `task_complete` are seldom cancelled and custom async runtimes are not used.
 
 ### Race conditions
 
