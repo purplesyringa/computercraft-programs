@@ -28,7 +28,7 @@
 -- it, and pull items back to storage if pushing fails. The server serializes operations, so the
 -- index is never visible while items are in flight.
 
-local async = require "async"
+local async = require "../async"
 local util = require "util"
 
 peripheral.find("modem", rednet.open)

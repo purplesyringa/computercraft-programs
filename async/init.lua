@@ -1,5 +1,3 @@
-local util = require "util"
-
 local async = {}
 
 local tasks = {} -- { [task_id] = task }
@@ -183,7 +181,9 @@ end
 
 function async.timeout(duration, f)
     local result = table.pack(async.race({
-        sleep = util.bind(os.sleep, duration),
+        sleep = function()
+            os.sleep(duration)
+        end,
         f = f,
     }))
     local key = result[1]
@@ -193,9 +193,13 @@ function async.timeout(duration, f)
 end
 
 function async.parMap(tbl, callback)
-    return async.gather(util.map(tbl, function(value, key)
-        return util.bind(callback, value, key)
-    end))
+    local callbacks = {}
+    for key, value in pairs(tbl) do
+        callbacks[key] = function()
+            return callback(value, key)
+        end
+    end
+    return async.gather(callbacks)
 end
 
 function async.newRwLock(value)

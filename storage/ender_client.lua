@@ -1,4 +1,4 @@
-local async = require "async"
+local async = require "../async"
 local common = require "common"
 local ui = require "ui"
 local util = require "util"
