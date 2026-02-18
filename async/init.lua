@@ -159,6 +159,11 @@ function async.newTaskSet(concurrency_limit)
                 task.join()
             end
         end,
+        cancel = function()
+            for _, task in pairs(local_tasks) do
+                task.cancel()
+            end
+        end,
     }
 end
 
