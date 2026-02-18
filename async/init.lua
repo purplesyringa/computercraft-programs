@@ -283,7 +283,7 @@ function async.newRwLock(value)
     end
 
     return {
-        read = function()
+        shared = function()
             while has_writer do
                 async.waitOn(wait_reader)
             end
@@ -295,7 +295,7 @@ function async.newRwLock(value)
                 end
             end)
         end,
-        write = function()
+        unique = function()
             while n_readers > 0 or has_writer do
                 async.waitOn(wait_writer)
             end
