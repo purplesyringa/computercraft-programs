@@ -125,22 +125,23 @@ function async.spawnDetached(closure)
 end
 
 function async.newTaskSet(concurrency_limit)
+    local semaphore = nil
+    if concurrency_limit ~= nil then
+        semaphore = async.newSemaphore(concurrency_limit)
+    end
     local local_tasks = {}
-    local n_active_tasks = 0
     local next_id = 1
     return {
         spawn = function(closure)
-            -- This works correctly for `concurrency_limit = nil`.
-            while n_active_tasks == concurrency_limit do
-                async.waitOn(local_tasks)
+            if semaphore then
+                semaphore.acquire()
             end
             local id = next_id
             next_id = next_id + 1
-            n_active_tasks = n_active_tasks + 1
             local task = async.spawn(function()
-                closure()
+                local result = table.pack(pcall(closure))
+                semaphore.release()
                 local_tasks[id] = nil
-                n_active_tasks = n_active_tasks - 1
                 async.wakeBy(local_tasks)
             end)
             if not task.finished() then
