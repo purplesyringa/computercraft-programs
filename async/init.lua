@@ -4,6 +4,7 @@ local tasks = {} -- { [task_id] = task }
 local next_task_id = 1
 local subscriptions = {} -- { [awaited_event_or_key] = { task, ... } }
 local woken_keys = { head = 1, tail = 1 } -- queue
+local driven = false
 
 function async.waitOn(key)
     coroutine.yield(key)
@@ -124,6 +125,9 @@ local function deliverEvent(key, ...)
 end
 
 function async.drive()
+    assert(not driven, "async runtime already running")
+    driven = true
+
     while true do
         while woken_keys.head < woken_keys.tail do
             deliverEvent(woken_keys[woken_keys.head])
