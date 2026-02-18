@@ -65,8 +65,11 @@ function async.spawn(closure)
     resumeTask(task_id)
 
     return {
-        join = function()
+        finished = function()
             -- Avoid using `coroutine.status` here, since that doesn't capture cancellation.
+            return task.result ~= nil
+        end,
+        join = function()
             if task.result == nil then
                 async.waitOn(task_id)
             end
@@ -100,7 +103,7 @@ function async.newTaskSet(concurrency_limit)
                 n_active_tasks = n_active_tasks - 1
                 async.wakeBy(local_tasks)
             end)
-            if task.result == nil then
+            if not task.finished() then
                 local_tasks[id] = task
             end
         end,
