@@ -322,7 +322,7 @@ end
 function async.newMutex(value)
     local rw_lock = async.newRwLock(value)
     return {
-        lock = rw_lock.write,
+        lock = rw_lock.unique,
     }
 end
 

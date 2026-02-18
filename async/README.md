@@ -354,11 +354,11 @@ The unique part of the `RwLock` is fair, but the `RwLock` in general is unfair: 
 ```lua
 local rw_lock = async.newRwLock(1)
 -- ...
-local guard = rw_lock.write()
+local guard = rw_lock.unique()
 guard.value = transformValue(guard.value)
 guard.unlock()
 -- ...
-local guard = rw_lock.read()
+local guard = rw_lock.shared()
 consume(guard.value)
 guard.unlock()
 ```
