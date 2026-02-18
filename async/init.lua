@@ -5,9 +5,12 @@ local next_task_id = 1
 local subscriptions = {} -- { [awaited_event_or_key] = { task, ... } }
 local woken_keys = { head = 1, tail = 1 } -- queue
 local driven = false
+local current_task_id = nil
 
 function async.waitOn(key)
-    coroutine.yield(key)
+    if coroutine.yield(key) == "terminate" then
+        error("Terminated")
+    end
 end
 
 function async.wakeBy(key)
@@ -22,9 +25,11 @@ local function resumeTask(task_id, ...)
         return
     end
 
+    current_task_id = task_id
     local out = table.pack(coroutine.resume(task.coroutine, ...))
     local ok = out[1]
     local params = table.pack(table.unpack(out, 2, out.n))
+    current_task_id = nil
 
     if not ok then
         error(params[1])
@@ -32,6 +37,16 @@ local function resumeTask(task_id, ...)
 
     if coroutine.status(task.coroutine) == "dead" then
         task.result = params
+        if task.parent then
+            tasks[task.parent].children[task_id] = nil
+        end
+        for child_id, _ in task.children do
+            local child_task = tasks[child_id]
+            child_task.parent = task.parent
+            if task.parent then
+                tasks[task.parent].children[child_id] = true
+            end
+        end
         tasks[task_id] = nil
         async.wakeBy(task_id)
     else
@@ -46,7 +61,7 @@ local function resumeTask(task_id, ...)
     end
 end
 
-function async.spawn(closure)
+local function spawn(closure, detached)
     local task_id = next_task_id
     next_task_id = next_task_id + 1
 
@@ -60,8 +75,16 @@ function async.spawn(closure)
             end
         end),
         result = nil,
+        children = {},
+        parent = nil,
     }
     tasks[task_id] = task
+
+    if not detached and current_task_id ~= nil then
+        task.parent = current_task_id
+        tasks[current_task_id].children[task_id] = true
+    end
+
     resumeTask(task_id)
 
     return {
@@ -76,12 +99,29 @@ function async.spawn(closure)
             return table.unpack(task.result, 1, task.result.n)
         end,
         cancel = function()
+            current_task_id = task_id
+            coroutine.resume(task.coroutine, "terminate")
+            current_task_id = nil
             task.coroutine = nil -- help GC
             task.result = {}
+            if task.parent then
+                tasks[task.parent].children[task_id] = nil
+            end
             tasks[task_id] = nil
             async.wakeBy(task_id)
+            for child_id, _ in task.children do
+                tasks[child_id].cancel()
+            end
         end,
     }
+end
+
+function async.spawn(closure)
+    return spawn(closure, false)
+end
+
+function async.spawnDetached(closure)
+    return spawn(closure, true)
 end
 
 function async.newTaskSet(concurrency_limit)
