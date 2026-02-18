@@ -143,10 +143,16 @@ function async.newTaskSet(concurrency_limit)
                 semaphore.release()
                 local_tasks[id] = nil
                 async.wakeBy(local_tasks)
+                if result[1] then
+                    return table.unpack(result, 2, result.n)
+                else
+                    error(result[2])
+                end
             end)
             if not task.finished() then
                 local_tasks[id] = task
             end
+            return task
         end,
         join = function()
             for _, task in pairs(local_tasks) do
