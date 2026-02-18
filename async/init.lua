@@ -306,10 +306,6 @@ function async.newRwLock(value)
                 async.wakeBy(wait_writer)
             end)
         end,
-        force = function()
-            assert(n_readers == 0 and not has_writer, "mutex locked")
-            return value
-        end,
     }
 end
 
@@ -317,7 +313,6 @@ function async.newMutex(value)
     local rw_lock = async.newRwLock(value)
     return {
         lock = rw_lock.write,
-        force = rw_lock.force,
     }
 end
 
