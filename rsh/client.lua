@@ -60,7 +60,7 @@ local function connect(server_id, ...)
             local _, sender_id, msg, protocol = table.unpack(event)
             if sender_id == server_id and protocol == "rsh" and msg.session == session_id then
                 if msg.type == "term" then
-                    for _, op in pairs(msg.ops) do
+                    for _, op in ipairs(msg.ops) do
                         term[op[1]](table.unpack(op, 2, op.n))
                     end
                 elseif msg.type == "ack" and last_timer ~= nil then
