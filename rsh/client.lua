@@ -42,6 +42,11 @@ local function connect(server_id, ...)
             printError("Killed")
             break
         elseif remote_events[event[1]] then
+            if event[1] == "term_resize" then
+                -- Temporarily add size information to the event so that we can update the return
+                -- value of `term.getSize` on the server.
+                event = { "term_resize", term.getSize() }
+            end
             rednet.send(server_id, { type = "event", session = session_id, event = event }, "rsh")
             if last_timer ~= nil then
                 os.cancelTimer(last_timer)

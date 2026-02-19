@@ -24,13 +24,10 @@ local function startProgram(...)
 end
 
 local function serveSession(client_id, params, event_queue)
+    local size_x, size_y = params.size[1], params.size[2]
     local handlers = {
-        isColor = function()
-            return params.is_color
-        end,
-        getSize = function()
-            return params.size[1], params.size[2]
-        end,
+        isColor = function() return params.is_color end,
+        getSize = function() return size_x, size_y end,
     }
 
     local op_queue = {}
@@ -83,6 +80,12 @@ local function serveSession(client_id, params, event_queue)
         local filter = out[2]
         repeat
             event = table.pack(event_queue.get())
+            -- The client adds dimension information to `term_resize` -- read it and make sure to
+            -- remove it for consistency with base CraftOS.
+            if event[1] == "term_resize" then
+                size_x, size_y = event[2], event[3]
+                event = { "term_resize" }
+            end
         until event[1] == filter or filter == nil or event[1] == "terminate"
     end
 
