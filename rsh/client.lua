@@ -90,6 +90,11 @@ if #args == 0 then
     print("Usage: rsh/client <hostname> [<command> <args...>]")
 else
     local hostname = args[1]
+
+    if multishell then
+        multishell.setTitle(multishell.getCurrent(), "rsh " .. hostname)
+    end
+
     peripheral.find("modem", rednet.open)
     local server_id = rednet.lookup("rsh", hostname)
     if server_id == nil then

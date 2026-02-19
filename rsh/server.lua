@@ -39,6 +39,24 @@ local function startProgram(program, ...)
                     end,
                 }, { __index = settings }),
             }, { __index = _G }),
+
+            -- This is breathtakingly idiotic, but I have no idea what else to do. CC's shell
+            -- does not allow the prompt to be configured in any way, and it's really easy to
+            -- get lost if the hostname is not mentioned, and this is the only place where we
+            -- can inject our logic.
+            write = function(text)
+                local info = debug.getinfo(2)
+                -- Notably, if rsh sessions are nested, only the innermost one will see `write`
+                -- being called from `show_prompt` -- others will see the call to `write` from this
+                -- function instead.
+                if info.source == "@/rom/programs/shell.lua" and info.name == "show_prompt" then
+                    local color = term.getTextColor()
+                    term.setTextColor(colors.green)
+                    write(named.hostname() .. " ")
+                    term.setTextColor(color)
+                end
+                write(text)
+            end,
         },
         "rom/programs/shell.lua",
         table.unpack(command)
