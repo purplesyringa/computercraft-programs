@@ -4,24 +4,51 @@ local named = require "named"
 local remote_events = require("events").remote_events
 local vt = require "vt"
 
-local function startProgram(...)
-    -- Start a new shell and let it configure the path, environment, and whatnot from scratch, since
-    -- the path depends on whether the active terminal supports color, and that may be different
-    -- between a direct session and an rsh session.
-    os.run({
-        -- Monkey-patch `settings.get` to disable startup scripts, since that can run startup files
-        -- from disks, which we don't control.
-        _G = setmetatable({
-            settings = setmetatable({
-                get = function(name, ...)
-                    if name == "shell.allow_startup" or name == "shell.allow_disk_startup" then
-                        return false
-                    end
-                    return settings.get(name, ...)
-                end,
-            }, { __index = settings }),
-        }, { __index = _G }),
-    }, "rom/programs/shell.lua", ...)
+local function startProgram(program, ...)
+    -- Even if we want to run a specific command, we need to run it inside a shell to give it
+    -- an environment. But running `shell <program>` doesn't invoke the ROM startup script, which is
+    -- actually responsible for setting up the environment, so we have to invoke ourselves as
+    -- a proxy to invoke the ROM startup script first and the requested command second.
+    local command = {}
+    if program ~= nil then
+        command = { shell.getRunningProgram(), "--serve", program, ... }
+    end
+
+    -- The ROM startup script not only sets up the environment, but also runs MOTD and startup
+    -- scripts from disks and the filesystem root, so we have to monkey-patch `settings.get` to
+    -- disable that behavior.
+    local one_time_overrides = {
+        ["shell.allow_startup"] = false,
+        ["shell.allow_disk_startup"] = false,
+    }
+    -- Leave MOTD when starting the shell normally.
+    if program ~= nil then
+        one_time_overrides["motd.enable"] = false
+    end
+    os.run(
+        {
+            _G = setmetatable({
+                settings = setmetatable({
+                    get = function(name, ...)
+                        if one_time_overrides[name] ~= nil then
+                            local value = one_time_overrides[name]
+                            one_time_overrides[name] = nil
+                            return value
+                        end
+                        return settings.get(name, ...)
+                    end,
+                }, { __index = settings }),
+            }, { __index = _G }),
+        },
+        "rom/programs/shell.lua",
+        table.unpack(command)
+    )
+end
+
+if arg[1] == "--serve" then
+    shell.execute("rom/startup.lua")
+    shell.execute(table.unpack(arg, 2))
+    return
 end
 
 local function serveSession(client_id, params, event_queue)
