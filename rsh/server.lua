@@ -82,12 +82,14 @@ local function serveSession(client_id, params, event_queue)
         local filter = out[2]
         repeat
             event = table.pack(event_queue.get())
-            rednet.send(client_id, { type = "ack", session = params.session }, "rsh")
-            -- The client adds dimension information to `term_resize` -- read it and make sure to
-            -- remove it for consistency with base CraftOS.
-            if event[1] == "term_resize" then
-                size_x, size_y = event[2], event[3]
-                event = { "term_resize" }
+            if remote_events[event[1]] then
+                rednet.send(client_id, { type = "ack", session = params.session }, "rsh")
+                -- The client adds dimension information to `term_resize` -- read it and make sure
+                -- to remove it for consistency with base CraftOS.
+                if event[1] == "term_resize" then
+                    size_x, size_y = event[2], event[3]
+                    event = { "term_resize" }
+                end
             end
         until event[1] == filter or filter == nil or event[1] == "terminate"
     end
