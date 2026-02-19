@@ -11,7 +11,7 @@ local current_task_id = nil
 
 function async.waitOn(key)
     if coroutine.yield(key) == "terminate" then
-        error("Terminated")
+        error("Terminated", 0)
     end
 end
 
@@ -34,7 +34,7 @@ local function resumeTask(task_id, ...)
     current_task_id = nil
 
     if not ok then
-        error(params[1])
+        error(params[1], 0)
     end
 
     if coroutine.status(task.coroutine) == "dead" then
@@ -105,7 +105,7 @@ local function spawn(closure, detached)
             if result[1] then
                 return table.unpack(result, 2, result.n)
             else
-                error(result[2])
+                error(result[2], 0)
             end
         end),
         result = nil,
@@ -183,7 +183,7 @@ function async.newTaskSet(concurrency_limit)
                 if result[1] then
                     return table.unpack(result, 2, result.n)
                 else
-                    error(result[2])
+                    error(result[2], 0)
                 end
             end)
             if not task.finished() then
