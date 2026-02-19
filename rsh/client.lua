@@ -67,6 +67,13 @@ local function connect(server_id, ...)
                     os.cancelTimer(last_timer)
                     last_timer = nil
                 elseif msg.type == "close" then
+                    if msg.reason == "shutdown" then
+                        printError("Server is shutting down")
+                    elseif msg.reason == "reboot" then
+                        printError("Server is rebooting")
+                    elseif msg.reason == "terminate" then
+                        printError("Server is terminated")
+                    end
                     break
                 elseif msg.type == "server_reset" then
                     printError("Connection reset")

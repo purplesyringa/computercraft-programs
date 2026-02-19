@@ -97,6 +97,7 @@ local function serveSession(client_id, params, event_queue)
     rednet.send(client_id, {
         type = "close",
         session = params.session,
+        reason = "exit",
     }, "rsh")
 end
 
@@ -114,6 +115,7 @@ local function openSession(client_id, params)
         open_sessions[params.session] = {
             task = task,
             event_queue = event_queue,
+            client_id = client_id,
         }
     end
 end
@@ -153,6 +155,34 @@ async.spawn(function()
             end
         end
     end
+end)
+
+local function closeAll(reason)
+    for session_id, session in pairs(open_sessions) do
+        rednet.send(session.client_id, {
+            type = "close",
+            session = session_id,
+            reason = reason,
+        }, "rsh")
+    end
+end
+
+local old_reboot = os.reboot
+os.reboot = function()
+    closeAll("reboot")
+    old_reboot()
+end
+
+local old_shutdown = os.shutdown
+os.shutdown = function()
+    closeAll("shutdown")
+    old_shutdown()
+end
+
+async.subscribe("terminate", function()
+    os.reboot = old_reboot
+    os.shutdown = old_shutdown
+    closeAll("terminate")
 end)
 
 async.drive()
