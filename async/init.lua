@@ -205,11 +205,21 @@ function async.newTaskSet(concurrency_limit)
 end
 
 local function deliverEvent(key, ...)
-    local a = wildcard_subscriptions
-    local b = subscriptions[key] or {}
-    local woken_task_ids = table.move(a, 1, #a, #b + 1, b)
-    wildcard_subscriptions = {}
-    subscriptions[key] = nil
+    local woken_task_ids
+
+    -- Make sure `os.pullEvent` only gets actual events, since this can cause infinite loops in edge
+    -- cases. It does mean that `parallel` won't work with our coroutines, but oh well.
+    if type(key) == "string" then
+        local a = wildcard_subscriptions
+        local b = subscriptions[key] or {}
+        woken_task_ids = table.move(a, 1, #a, #b + 1, b)
+        wildcard_subscriptions = {}
+        subscriptions[key] = nil
+    else
+        woken_task_ids = subscriptions[key] or {}
+        subscriptions[key] = nil
+    end
+
     for _, task_id in ipairs(woken_task_ids) do
         resumeTask(task_id, key, ...)
     end

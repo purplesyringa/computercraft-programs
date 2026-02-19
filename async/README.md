@@ -8,6 +8,8 @@ As typical in Lua, coroutines are inert and have to be driven to perform work --
 
 Since ComputerCraft is single-threaded, coroutines are never preempted and do not race with other coroutines, as long as the critical sections don't contain yield points.
 
+This runtime completely replaces the function of the [`parallel`](https://tweaked.cc/module/parallel.html) module, offering more efficient and ergonomic functions, like `async.gather` and `async.race`. Using coroutines from `async` as arguments to `parallel` will fail.
+
 ## Pitfalls
 
 ComputerCraft made some odd design decisions that we have to live with, and there are subtle issues you need to be aware of when writing asynchronous code.
@@ -20,7 +22,7 @@ ComputerCraft has a hard limit of 256 events in queue, so wake-ups may be lost i
 
 ### Performance
 
-When an event arrives, the runtime only wakes up tasks with matching filters and doesn't iterate over other tasks, but this optimization relies on tasks actually communicating their filters. A common offender is the built-in [`parallel`](https://tweaked.cc/module/parallel.html) module, whose runners catch all events. Prefer filter-aware `async.gather` and `async.race` methods instead.
+When an event arrives, the runtime only wakes up tasks with matching filters and doesn't iterate over other tasks, but this optimization relies on tasks actually communicating their filters. A common offender is the built-in [`parallel`](https://tweaked.cc/module/parallel.html) module, whose runners catch all events, so `async` offers filter-aware `async.gather` and `async.race` methods instead.
 
 ComputerCraft's builtin functions have very coarse-grained filters. For example, [`rednet_message`](https://tweaked.cc/event/rednet_message.html) does not filter based on the protocol. Most prominently, [`task_complete`](https://tweaked.cc/event/task_complete.html) is used for all peripheral calls and does not offer any way to detect which coroutine wants to handle which event. The runtime contains a hacky best-effort optimization based on debug APIs, but it only works well if tasks waiting on `task_complete` are seldom cancelled and custom async runtimes are not used.
 
