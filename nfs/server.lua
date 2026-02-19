@@ -1,5 +1,3 @@
-local pretty = require "cc.pretty"
-
 local PROTOCOL = "sylfn-nfs"
 local ROOT = "pub"
 peripheral.find("modem", rednet.open)

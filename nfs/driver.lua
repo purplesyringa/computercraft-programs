@@ -1,5 +1,3 @@
-local pretty = require "cc.pretty"
-
 local PROTOCOL = "sylfn-nfs"
 local ROOT = "nfs"
 local MANAGED_PATH = fs.combine(ROOT, ".managed")
