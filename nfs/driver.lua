@@ -71,19 +71,27 @@ local function assertlocal(path)
 end
 
 local function nfsdown(path)
+    local contents, err = nfscall("_read", path)
+    if contents == nil then
+        return nil, err
+    end
+
     local fd = current_fd
     current_fd = current_fd + 1
     local local_path = fs.combine(FD_PATH, tostring(fd))
 
     local file = ofs.open(local_path, "w")
-    file.write(nfscall("_read", path))
+    file.write(contents)
     file.close()
 
     return local_path
 end
 
 local function nfsopen(path, mode)
-    path = nfsdown(path)
+    local path, err = nfsdown(path)
+    if path == nil then
+        return nil, err
+    end
 
     local handle = ofs.open(path, mode)
     local orig_close = handle.close
@@ -169,7 +177,13 @@ _G.fs = {
     copy = function(src, dst)
         assertlocal(dst)
         local nfssrc = tonfspath(src)
-        if nfssrc then return ofs.move(nfsdown(nfssrc), dst) end
+        if nfssrc then
+            local nfssrc, err = nfsdown(nfssrc)
+            if nfssrc == nil then
+                error(err)
+            end
+            return ofs.move(nfssrc, dst)
+        end
         return ofs.copy(src, dst)
     end,
     delete = function(path)

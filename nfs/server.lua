@@ -12,7 +12,10 @@ local function wrapOne(func)
 end
 
 local function readToString(path)
-    local file = fs.open(path, "r")
+    local file, err = fs.open(path, "r")
+    if file == nil then
+        return nil, err
+    end
     local contents = file.readAll()
     file.close()
     return contents
