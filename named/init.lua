@@ -15,5 +15,6 @@ return {
     end,
     setHostname = function(hostname)
         settings.set("named.hostname", hostname)
+        settings.save()
     end,
 }
