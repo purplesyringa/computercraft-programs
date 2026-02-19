@@ -16,7 +16,7 @@ ComputerCraft made some odd design decisions that we have to live with, and ther
 
 ### Lost wake-ups
 
-I/O is driven by a single global event queue, tracking everything from asynchronous notifications to task completion. Tasks can subscribe to events using *filters*, and when an event arrives, it is delivered to *all* tasks with a matching filter. For example, you can have two tasks waiting on rednet or keyboard without losing notifications. However, the task has to be actually listening to the event to receive it: if you receive a rednet message and then execute an asynchronous operation before calling `rednet.receive` again, you will lose messages arriving in-between. Dedicating a task to exclusively receiving events and then passing them to a different task via queues or other message passing mechanisms acting as buffers is necessary to avoid losing wake-ups.
+I/O is driven by a single global event queue, tracking everything from asynchronous notifications to task completion. Tasks can subscribe to events using *filters*, and when an event arrives, it is delivered to *all* tasks with a matching filter. For example, you can have two tasks waiting on rednet or keyboard without losing notifications. However, the task has to be actively listening to the event to receive it: if you receive a rednet message and then execute an asynchronous operation before calling `rednet.receive` again, you will lose messages arriving in-between. Dedicating a task to exclusively receiving events and then passing them to a different task via queues or other message passing mechanisms acting as buffers is necessary to avoid losing wake-ups.
 
 ComputerCraft has a hard limit of 256 events in queue, so wake-ups may be lost if more than 256 tasks are scheduled. The runtime can help limit concurrency with `async.newTaskSet`, `async.newSemaphore`, or `async.newMutex`.
 
@@ -24,13 +24,13 @@ ComputerCraft has a hard limit of 256 events in queue, so wake-ups may be lost i
 
 When an event arrives, the runtime only wakes up tasks with matching filters and doesn't iterate over other tasks, but this optimization relies on tasks actually communicating their filters. A common offender is the built-in [`parallel`](https://tweaked.cc/module/parallel.html) module, whose runners catch all events, so `async` offers filter-aware `async.gather` and `async.race` methods instead.
 
-ComputerCraft's builtin functions have very coarse-grained filters. For example, [`rednet_message`](https://tweaked.cc/event/rednet_message.html) does not filter based on the protocol. Most prominently, [`task_complete`](https://tweaked.cc/event/task_complete.html) is used for all peripheral calls and does not offer any way to detect which coroutine wants to handle which event. The runtime contains a hacky best-effort optimization based on debug APIs, but it only works well if tasks waiting on `task_complete` are seldom cancelled and custom async runtimes are not used.
+ComputerCraft's builtin functions have very coarse-grained filters. For example, [`rednet_message`](https://tweaked.cc/event/rednet_message.html) does not filter based on the protocol. Most prominently, [`task_complete`](https://tweaked.cc/event/task_complete.html) is used for all peripheral calls and does not offer any way to detect which coroutine wants to handle which event. A straightforward implementation would wake up every coroutine, which scales quadratically. The runtime contains a hacky best-effort optimization based on debug APIs making this linear, but it only works well if tasks waiting on `task_complete` are seldom cancelled and custom async runtimes are not used.
 
 ### Race conditions
 
-While Lua programs are single-threaded, Lua code can race with Minecraft code.
+While Lua programs are single-threaded, Lua code can still race with Minecraft code.
 
-For example, if you invoke [`peripheral.getType`](https://tweaked.cc/module/peripheral.html#v:getType) on a given side twice in a row without yielding, you may get different results if a player replaces the peripheral in the meantime. The [`peripheral`](https://tweaked.cc/event/peripheral.html) event corresponding to this replacement will be delivered, but only at the next yield at the very earliest.
+For example, if you invoke [`peripheral.getType`](https://tweaked.cc/module/peripheral.html#v:getType) on a given side twice in a row without yielding, you may get different results if a player replaces the peripheral in the meantime. The [`peripheral`](https://tweaked.cc/event/peripheral.html) event corresponding to this replacement will be delivered at the next yield at the very earliest.
 
 Similarly, operations scheduled sequentially on the main thread, like [`inventory.getItemDetail`](https://tweaked.cc/generic_peripheral/inventory.html#v:getItemDetail), can be scheduled to different ticks if a tick occurs between scheduling the operations. Even if the operations are scheduled on the same tick and the responses are pushed to the event queue on the same tick, their responses can be handled on different ticks.
 
@@ -70,7 +70,7 @@ Spawns a function as a task. The returned task object has the following API:
 
 The created task is considered *supervised* by the current task, which means that if the current task is cancelled, the child task is automatically cancelled as well. This is propagated in a chain-like reaction across trees. If a task completes out of its own volition, its children are not cancelled, unless a grandparent is cancelled.
 
-Errors in background tasks terminate the entire runtime, except when occurring during `cancel`, in which case they are silently ignored. Use `async.spawn(function() pcall(...) end)` to catch errors if necessary.
+Errors in tasks terminate the entire runtime, except when occurring during `cancel`, in which case they are silently ignored. Use `async.spawn(function() pcall(...) end)` to catch errors if necessary.
 
 When `async.spawn` is called, the coroutine executes synchronous actions up to the first yield point and schedules its first asynchronous action before `async.spawn` returns, so e.g.
 
@@ -87,7 +87,7 @@ Like `async.spawn`, but the task is spawned without supervision. If the current 
 
 ### `async.drive()`
 
-Poll background tasks to completion. The function completes when all tasks return, including the ones added after `async.drive` starts.
+Poll spawned tasks to completion. The function completes when all tasks return, including the ones added after `async.drive` starts.
 
 
 ## Combinators
@@ -115,7 +115,7 @@ assert(results.immediate == 123)
 
 Wait for any task from the table to complete. Returns the key of the first completed task, followed by all of its return values. Mirrors [`parallel.waitForAny`](https://tweaked.cc/module/parallel.html#v:waitForAny).
 
-Each value can be either a task or a function. If it's a function, it will be scheduled as a supervised task. When the first task completes, all other tasks are cancelled.
+Each value can be either a task or a function. If it's a function, it is scheduled as a supervised task. When the first task completes, all other tasks are cancelled.
 
 ```lua
 local key, value1, value2 = async.race({
@@ -133,7 +133,7 @@ assert(value2 == 456)
 
 Wait for a task to complete until a given time limit. If the task completes in time, its return values are forwarded, otherwise the function returns nothing, as if by `return`.
 
-`duration` is in seconds. If a function is passed as the second argument, it will be scheduled as a supervised task. The task is cancelled on timeout.
+`duration` is in seconds. If a function is passed as the second argument, it is scheduled as a supervised task. The task is cancelled on timeout.
 
 ### `async.parMap({ [key] = value, ... }, function)`
 
