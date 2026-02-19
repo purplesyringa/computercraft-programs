@@ -29,7 +29,7 @@ local function newTerminalRedirect(handlers)
     redirect.getTextColor = function() return text_color end
     redirect.getTextColour = redirect.getTextColor
     redirect.setTextColor = handling("setTextColor", function(color) text_color = color end)
-    redirect.setTextColor = redirect.setTextColour
+    redirect.setTextColour = redirect.setTextColor
 
     local background_color = colors.black
     redirect.getBackgroundColor = function() return background_color end

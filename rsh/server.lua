@@ -119,7 +119,7 @@ async.spawn(function()
         local event = table.pack(os.pullEvent())
         if not remote_events[event[1]] then
             for _, session in pairs(open_sessions) do
-                session.event_queue.put(event)
+                session.event_queue.put(table.unpack(event, 1, event.n))
             end
         end
     end

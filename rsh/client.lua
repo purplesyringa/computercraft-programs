@@ -64,7 +64,7 @@ local function connect(server_id, ...)
                         os.cancelTimer(last_timer)
                         last_timer = nil
                     end
-                    for _, op in pairs(event.ops) do
+                    for _, op in pairs(msg.ops) do
                         term[op[1]](table.unpack(op, 2, op.n))
                     end
                 elseif msg.type == "close" then
