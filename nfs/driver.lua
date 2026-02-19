@@ -99,11 +99,7 @@ local function nfsopen(path, mode)
     end
 
     local handle = ofs.open(path, mode)
-    local orig_close = handle.close
-    handle.close = function()
-        ofs.delete(path)
-        orig_close()
-    end
+    ofs.delete(path)
     return handle
 end
 
