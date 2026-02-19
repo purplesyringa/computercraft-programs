@@ -1,5 +1,6 @@
-local async = require "../async"
-local named = require "../named"
+dofile(fs.combine(shell.getRunningProgram(), "../../pkgs.lua"))
+local async = require "async"
+local named = require "named"
 local remote_events = require("events").remote_events
 local vt = require "vt"
 

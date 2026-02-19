@@ -7,7 +7,8 @@ In this scenario, `named` becomes the source of truth for hostnames: hostnames c
 Example:
 
 ```lua
-local named = require "../named"
+dofile(fs.combine(shell.getRunningProgram(), "../../pkgs.lua"))
+local named = require "named"
 
 rednet.host("myprotocol", named.hostname())
 ```

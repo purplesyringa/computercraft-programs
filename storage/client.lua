@@ -1,4 +1,5 @@
-local async = require "../async"
+dofile(fs.combine(shell.getRunningProgram(), "../../pkgs.lua"))
+local async = require "async"
 local common = require "common"
 local util = require "util"
 
