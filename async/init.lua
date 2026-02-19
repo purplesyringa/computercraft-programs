@@ -8,6 +8,7 @@ local rpc_subscriptions = { head = 1, tail = 1 } -- queue of task IDs
 local woken_keys = { head = 1, tail = 1 } -- queue
 local driven = false
 local current_task_id = nil
+local terminate_inhibited = false
 
 function async.waitOn(key)
     if coroutine.yield(key) == "terminate" then
@@ -112,7 +113,7 @@ local function spawn(closure, detached)
         children = {},
         parent = nil,
     }
-    task.cancel = function()
+    task.cancelSelf = function()
         current_task_id = task_id
         coroutine.resume(task.coroutine, "terminate")
         current_task_id = nil
@@ -123,6 +124,9 @@ local function spawn(closure, detached)
         end
         tasks[task_id] = nil
         async.wakeBy(task_id)
+    end
+    task.cancel = function()
+        task.cancelSelf()
         for child_id, _ in pairs(task.children) do
             tasks[child_id].cancel()
         end
@@ -258,16 +262,37 @@ function async.drive()
     assert(not driven, "async runtime already running")
     driven = true
 
-    while true do
+    local function deliverInternalEvents()
         while woken_keys.head < woken_keys.tail do
             deliverEvent(woken_keys[woken_keys.head])
             woken_keys[woken_keys.head] = nil
             woken_keys.head = woken_keys.head + 1
         end
-        if not next(tasks) then
-            break
+    end
+
+    deliverInternalEvents()
+    while next(tasks) do
+        local event = table.pack(os.pullEventRaw())
+        deliverEvent(table.unpack(event, 1, event.n))
+        deliverInternalEvents()
+        if event[1] == "terminate" and not terminate_inhibited then
+            -- Cancel all tasks and bring down the runtime. This happens after waking up tasks
+            -- subscribed to `terminate` and delivering internal events, so that all tasks can shut
+            -- down gracefully.
+
+            -- Move out `tasks` so that tasks spawned during cancellation (which shouldn't happen in
+            -- normal code, but is technically allowed) don't break iteration.
+            local tasks_to_cancel = tasks
+            tasks = {}
+            for _, task in pairs(tasks_to_cancel) do
+                task.cancelSelf()
+            end
+            -- Drop newly spawned tasks, if any.
+            tasks = {}
+
+            driven = false
+            error("Terminated", 0)
         end
-        deliverEvent(os.pullEvent())
     end
 
     driven = false
@@ -476,7 +501,7 @@ end
 function async.subscribe(event, callback)
     async.spawn(function()
         while true do
-            local args = table.pack(os.pullEvent(event))
+            local args = table.pack(os.pullEventRaw(event))
             local coro = coroutine.create(function()
                 callback(table.unpack(args, 2, args.n))
             end)
@@ -489,6 +514,10 @@ function async.subscribe(event, callback)
             end
         end
     end)
+end
+
+function async.inhibitTerminate()
+    terminate_inhibited = true
 end
 
 return async
