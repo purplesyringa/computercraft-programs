@@ -11,7 +11,11 @@ end
 
 return {
     hostname = function()
-        return settings.get("named.hostname")
+        local hostname = settings.get("named.hostname")
+        if hostname == nil then
+            error("Hostname not configured")
+        end
+        return hostname
     end,
     setHostname = function(hostname)
         settings.set("named.hostname", hostname)

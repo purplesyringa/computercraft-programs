@@ -2,7 +2,7 @@
 
 `rednet` allows computers to use different hostnames on different protocols. This means that there is no single per-computer hostname setting, which is an issue if you're trying to deploy the same code to multiple computers.
 
-In this scenario, `named` becomes the source of truth for hostnames: hostnames can be configured from shell with `set named.hostname <hostname>` or from Lua with `named.setHostname(hostname)`, and retrieved from Lua with `named.hostname()`. If the hostname is not configured, `named.hostname()` returns `nil`.
+In this scenario, `named` becomes the source of truth for hostnames: hostnames can be configured from shell with `set named.hostname <hostname>` or from Lua with `named.setHostname(hostname)`, and retrieved from Lua with `named.hostname()`. If the hostname is not configured, `named.hostname()` errors.
 
 Example:
 
