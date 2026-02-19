@@ -67,12 +67,13 @@ local function serveSession(client_id, params, event_queue)
         redirect = term.current()
         term.redirect(old_term)
 
-        -- Even if `op_queue` is empty, send a message unconditionally as ping.
-        rednet.send(client_id, {
-            type = "term",
-            session = params.session,
-            ops = op_queue,
-        }, "rsh")
+        if next(op_queue) then
+            rednet.send(client_id, {
+                type = "term",
+                session = params.session,
+                ops = op_queue,
+            }, "rsh")
+        end
         op_queue = {}
 
         if not out[1] or coroutine.status(coro) == "dead" then
@@ -81,6 +82,7 @@ local function serveSession(client_id, params, event_queue)
         local filter = out[2]
         repeat
             event = table.pack(event_queue.get())
+            rednet.send(client_id, { type = "ack", session = params.session }, "rsh")
             -- The client adds dimension information to `term_resize` -- read it and make sure to
             -- remove it for consistency with base CraftOS.
             if event[1] == "term_resize" then
