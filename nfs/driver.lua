@@ -3,14 +3,14 @@ local ROOT = "nfs"
 local MANAGED_PATH = fs.combine(ROOT, ".managed")
 local FD_PATH = fs.combine(ROOT, "fd")
 
-if fs.exists(ROOT) and not fs.exists(MANAGED_PATH) then
+local ofs = (fs._ofs or fs)
+if ofs.exists(ROOT) and not ofs.exists(MANAGED_PATH) then
     error("/nfs folder already exists. Why? Please don't.")
 end
-fs.makeDir(ROOT)
-fs.open(MANAGED_PATH, "w").close()
-fs.delete(FD_PATH)
+ofs.makeDir(ROOT)
+ofs.open(MANAGED_PATH, "w").close()
+ofs.delete(FD_PATH)
 local current_fd = 0
-local ofs = (fs._ofs or fs)
 local current_id = math.random(0, 0xFFFFFFFF)
 
 peripheral.find("modem", function(name, modem)
