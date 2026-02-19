@@ -7,3 +7,5 @@ The server should have a hostname configured with [`named`](../named) and run `r
 When running without arguments, the shell is always `shell` and not `multishell`, since `multishell` does not retain the scrollback. You can always use `rsh/client <hostname> multishell` to open a multishell immediately upon connecting. Note that you might get nested multishells this way.
 
 The rsh server patches the shell to add the hostname to the prompt, so that it's a bit easier to not get lost.
+
+Clicking "Terminate" while in the client forwards the request to the nested session and does not abort the client immediately. If the client is stuck, you can forcibly terminate the session by holding <kbd>Shift</kbd> while pressing "Terminate".
