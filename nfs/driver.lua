@@ -23,6 +23,13 @@ if server == nil then
     error("no nfs server")
 end
 
+local function patchError(err)
+    if type(err) == "string" and string.find(err, "/{mnt}") == 1 then
+        return "/" .. ROOT .. string.sub(err, 7)
+    end
+    return err
+end
+
 local function nfscall(func, ...)
     local id = current_id
     current_id = (current_id + 1) % (0xFFFFFFFF + 1)
@@ -31,7 +38,7 @@ local function nfscall(func, ...)
     if message[1] then
         return table.unpack(message, 2, message.n)
     end
-    error(table.unpack(message, 2, message.n))
+    error(patchError(message[2]))
 end
 
 local function tonfspath(...)
@@ -71,7 +78,7 @@ end
 local function nfsdown(path)
     local contents, err = nfscall("_read", path)
     if contents == nil then
-        return nil, err
+        return nil, patchError(err)
     end
 
     local fd = current_fd

@@ -9,10 +9,17 @@ local function wrapOne(func)
     end
 end
 
+local function patchError(err)
+    if type(err) == "string" and string.find(err, "/" .. ROOT) == 1 then
+        return "/{mnt}" .. string.sub(err, #ROOT + 2)
+    end
+    return err
+end
+
 local function readToString(path)
     local file, err = fs.open(path, "r")
     if file == nil then
-        return nil, err
+        return nil, patchError(err)
     end
     local contents = file.readAll()
     file.close()
@@ -58,6 +65,9 @@ while true do
         local response = table.pack(pcall(function()
             return nfs[message[2]](table.unpack(message, 3, message.n))
         end))
+        if response[1] == false then
+            response[2] = patchError(response[2])
+        end
         rednet.send(computer, response, PROTOCOL .. message[1])
     end
 end
