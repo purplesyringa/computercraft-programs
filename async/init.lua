@@ -3,6 +3,7 @@ local async = {}
 local tasks = {} -- { [task_id] = task }
 local next_task_id = 1
 local subscriptions = {} -- { [awaited_event_or_key] = { task_id, ... } }
+local wildcard_subscriptions = {} -- { task_id, ... }
 local rpc_subscriptions = { head = 1, tail = 1 } -- queue of task IDs
 local woken_keys = { head = 1, tail = 1 } -- queue
 local driven = false
@@ -53,9 +54,6 @@ local function resumeTask(task_id, ...)
         return true
     else
         local filter = params[1]
-        if filter == nil then
-            filter = "any"
-        end
         -- Put remote calls to peripherals to a separate queue to resolve them more efficiently.
         --
         -- This check is very hacky, but it's pretty much the only option: we cannot trust
@@ -83,6 +81,9 @@ local function resumeTask(task_id, ...)
             debug.setlocal(task.coroutine, 1, 1, "__purplesyringa_async_marker")
             rpc_subscriptions[rpc_subscriptions.tail] = task_id
             rpc_subscriptions.tail = rpc_subscriptions.tail + 1
+            return true
+        elseif filter == nil then
+            table.insert(wildcard_subscriptions, task_id)
             return true
         else
             if not subscriptions[filter] then
@@ -204,12 +205,10 @@ function async.newTaskSet(concurrency_limit)
 end
 
 local function deliverEvent(key, ...)
-    assert(key ~= "any", "event `any` is invalid")
-
-    local a = subscriptions.any or {}
+    local a = wildcard_subscriptions
     local b = subscriptions[key] or {}
     local woken_task_ids = table.move(a, 1, #a, #b + 1, b)
-    subscriptions.any = nil
+    wildcard_subscriptions = {}
     subscriptions[key] = nil
     for _, task_id in ipairs(woken_task_ids) do
         resumeTask(task_id, key, ...)
