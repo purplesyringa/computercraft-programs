@@ -80,7 +80,10 @@ local function serveSession(client_id, params, event_queue)
         if not out[1] or coroutine.status(coro) == "dead" then
             break
         end
-        event = table.pack(event_queue.get())
+        local filter = out[2]
+        repeat
+            event = table.pack(event_queue.get())
+        until event[1] == filter or filter == nil or event[1] == "terminate"
     end
 
     rednet.send(client_id, {
