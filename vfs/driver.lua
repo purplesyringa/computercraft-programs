@@ -38,9 +38,11 @@ local next_fd = 0
 --
 --     -- If missing, throws the read-only error.
 --     makeDir(rel_path),
+--     delete(rel_path),
+--
+--     -- If missing, simulated with `read`, `write`, and (for `move`) `delete`.
 --     move(src_rel_path, dst_rel_path),
 --     copy(src_rel_path, dst_rel_path),
---     delete(rel_path),
 --
 --     -- If missing, simulated with `read` and `write`.
 --     open(rel_path, mode),
@@ -332,8 +334,7 @@ end
 function fs.move(src, dst)
     local src_mount, src_rel_path = resolvePath(ofs.combine(src), true)
     local dst_mount, dst_rel_path = resolvePath(ofs.combine(dst), true)
-    if src_mount == dst_mount then
-        assertOrReadOnly(src_mount.move, src_rel_path)
+    if src_mount == dst_mount and src_mount.move then
         callWithErr(src_mount, "move", src_rel_path, dst_rel_path)
         return
     end
@@ -347,8 +348,7 @@ end
 function fs.copy(src, dst)
     local src_mount, src_rel_path = resolvePath(ofs.combine(src), true)
     local dst_mount, dst_rel_path = resolvePath(ofs.combine(dst), true)
-    if src_mount == dst_mount then
-        assertOrReadOnly(src_mount.copy, dst_rel_path)
+    if src_mount == dst_mount and src_mount.copy then
         callWithErr(src_mount, "copy", src_rel_path, dst_rel_path)
         return
     end
