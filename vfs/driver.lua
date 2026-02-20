@@ -20,6 +20,9 @@ local next_fd = 0
 --     -- Absolute path to the mountpoint.
 --     root = ...,
 --
+--     -- Drive type, as visible by `getDrive`.
+--     drive = ...,
+--
 --     -- String description of the mount.
 --     description = ...,
 --
@@ -28,13 +31,11 @@ local next_fd = 0
 --
 --     -- Implementations directly mirroring `fs` methods.
 --     find(rel_pattern),
---     isDriveRoot(rel_path),
 --     list(rel_path),
 --     getSize(rel_path),
 --     exists(rel_path),
 --     isDir(rel_path),
 --     isReadOnly(rel_path),
---     getDrive(rel_path),
 --     getFreeSpace(rel_path),
 --     getCapacity(rel_path),
 --     attributes(rel_path),
@@ -61,13 +62,11 @@ local root_mount = {
         return ofs.complete(rel_path, "", options)
     end,
     find = ofs.find,
-    isDriveRoot = ofs.isDriveRoot,
     list = ofs.list,
     getSize = ofs.getSize,
     exists = ofs.exists,
     isDir = ofs.isDir,
     isReadOnly = ofs.isReadOnly,
-    getDrive = ofs.getDrive,
     getFreeSpace = ofs.getFreeSpace,
     getCapacity = ofs.getCapacity,
     attributes = ofs.attributes,
@@ -331,9 +330,6 @@ local function wrapOne(func)
     end
 end
 
--- Directories within mounts may be drive roots if the vfs forwards a filesystem with other mounts
--- in it, so this is a non-trivial check.
-fs.isDriveRoot = wrapOne("isDriveRoot")
 fs.list = wrapOne("list")
 fs.getSize = wrapOne("getSize")
 
@@ -471,7 +467,20 @@ function fs.open(path, mode)
     return handle
 end
 
-fs.getDrive = wrapOne("getDrive")
+function fs.getDrive(path)
+    local mount, rel_path = resolvePath(ofs.combine(path), false)
+    if mount == root_mount then
+        return ofs.getDrive(rel_path)
+    else
+        return mount.drive
+    end
+end
+
+function fs.isDriveRoot(path)
+    local mount, rel_path = resolvePath(ofs.combine(path), false)
+    return rel_path == "" or (mount == root_mount and ofs.isDriveRoot(rel_path))
+end
+
 fs.getFreeSpace = wrapOne("getFreeSpace")
 fs.getCapacity = wrapOne("getCapacity")
 fs.attributes = wrapOne("attributes")
@@ -504,6 +513,7 @@ function vfs.list()
     for _, mount in ipairs(mounts) do
         table.insert(result, {
             root = mount.root,
+            drive = mount.drive,
             description = mount.description,
             shadowed = isShadowed(mount),
         })
