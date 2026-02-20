@@ -261,6 +261,8 @@ function fs.find(pattern)
 
         -- Check if matching paths can be nested strictly within this mount.
         if not (
+            -- If the pattern is empty, we want to return the root as a single result. The root is
+            -- not strictly nested within itself, so there's a bit of special-casing.
             (mount.root == "" or #pattern_components > #root_components)
             and globMatches(mount.root, table.concat(pattern_components, "/", 1, #root_components))
         ) then
