@@ -352,25 +352,32 @@ function fs.makeDir(path)
     callWithErr(mount, "makeDir", rel_path)
 end
 
-local function copyAcrossMounts(src_mount, src_rel_path, dst_mount, dst_rel_path)
-    assertOrReadOnly(not dst_mount.isReadOnly(dst_rel_path), dst)
-    assertOrReadOnly(dst_mount.write, dst)
+local function copyRecursive(src, dst_mount, dst_rel_path)
+    local src_mount, src_rel_path = resolvePath(ofs.combine(src), true)
+    if src_mount.isDir(src_rel_path) then
+        callWithErr(dst_mount, "makeDir", dst_rel_path)
+        for _, name in ipairs(callWithErr(src_mount, "list", src_rel_path)) do
+            copyRecursive(ofs.combine(src, name), dst_mount, ofs.combine(dst_rel_path, name))
+        end
+    else
+        local contents = callWithErr(src_mount, "read", src_rel_path)
+        callWithErr(dst_mount, "write", dst_rel_path, contents)
+    end
+end
 
-    local function doCopy(subpath)
-        local src = ofs.combine(src_rel_path, subpath)
-        local dst = ofs.combine(dst_rel_path, subpath)
-        if src_mount.isDir(src) then
-            callWithErr(dst_mount, "makeDir", dst)
-            for _, name in ipairs(callWithErr(src_mount, "list", src)) do
-                doCopy(ofs.combine(subpath, name))
-            end
-        else
-            local contents = callWithErr(src_mount, "read", src_rel_path)
-            callWithErr(dst_mount, "write", dst_rel_path, contents)
+-- Takes an absolute path and asserts if it cannot be deleted.
+local function assertDeletable(path)
+    local mount, rel_path = resolvePath(path, true)
+    assert(rel_path ~= "", "/" .. path .. ": cannot delete mount")
+    for i = #mounts, 1, -1 do
+        local mount2 = mounts[i]
+        if mount2 == mount then
+            break
+        elseif startsWith(mount2.root, path .. "/") then
+            error("/" .. path .. ": contains mount " .. mount2.root)
         end
     end
-
-    doCopy("")
+    assertOrReadOnly(mount.delete, path)
 end
 
 function fs.move(src, dst)
@@ -380,9 +387,12 @@ function fs.move(src, dst)
         callWithErr(src_mount, "move", src_rel_path, dst_rel_path)
         return
     end
-    assertOrReadOnly(not src_mount.isReadOnly(src_rel_path), src)
-    copyAcrossMounts(src_mount, src_rel_path, dst_mount, dst_rel_path)
-    callWithErr(src_mount, "delete", src_rel_path)
+    assert(not dst_mount.exists(dst_rel_path), "/" .. ofs.combine(dst) .. ": File exists")
+    assertOrReadOnly(not dst_mount.isReadOnly(dst_rel_path), dst)
+    assertOrReadOnly(dst_mount.write, dst)
+    assertDeletable(ofs.combine(src))
+    copyRecursive(src, dst_mount, dst_rel_path)
+    fs.delete(src)
 end
 
 function fs.copy(src, dst)
@@ -392,20 +402,16 @@ function fs.copy(src, dst)
         callWithErr(src_mount, "copy", src_rel_path, dst_rel_path)
         return
     end
-    copyAcrossMounts(src_mount, src_rel_path, dst_mount, dst_rel_path)
+    assert(not dst_mount.exists(dst_rel_path), "/" .. ofs.combine(dst) .. ": File exists")
+    assertOrReadOnly(not dst_mount.isReadOnly(dst_rel_path), dst)
+    assertOrReadOnly(dst_mount.write, dst)
+    copyRecursive(src, dst_mount, dst_rel_path)
 end
 
 function fs.delete(path)
     path = ofs.combine(path)
+    assertDeletable(path)
     local mount, rel_path = resolvePath(path, true)
-    assert(rel_path ~= "", "/" .. path .. ": cannot delete mount")
-    for i = #mounts, 1, -1 do
-        local mount2 = mounts[i]
-        if startsWith(mount2.root, path .. "/") then
-            error("/" .. path .. ": contains mount " .. mount2.root)
-        end
-    end
-    assertOrReadOnly(mount.delete, path)
     callWithErr(mount, "delete", rel_path)
 end
 
