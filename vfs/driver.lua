@@ -510,10 +510,10 @@ function vfs.unmount(root)
             error("/" .. root .. ": submount present at /" .. mounts[i].root)
         elseif mount.root == root then
             table.remove(i)
-            return
+            return true
         end
     end
-    error("/" .. root .. ": not mounted")
+    return false
 end
 
 function vfs.list()
