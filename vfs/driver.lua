@@ -396,7 +396,15 @@ function fs.copy(src, dst)
 end
 
 function fs.delete(path)
-    local mount, rel_path = resolvePath(ofs.combine(path), false)
+    path = ofs.combine(path)
+    local mount, rel_path = resolvePath(path, true)
+    assert(rel_path ~= "", "/" .. path .. ": cannot delete mount")
+    for i = #mounts, 1, -1 do
+        local mount2 = mounts[i]
+        if startsWith(mount2.root, path .. "/") then
+            error("/" .. path .. ": contains mount " .. mount2.root)
+        end
+    end
     assertOrReadOnly(mount.delete, path)
     callWithErr(mount, "delete", rel_path)
 end
