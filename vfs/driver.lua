@@ -509,7 +509,7 @@ function vfs.unmount(root)
         if startsWith(mount.root, root .. "/") then
             error("/" .. root .. ": submount present at /" .. mounts[i].root)
         elseif mount.root == root then
-            table.remove(i)
+            table.remove(mounts, i)
             return true
         end
     end
