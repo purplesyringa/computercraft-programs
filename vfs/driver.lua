@@ -163,7 +163,7 @@ function fs.complete(pattern, dir, ...)
         -- Completing an empty pattern should list files within the base directory, rather than
         -- complete the filename of the base directory itself.
         path = combineKeepingTrailingSlash(dir, "/")
-    elseif string.sub(pattern, 1, 1) == "/" then
+    elseif startsWith(pattern, "/") then
         -- Completing a path starting with `/` ignores the base directory, even though `fs.combine`
         -- doesn't behave that way.
         path = combineKeepingTrailingSlash(pattern)
