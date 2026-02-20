@@ -52,7 +52,7 @@ local next_fd = 0
 --
 --     -- Read the entire file as a string.
 --     read(rel_path),
---     -- Overwrite the entire file as a string.
+--     -- Overwrite the entire file as a string. If missing, throws the read-only error.
 --     write(rel_path, contents),
 -- }
 local root_mount = {
@@ -363,8 +363,9 @@ function fs.move(src, dst)
         callWithErr(src_mount, "move", src_rel_path, dst_rel_path)
         return
     end
-    assertOrReadOnly(not src_mount.isReadOnly(src_rel_path), src_rel_path)
-    assertOrReadOnly(not dst_mount.isReadOnly(dst_rel_path), dst_rel_path)
+    assertOrReadOnly(not src_mount.isReadOnly(src_rel_path), src)
+    assertOrReadOnly(not dst_mount.isReadOnly(dst_rel_path), dst)
+    assertOrReadOnly(dst_mount.write, dst)
     local contents = callWithErr(src_mount, "read", src_rel_path)
     callWithErr(dst_mount, "write", dst_rel_path, contents)
     callWithErr(src_mount, "delete", src_rel_path)
@@ -377,7 +378,8 @@ function fs.copy(src, dst)
         callWithErr(src_mount, "copy", src_rel_path, dst_rel_path)
         return
     end
-    assertOrReadOnly(not dst_mount.isReadOnly(dst_rel_path), dst_rel_path)
+    assertOrReadOnly(not dst_mount.isReadOnly(dst_rel_path), dst)
+    assertOrReadOnly(dst_mount.write, dst)
     local contents = callWithErr(src_mount, "read", src_rel_path)
     callWithErr(dst_mount, "write", dst_rel_path, contents)
 end
@@ -401,6 +403,7 @@ function fs.open(path, mode)
 
     if base_mode ~= "r" then
         assertOrReadOnly(not mount.isReadOnly(rel_path), path)
+        assertOrReadOnly(mount.write, path)
     end
 
     local ok, contents = pcall(function() callWithErr(mount, "read", rel_path) end)
