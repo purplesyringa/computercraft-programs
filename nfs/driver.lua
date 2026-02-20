@@ -27,7 +27,7 @@ return {
         end
 
         vfs.mount(mountpoint, {
-            description = ("nfs remote host %s"):format(nfshostarg),
+            description = ("nfs://%s"):format(nfshostarg),
             drive = ("nfs:%d"):format(host),
             complete = call("complete"),
             find = call("find"),
