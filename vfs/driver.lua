@@ -58,6 +58,8 @@ local next_fd = 0
 -- }
 local root_mount = {
     root = "",
+    drive = "root",
+    description = "physical filesystem",
     complete = function(rel_path, options)
         return ofs.complete(rel_path, "", options)
     end,
