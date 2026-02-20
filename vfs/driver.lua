@@ -89,8 +89,9 @@ local root_mount = {
     end,
 }
 
--- A list of mounts, sorted by the addition order (so most nested last). The first element is always
--- the FS root mount.
+-- A list of mounts, sorted by the addition order. This typically means the most nested mount is
+-- last, but if `a/b` is mounted and then `a` is mounted, the second mount shadows the first one.
+-- The first element is always the FS root mount.
 local mounts = { root_mount }
 if old_vfs then
     -- Move over old mounts when reinitializing the VFS driver.
@@ -127,6 +128,27 @@ local function resolvePath(path, match_root)
         end
     end
     return root_mount, path
+end
+
+-- Checks if the given absolute path is nested strictly within the mount and not any later mount.
+local function isOwnedBy(path, mount)
+    if not startsWith(path, mount.root .. "/") then
+        return false
+    end
+    for i = #mounts, 1, -1 do
+        local mount2 = mounts[i]
+        if mount2 == mount then
+            return true
+        end
+        if startsWith(path, mount2.root .. "/") then
+            return false
+        end
+    end
+    error("mount not in mount list")
+end
+
+local function isShadowed(mount)
+    return not isOwnedBy(mount.root .. "/", mount)
 end
 
 local function assertOrReadOnly(condition, path)
@@ -223,7 +245,7 @@ function fs.complete(pattern, dir, ...)
         end
     end
 
-    for _, completion in pairs(mount.complete(rel_path, options)) do
+    for _, completion in ipairs(mount.complete(rel_path, options)) do
         -- The `complete` implementation may offer `.` for empty patterns, make sure to ignore that.
         if rel_path == "" and completion ~= "." then
             table.insert(res, completion)
@@ -259,7 +281,11 @@ function fs.find(pattern)
     local result = {}
     local pattern_components = components(pattern)
 
-    for i, mount in ipairs(mounts) do
+    for _, mount in ipairs(mounts) do
+        if isShadowed(mount) then
+            goto ignore_mount
+        end
+
         local root_components = components(mount.root)
 
         -- Check if matching paths can be nested strictly within this mount.
@@ -276,24 +302,15 @@ function fs.find(pattern)
 
         -- ...and are not entirely nested within its submounts.
         local projected_pattern = ofs.combine(mount.root, rel_pattern)
-        for j, mount2 in ipairs(mounts) do
-            if j > i and startsWith(projected_pattern, mount2.root .. "/") then
-                goto ignore_mount
-            end
+        if not isOwnedBy(projected_pattern, mount) then
+            goto ignore_mount
         end
 
-        for _, rel_path in pairs(mount.find(rel_pattern)) do
+        for _, rel_path in ipairs(mount.find(rel_pattern)) do
             local path = ofs.combine(pattern.root, rel_path)
 
             -- Ignore paths nested within submounts.
-            local in_submount = false
-            for j, mount2 in ipairs(mounts) do
-                if j > i and startsWith(path, mount2.root .. "/") then
-                    in_submount = true
-                    break
-                end
-            end
-            if not in_submount then
+            if isOwnedBy(path, mount) then
                 table.insert(result, path)
             end
         end
@@ -466,8 +483,12 @@ return {
 
     list = function()
         local result = {}
-        for _, mount in pairs(mounts) do
-            table.insert(result, { root = mount.root, description = mount.description })
+        for _, mount in ipairs(mounts) do
+            table.insert(result, {
+                root = mount.root,
+                description = mount.description,
+                shadowed = isShadowed(mount),
+            })
         end
         return result
     end,
