@@ -356,6 +356,27 @@ function fs.makeDir(path)
     callWithErr(mount, "makeDir", rel_path)
 end
 
+local function copyAcrossMounts(src_mount, src_rel_path, dst_mount, dst_rel_path)
+    assertOrReadOnly(not dst_mount.isReadOnly(dst_rel_path), dst)
+    assertOrReadOnly(dst_mount.write, dst)
+
+    local function doCopy(subpath)
+        local src = ofs.combine(src_rel_path, subpath)
+        local dst = ofs.combine(dst_rel_path, subpath)
+        if src_mount.isDir(src) then
+            callWithErr(dst_mount, "makeDir", dst)
+            for _, name in ipairs(callWithErr(src_mount, "list", src)) do
+                doCopy(ofs.combine(subpath, name))
+            end
+        else
+            local contents = callWithErr(src_mount, "read", src_rel_path)
+            callWithErr(dst_mount, "write", dst_rel_path, contents)
+        end
+    end
+
+    doCopy("")
+end
+
 function fs.move(src, dst)
     local src_mount, src_rel_path = resolvePath(ofs.combine(src), true)
     local dst_mount, dst_rel_path = resolvePath(ofs.combine(dst), true)
@@ -364,10 +385,7 @@ function fs.move(src, dst)
         return
     end
     assertOrReadOnly(not src_mount.isReadOnly(src_rel_path), src)
-    assertOrReadOnly(not dst_mount.isReadOnly(dst_rel_path), dst)
-    assertOrReadOnly(dst_mount.write, dst)
-    local contents = callWithErr(src_mount, "read", src_rel_path)
-    callWithErr(dst_mount, "write", dst_rel_path, contents)
+    copyAcrossMounts(src_mount, src_rel_path, dst_mount, dst_rel_path)
     callWithErr(src_mount, "delete", src_rel_path)
 end
 
@@ -378,10 +396,7 @@ function fs.copy(src, dst)
         callWithErr(src_mount, "copy", src_rel_path, dst_rel_path)
         return
     end
-    assertOrReadOnly(not dst_mount.isReadOnly(dst_rel_path), dst)
-    assertOrReadOnly(dst_mount.write, dst)
-    local contents = callWithErr(src_mount, "read", src_rel_path)
-    callWithErr(dst_mount, "write", dst_rel_path, contents)
+    copyAcrossMounts(src_mount, src_rel_path, dst_mount, dst_rel_path)
 end
 
 function fs.delete(path)
