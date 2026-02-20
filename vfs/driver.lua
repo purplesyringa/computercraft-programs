@@ -425,7 +425,7 @@ function fs.open(path, mode)
         assertOrReadOnly(mount.write, path)
     end
 
-    local ok, contents = pcall(function() callWithErr(mount, "read", rel_path) end)
+    local ok, contents = pcall(function() return callWithErr(mount, "read", rel_path) end)
     if not ok then
         return nil, contents
     end
