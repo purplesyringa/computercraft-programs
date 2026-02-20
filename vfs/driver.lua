@@ -249,7 +249,7 @@ function fs.complete(pattern, dir, ...)
 
     for _, completion in ipairs(mount.complete(rel_path, options)) do
         -- The `complete` implementation may offer `.` for empty patterns, make sure to ignore that.
-        if rel_path == "" and completion ~= "." then
+        if rel_path ~= "" or completion ~= "." then
             table.insert(res, completion)
         end
     end
