@@ -327,7 +327,7 @@ end
 local function wrapOne(func)
     return function(path)
         local mount, rel_path = resolvePath(ofs.combine(path), true)
-        return mount[func](rel_path)
+        return callWithErr(mount, func, rel_path)
     end
 end
 
