@@ -26,18 +26,17 @@ local next_fd = 0
 --     -- String description of the mount.
 --     description = ...,
 --
---     -- An implementation of `fs.complete` for empty `dir`.
---     complete(rel_path, options),
---
 --     -- Implementations directly mirroring `fs` methods.
 --     find(rel_pattern),
+--     isReadOnly(rel_path), -- defaults to true
+--     getFreeSpace(rel_path), -- defaults to 0
+--     getCapacity(rel_path), -- defaults to 0
+--
+--     -- Returns a list containing information about files in the given directory in the following
+--     -- format: `{ name = ..., attributes = ... }`.
 --     list(rel_path),
---     getSize(rel_path),
---     exists(rel_path),
---     isDir(rel_path),
---     isReadOnly(rel_path),
---     getFreeSpace(rel_path),
---     getCapacity(rel_path),
+--
+--     -- An implementation of `fs.attributes` returning `nil` for absent files.
 --     attributes(rel_path),
 --
 --     -- If missing, throws the read-only error.
@@ -60,22 +59,30 @@ local root_mount = {
     root = "",
     drive = "root",
     description = "physical",
-    complete = function(rel_path, options)
-        return ofs.complete(rel_path, "", options)
-    end,
     find = ofs.find,
-    list = ofs.list,
-    getSize = ofs.getSize,
-    exists = ofs.exists,
-    isDir = ofs.isDir,
     isReadOnly = ofs.isReadOnly,
     getFreeSpace = ofs.getFreeSpace,
     getCapacity = ofs.getCapacity,
-    attributes = ofs.attributes,
+    list = function(rel_path)
+        local list = ofs.list(rel_path)
+        for i, name in ipairs(list) do
+            list[i] = {
+                name = name,
+                attributes = ofs.attributes(ofs.combine(rel_path, name)),
+            }
+        end
+        return list
+    end,
+    attributes = function(rel_path)
+        if not ofs.exists(rel_path) then
+            return nil
+        end
+        return ofs.attributes(rel_path)
+    end,
     makeDir = ofs.makeDir,
+    delete = ofs.delete,
     move = ofs.move,
     copy = ofs.copy,
-    delete = ofs.delete,
     open = ofs.open,
     read = function(rel_path)
         local file = ofs.open(rel_path, "r")
@@ -103,28 +110,13 @@ local function startsWith(s, prefix)
     return string.sub(s, 1, #prefix) == prefix
 end
 
-local function combineKeepingTrailingSlash(...)
-    local args = table.pack(...)
-    local has_slash = string.match(args[args.n], "/$")
-    local path = ofs.combine(...)
-    if has_slash then
-        path = path .. "/"
-    end
-    return path
-end
-
--- Takes an absolute path with an optional trailing slash. Returns `mount, rel_path`, where
--- `mount` is the mount containing the path, and `rel_path` is a path relative to the mount root.
---
--- If `match_root` is `true`, a path exactly matching the root is considered to be located within
--- the mount, otherwise it isn't. If the path ends with a slash, it's always considered to be within
--- the mount.
-local function resolvePath(path, match_root)
+-- Takes an absolute path. Returns `mount, rel_path`, where `mount` is the mount responsible for the
+-- path, and `rel_path` is a path relative to the mount root. A path exactly matching a mount root
+-- is considered to be located within the mount.
+local function resolvePath(path)
     for i = #mounts, 1, -1 do
         local mount = mounts[i]
-        if path == mount.root and match_root then
-            return mount, ""
-        elseif startsWith(path, mount.root .. "/") then
+        if startsWith(path .. "/", mount.root .. "/") then
             return mount, string.sub(path, #mount.root + 2)
         end
     end
@@ -187,24 +179,23 @@ local fs = {
 }
 
 function fs.complete(pattern, dir, ...)
-    local path
-    if pattern == "" then
-        -- Completing an empty pattern should list files within the base directory, rather than
-        -- complete the filename of the base directory itself.
-        path = combineKeepingTrailingSlash(dir, "/")
-    elseif startsWith(pattern, "/") then
-        -- Completing a path starting with `/` ignores the base directory, even though `fs.combine`
-        -- doesn't behave that way.
-        path = combineKeepingTrailingSlash(pattern)
-    else
-        path = combineKeepingTrailingSlash(dir, pattern)
+    local pattern_dir, pattern_name = pattern:match("(.*)/(.*)")
+    if pattern_dir == nil then
+        pattern_dir, pattern_name = "", pattern
     end
 
-    -- If the pattern doesn't end with a trailing slash, we're supposed to complete the filename,
-    -- even if there is a directory with a matching name, so `match_root` should be `false`.
-    local mount, rel_path = resolvePath(path, false)
-    if mount == root_mount then
-        return ofs.complete(pattern, dir, ...)
+    -- Completing a pattern starting with `/` ignores the base directory, even though `fs.combine`
+    -- doesn't behave that way.
+    if startsWith(pattern, "/") then
+        dir = ofs.combine(pattern_dir)
+    else
+        dir = ofs.combine(dir, pattern_dir)
+    end
+
+    local mount, dir_rel_path = resolvePath(dir)
+    local ok, files = pcall(function() return mount.list(dir_rel_path) end)
+    if not ok then
+        return {}
     end
 
     local args = { ... }
@@ -249,10 +240,26 @@ function fs.complete(pattern, dir, ...)
         end
     end
 
-    for _, completion in ipairs(mount.complete(rel_path, options)) do
-        -- The `complete` implementation may offer `.` for empty patterns, make sure to ignore that.
-        if rel_path ~= "" or completion ~= "." then
-            table.insert(res, completion)
+    for _, file in ipairs(files) do
+        if (
+            startsWith(file.name, pattern_name)
+            and (
+                not startsWith(file.name, ".")
+                or options.include_hidden
+                or startsWith(pattern_name, ".")
+            )
+        ) then
+            local suffix = file.name:sub(#pattern_name + 1)
+            if file.attributes.isDir then
+                table.insert(res, suffix .. "/")
+                if options.include_dirs ~= false and suffix ~= "" then
+                    table.insert(res, suffix)
+                end
+            else
+                if options.include_files ~= false and suffix ~= "" then
+                    table.insert(res, suffix)
+                end
+            end
         end
     end
 
@@ -325,40 +332,64 @@ function fs.find(pattern)
     return result
 end
 
-local function wrapOne(func)
+local function wrapOne(func, default_value)
     return function(path)
-        local mount, rel_path = resolvePath(ofs.combine(path), true)
+        path = ofs.combine(path)
+        local mount, rel_path = resolvePath(path)
+        if not mount[func] then
+            return default_value
+        end
         return callWithErr(mount, func, rel_path)
     end
 end
 
-fs.list = wrapOne("list")
-fs.getSize = wrapOne("getSize")
+function fs.list(path)
+    local mount, rel_path = resolvePath(ofs.combine(path))
+    local list = mount.list(rel_path)
+    for i, file in pairs(list) do
+        list[i] = file.name
+    end
+    return list
+end
+
+function fs.getSize(path)
+    return fs.attributes(path).size
+end
 
 -- The shell calls `exists`/`isDir` on completions, and if a filesystem doesn't respond, this can
 -- cause issues even before entering the mountpoint. Hence handling `rel_path == ""` specially.
 function fs.exists(path)
-    local mount, rel_path = resolvePath(ofs.combine(path), true)
-    return rel_path == "" or mount.exists(rel_path)
-end
-function fs.isDir(path)
-    local mount, rel_path = resolvePath(ofs.combine(path), true)
-    return rel_path == "" or mount.isDir(rel_path)
+    local mount, rel_path = resolvePath(ofs.combine(path))
+    return rel_path == "" or mount.attributes(rel_path) ~= nil
 end
 
-fs.isReadOnly = wrapOne("isReadOnly")
+function fs.isDir(path)
+    local mount, rel_path = resolvePath(ofs.combine(path))
+    if rel_path == "" then
+        return true
+    end
+    local attrs = mount.attributes(rel_path)
+    return attrs ~= nil and attrs.isDir
+end
+
+fs.isReadOnly = wrapOne("isReadOnly", true)
 
 function fs.makeDir(path)
-    local mount, rel_path = resolvePath(ofs.combine(path), false)
+    local mount, rel_path = resolvePath(ofs.combine(path))
     assertOrReadOnly(mount.makeDir, path)
     callWithErr(mount, "makeDir", rel_path)
 end
 
 local function copyRecursive(src, dst_mount, dst_rel_path)
-    local src_mount, src_rel_path = resolvePath(ofs.combine(src), true)
-    if src_mount.isDir(src_rel_path) then
+    local src_mount, src_rel_path = resolvePath(ofs.combine(src))
+    local attrs = src_mount.attributes(src_rel_path)
+    if not attrs then
+        return -- race condition
+    end
+    if attrs.isDir then
         callWithErr(dst_mount, "makeDir", dst_rel_path)
-        for _, name in ipairs(callWithErr(src_mount, "list", src_rel_path)) do
+        for _, file in ipairs(callWithErr(src_mount, "list", src_rel_path)) do
+            local name = file.name
             copyRecursive(ofs.combine(src, name), dst_mount, ofs.combine(dst_rel_path, name))
         end
     else
@@ -369,7 +400,7 @@ end
 
 -- Takes an absolute path and asserts if it cannot be deleted.
 local function assertDeletable(path)
-    local mount, rel_path = resolvePath(path, true)
+    local mount, rel_path = resolvePath(path)
     assert(rel_path ~= "", "/" .. path .. ": cannot delete mount")
     for i = #mounts, 1, -1 do
         local mount2 = mounts[i]
@@ -383,13 +414,13 @@ local function assertDeletable(path)
 end
 
 function fs.move(src, dst)
-    local src_mount, src_rel_path = resolvePath(ofs.combine(src), true)
-    local dst_mount, dst_rel_path = resolvePath(ofs.combine(dst), true)
+    local src_mount, src_rel_path = resolvePath(ofs.combine(src))
+    local dst_mount, dst_rel_path = resolvePath(ofs.combine(dst))
     if src_mount == dst_mount and src_mount.move then
         callWithErr(src_mount, "move", src_rel_path, dst_rel_path)
         return
     end
-    assert(not dst_mount.exists(dst_rel_path), "/" .. ofs.combine(dst) .. ": File exists")
+    assert(not dst_mount.attributes(dst_rel_path), "/" .. ofs.combine(dst) .. ": File exists")
     assertOrReadOnly(not dst_mount.isReadOnly(dst_rel_path), dst)
     assertOrReadOnly(dst_mount.write, dst)
     assertDeletable(ofs.combine(src))
@@ -398,13 +429,13 @@ function fs.move(src, dst)
 end
 
 function fs.copy(src, dst)
-    local src_mount, src_rel_path = resolvePath(ofs.combine(src), true)
-    local dst_mount, dst_rel_path = resolvePath(ofs.combine(dst), true)
+    local src_mount, src_rel_path = resolvePath(ofs.combine(src))
+    local dst_mount, dst_rel_path = resolvePath(ofs.combine(dst))
     if src_mount == dst_mount and src_mount.copy then
         callWithErr(src_mount, "copy", src_rel_path, dst_rel_path)
         return
     end
-    assert(not dst_mount.exists(dst_rel_path), "/" .. ofs.combine(dst) .. ": File exists")
+    assert(not dst_mount.attributes(dst_rel_path), "/" .. ofs.combine(dst) .. ": File exists")
     assertOrReadOnly(not dst_mount.isReadOnly(dst_rel_path), dst)
     assertOrReadOnly(dst_mount.write, dst)
     copyRecursive(src, dst_mount, dst_rel_path)
@@ -413,7 +444,7 @@ end
 function fs.delete(path)
     path = ofs.combine(path)
     assertDeletable(path)
-    local mount, rel_path = resolvePath(path, true)
+    local mount, rel_path = resolvePath(path)
     callWithErr(mount, "delete", rel_path)
 end
 
@@ -423,7 +454,7 @@ function fs.open(path, mode)
         error("Unsupported mode")
     end
 
-    local mount, rel_path = resolvePath(ofs.combine(path), false)
+    local mount, rel_path = resolvePath(ofs.combine(path))
     if mount.open then
         return mount.open(rel_path, mode)
     end
@@ -485,7 +516,7 @@ function fs.open(path, mode)
 end
 
 function fs.getDrive(path)
-    local mount, rel_path = resolvePath(ofs.combine(path), false)
+    local mount, rel_path = resolvePath(ofs.combine(path))
     if mount == root_mount then
         return ofs.getDrive(rel_path)
     else
@@ -494,13 +525,20 @@ function fs.getDrive(path)
 end
 
 function fs.isDriveRoot(path)
-    local mount, rel_path = resolvePath(ofs.combine(path), false)
+    local mount, rel_path = resolvePath(ofs.combine(path))
     return rel_path == "" or (mount == root_mount and ofs.isDriveRoot(rel_path))
 end
 
-fs.getFreeSpace = wrapOne("getFreeSpace")
-fs.getCapacity = wrapOne("getCapacity")
-fs.attributes = wrapOne("attributes")
+fs.getFreeSpace = wrapOne("getFreeSpace", 0)
+fs.getCapacity = wrapOne("getCapacity", 0)
+
+function fs.attributes(path)
+    path = ofs.combine(path)
+    local mount, rel_path = resolvePath(path)
+    local attrs = mount.attributes(rel_path)
+    assert(attrs, "/" .. path .. ": No such file")
+    return attrs
+end
 
 function vfs.mount(root, handlers)
     root = ofs.combine(root)

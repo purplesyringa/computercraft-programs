@@ -29,15 +29,9 @@ return {
         vfs.mount(mountpoint, {
             description = ("nfs://%s"):format(nfshostarg),
             drive = ("nfs:%d"):format(host),
-            complete = call("complete"),
             find = call("find"),
             list = call("list"),
-            getSize = call("getSize"),
-            exists = call("exists"),
-            isDir = call("isDir"),
             isReadOnly = function() return true end,
-            getFreeSpace = function() return 0 end,
-            getCapacity = function() return 0 end,
             attributes = call("attributes"),
             read = call("read"),
         })

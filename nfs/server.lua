@@ -7,12 +7,6 @@ peripheral.find("modem", rednet.open)
 local ROOT = "pub"
 rednet.host(PROTOCOL, named.hostname())
 
-local function wrapOne(func)
-    return function(path, ...)
-        return func(fs.combine(ROOT, path), ...)
-    end
-end
-
 local function patchError(err)
     if type(err) == "string" and string.find(err, "/" .. ROOT) == 1 then
         return "/" .. string.sub(err, #ROOT + 2)
@@ -29,7 +23,6 @@ local function readToString(path)
 end
 
 local nfs = {
-    complete = function(pattern, ...) return fs.complete(ROOT .. "/" .. pattern, "", ...) end,
     find = function(path)
         local list = fs.find(fs.combine(ROOT, path))
         for key, _ in pairs(list) do
@@ -37,12 +30,22 @@ local nfs = {
         end
         return list
     end,
-    list = wrapOne(fs.list),
-    getSize = wrapOne(fs.getSize),
-    exists = wrapOne(fs.exists),
-    isDir = wrapOne(fs.isDir),
+    list = function(path)
+        local list = fs.list(fs.combine(ROOT, path))
+        for i, name in ipairs(list) do
+            list[i] = {
+                name = name,
+                attributes = fs.attributes(fs.combine(ROOT, path, name)),
+            }
+        end
+        return list
+    end,
     attributes = function(path)
-        local attrs = fs.attributes(fs.combine(ROOT, path))
+        path = fs.combine(ROOT, path)
+        if not fs.exists(path) then
+            return nil
+        end
+        local attrs = fs.attributes(path)
         attrs.isReadOnly = true
         return attrs
     end,
