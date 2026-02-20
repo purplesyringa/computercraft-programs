@@ -131,7 +131,7 @@ end
 
 -- Checks if the given absolute path is nested strictly within the mount and not any later mount.
 local function isOwnedBy(path, mount)
-    if not startsWith(path, mount.root .. "/") then
+    if mount.root ~= "" and not startsWith(path, mount.root .. "/") then
         return false
     end
     for i = #mounts, 1, -1 do
@@ -147,7 +147,7 @@ local function isOwnedBy(path, mount)
 end
 
 local function isShadowed(mount)
-    return not isOwnedBy(mount.root .. "/", mount)
+    return mount.root ~= "" and not isOwnedBy(mount.root .. "/", mount)
 end
 
 local function assertOrReadOnly(condition, path)
@@ -309,7 +309,7 @@ function fs.find(pattern)
         end
 
         for _, rel_path in ipairs(mount.find(rel_pattern)) do
-            local path = ofs.combine(pattern.root, rel_path)
+            local path = ofs.combine(mount.root, rel_path)
 
             -- Ignore paths nested within submounts.
             if isOwnedBy(path, mount) then
