@@ -151,7 +151,7 @@ local function isShadowed(mount)
 end
 
 local function assertOrReadOnly(condition, path)
-    assert(condition, "/" .. path .. ": read-only filesystem")
+    assert(condition, "/" .. ofs.combine(path) .. ": read-only filesystem")
 end
 
 local function callWithErr(mount, method, ...)
