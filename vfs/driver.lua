@@ -440,6 +440,7 @@ function fs.open(path, mode)
     end
     ofs.delete(local_path)
     file.write(contents)
+    file.seek("set", 0)
 
     local handle = {
         seek = file.seek,
