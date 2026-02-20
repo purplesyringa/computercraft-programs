@@ -163,7 +163,7 @@ local function callWithErr(mount, method, ...)
         return table.unpack(result, 2, result.n)
     end
     local err = result[2]
-    if err and startsWith(err, "/") then
+    if err and startsWith(err, "/") and mount.root ~= "" then
         err = "/" .. mount.root .. err
     end
     error(err, 0)
