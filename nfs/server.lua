@@ -1,7 +1,11 @@
+dofile(fs.combine(shell.getRunningProgram(), "../../pkgs.lua"))
+local named = require "named"
+
 local PROTOCOL = "sylfn-nfs"
-local ROOT = "pub"
 peripheral.find("modem", rednet.open)
-rednet.host(PROTOCOL, "fileserver")
+
+local ROOT = "pub"
+rednet.host(PROTOCOL, named.hostname())
 
 local function wrapOne(func)
     return function(path, ...)
@@ -11,16 +15,14 @@ end
 
 local function patchError(err)
     if type(err) == "string" and string.find(err, "/" .. ROOT) == 1 then
-        return "/{mnt}" .. string.sub(err, #ROOT + 2)
+        return "/" .. string.sub(err, #ROOT + 2)
     end
     return err
 end
 
 local function readToString(path)
     local file, err = fs.open(path, "r")
-    if file == nil then
-        return nil, patchError(err)
-    end
+    if file == nil then error(err) end
     local contents = file.readAll()
     file.close()
     return contents
@@ -35,25 +37,28 @@ local nfs = {
         end
         return list
     end,
-    -- isDriveRoot (client)
     list = wrapOne(fs.list),
-    -- combine, getName, getDir (client)
     getSize = wrapOne(fs.getSize),
     exists = wrapOne(fs.exists),
     isDir = wrapOne(fs.isDir),
-    -- isReadOnly, makeDir, move, copy, delete, open, getDrive, getFreeSpace, getCapacity (client)
     attributes = function(path)
         local attrs = fs.attributes(fs.combine(ROOT, path))
         attrs.isReadOnly = true
         return attrs
     end,
-
-    -- Internal functions
-    _read = function(path)
+    read = function(path)
         return readToString(fs.combine(ROOT, path))
     end,
+
+    -- internal funcitons
     _driver = function()
-        return readToString(fs.combine(fs.getDir(shell.getRunningProgram()), "driver.lua"))
+        local read = function(path) return readToString(fs.combine(fs.getDir(shell.getRunningProgram()), path)) end
+
+        return string.format(
+            'do %s end local nfs = (function() %s end)() fs._vfs.api.unmount("nfs") nfs.mount("nfs")', -- shell.run("nfs/startup.lua")
+            read("../vfs/driver.lua"),
+            read("driver.lua")
+        )
     end,
 }
 

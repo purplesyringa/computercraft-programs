@@ -1,206 +1,45 @@
+-- nfs is part of netboot process and dealing with require bullshit is gonna cost more than adding one little hack
+assert(fs._vfs, "VFS driver not installed")
+local vfs = fs._vfs.api
+
 local PROTOCOL = "sylfn-nfs"
-local ROOT = "nfs"
-local MANAGED_PATH = fs.combine(ROOT, ".managed")
-local FD_PATH = fs.combine(ROOT, "fd")
+peripheral.find("modem", rednet.open)
 
-local ofs = (fs._ofs or fs)
-if ofs.exists(ROOT) and not ofs.exists(MANAGED_PATH) then
-    error("/nfs folder already exists. Why? Please don't.")
-end
-ofs.makeDir(ROOT)
-ofs.open(MANAGED_PATH, "w").close()
-ofs.delete(FD_PATH)
-local current_fd = 0
-local current_id = math.random(0, 0xFFFFFFFF)
+return {
+    mount = function(mountpoint, host) -- either hostname or computer id
+        if host == nil then host = "fileserver" end
+        local nfshostarg = host
+        if type(host) == "string" then host = rednet.lookup(PROTOCOL, host) end
+        assert(host ~= nil)
 
-peripheral.find("modem", function(name, modem)
-    if modem.isWireless() then
-        rednet.open(name)
-    end
-end)
-local server = rednet.lookup(PROTOCOL, "fileserver")
-if server == nil then
-    error("no nfs server")
-end
-
-local function patchError(err)
-    if type(err) == "string" and string.find(err, "/{mnt}") == 1 then
-        return "/" .. ROOT .. string.sub(err, 7)
-    end
-    return err
-end
-
-local function nfscall(func, ...)
-    local id = current_id
-    current_id = (current_id + 1) % (0xFFFFFFFF + 1)
-    rednet.send(server, table.pack(id, func, ...), PROTOCOL)
-    local _, message = rednet.receive(PROTOCOL .. id)
-    if message[1] then
-        return table.unpack(message, 2, message.n)
-    end
-    error(patchError(message[2]))
-end
-
-local function tonfspath(...)
-    local args = table.pack(...)
-    local has_slash = string.match(args[args.n], "/$")
-    local path = ofs.combine(...)
-    if has_slash then path = path .. "/" end
-    if string.find(path .. "/", ROOT .. "/") == 1 then
-        return string.sub(path, #ROOT + 1)
-    end
-end
-
-local function wrapOne(func, handler)
-    return function(path, ...)
-        local nfspath = tonfspath(path)
-        if nfspath then
-            if handler then
-                return handler(nfspath, ...)
-            else
-                return nfscall(func, nfspath, ...)
+        local current_id = math.random(0, 0xFFFFFFFF)
+        local function call(func)
+            return function(...)
+                local id = current_id
+                current_id = (current_id + 1) % (0xFFFFFFFF + 1)
+                rednet.send(host, table.pack(id, func, ...), PROTOCOL)
+                local _, message = rednet.receive(PROTOCOL .. id)
+                if message[1] then
+                    return table.unpack(message, 2, message.n)
+                end
+                error(message[2])
             end
         end
-        return ofs[func](path, ...)
-    end
-end
 
-local function errornfsro(path)
-    error(path .. ": read-only filesystem")
-end
-
-local function assertlocal(path)
-    if tonfspath(path) then
-        errornfsro(path)
-    end
-end
-
-local function nfsdown(path)
-    local contents, err = nfscall("_read", path)
-    if contents == nil then
-        return nil, patchError(err)
-    end
-
-    local fd = current_fd
-    current_fd = current_fd + 1
-    local local_path = fs.combine(FD_PATH, tostring(fd))
-
-    local file = ofs.open(local_path, "w")
-    file.write(contents)
-    file.close()
-
-    return local_path
-end
-
-local function nfsopen(path, mode)
-    local path, err = nfsdown(path)
-    if path == nil then
-        return nil, err
-    end
-
-    local handle = ofs.open(path, mode)
-    ofs.delete(path)
-    return handle
-end
-
-local function components(path)
-    local list = {}
-    for component in string.gmatch(path, "([^/]+)") do
-        table.insert(list, component)
-    end
-    return list
-end
-
-local function extend(dst, src)
-    table.move(src, 1, #src, #dst + 1, dst)
-end
-
-_G.fs = {
-    complete = function(pattern, dir, ...)
-        local nfspath
-        if string.sub(pattern, 1, 1) == "/" then
-            nfspath = tonfspath(pattern)
-        else
-            nfspath = tonfspath(dir, pattern)
-        end
-        if not nfspath or (nfspath == "" and pattern ~= "") then
-            return ofs.complete(pattern, dir, ...)
-        end
-        nfspath = string.gsub(nfspath, "^/", "", 1)
-        local res = {}
-        if pattern == "" then
-            res = {".", ".."}
-        end
-        extend(res, nfscall("complete", nfspath, ...))
-        return res
+        vfs.mount(mountpoint, {
+            description = ("nfs remote host %s"):format(nfshostarg),
+            drive = ("nfs:%d"):format(host),
+            complete = call("complete"),
+            find = call("find"),
+            list = call("list"),
+            getSize = call("getSize"),
+            exists = call("exists"),
+            isDir = call("isDir"),
+            isReadOnly = function() return true end,
+            getFreeSpace = function() return 0 end,
+            getCapacity = function() return 0 end,
+            attributes = call("attributes"),
+            read = call("read"),
+        })
     end,
-    find = function(pattern)
-        local filtered = {}
-        for _, path in ipairs(ofs.find(pattern)) do
-            if string.find(path, ROOT .. "/") ~= 1 then
-                table.insert(filtered, path)
-            end
-        end
-        local combined = ofs.combine(pattern)
-        local root_components = components(ROOT)
-        local pattern_components = components(combined)
-        local root_pattern_prefix = table.concat(pattern_components, "/", 1, #root_components)
-        local is_nfs = false
-        for _, path in pairs(ofs.find(root_pattern_prefix)) do
-            is_nfs = is_nfs or path == ROOT
-        end
-        if is_nfs and #pattern_components > #root_components then
-            local relative_pattern = table.concat(pattern_components, "/", #root_components + 1)
-            for path in nfscall("find", relative_pattern) do
-                table.insert(filtered, ofs.combine(ROOT, path))
-            end
-        end
-        return filtered
-    end,
-    isDriveRoot = wrapOne("isDriveRoot", function(path) return path == "" end),
-    list = wrapOne("list"),
-    combine = ofs.combine,
-    getName = ofs.getName,
-    getDir = ofs.getDir,
-    getSize = wrapOne("getSize"),
-    exists = wrapOne("exists", function(path) return path == "" or nfscall("exists", path) end),
-    isDir = wrapOne("isDir", function(path) return path == "" or nfscall("isDir", path) end),
-    isReadOnly = wrapOne("isReadOnly", function() return true end),
-    makeDir = function(path)
-        assertlocal(path)
-        return ofs.makeDir(path)
-    end,
-    move = function(src, dst)
-        assertlocal(src)
-        assertlocal(dst)
-        return ofs.move(src, dst)
-    end,
-    copy = function(src, dst)
-        assertlocal(dst)
-        local nfssrc = tonfspath(src)
-        if nfssrc then
-            local nfssrc, err = nfsdown(nfssrc)
-            if nfssrc == nil then
-                error(err)
-            end
-            return ofs.move(nfssrc, dst)
-        end
-        return ofs.copy(src, dst)
-    end,
-    delete = function(path)
-        assertlocal(path)
-        return ofs.delete(path)
-    end,
-    open = function(path, mode)
-        local nfspath = tonfspath(path)
-        if not nfspath then return ofs.open(path, mode) end
-        if mode ~= "r" and mode ~= "r+" then errornfsro(path) end
-        return nfsopen(nfspath, mode)
-    end,
-    getDrive = wrapOne("getDrive", function() return "nfs" end),
-    getFreeSpace = wrapOne("getFreeSpace", function() return 0 end),
-    getCapacity = wrapOne("getCapacity", function() return 0 end),
-    attributes = wrapOne("attributes"),
-    _nfs = PROTOCOL,
-    _ofs = ofs,
 }
