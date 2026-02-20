@@ -20,6 +20,9 @@ local next_fd = 0
 --     -- Absolute path to the mountpoint.
 --     root = ...,
 --
+--     -- String description of the mount.
+--     description = ...,
+--
 --     -- An implementation of `fs.complete` for empty `dir`.
 --     complete(rel_path, options),
 --
@@ -441,6 +444,7 @@ return {
     mount = function(root, handlers)
         root = ofs.combine(root)
         assert(root ~= "", "cannot mount over /")
+        assert(fs.isDir(root), "/" .. root .. ": not a directory")
         local mount = setmetatable({ root = root }, { __index = handlers })
         table.insert(mounts, mount)
     end,
@@ -449,11 +453,22 @@ return {
         root = ofs.combine(root)
         assert(root ~= "", "cannot unmount /")
         for i = #mounts, 1, -1 do
-            if mounts[i].root == root then
+            local mount = mounts[i]
+            if startsWith(mount.root, root .. "/") then
+                error("/" .. root .. ": submount present at /" .. mounts[i].root)
+            elseif mount.root == root then
                 table.remove(i)
                 return
             end
         end
         error("/" .. root .. ": not mounted")
+    end,
+
+    list = function()
+        local result = {}
+        for _, mount in pairs(mounts) do
+            table.insert(result, { root = mount.root, description = mount.description })
+        end
+        return result
     end,
 }
