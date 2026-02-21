@@ -64,6 +64,8 @@ return {
             end
 
             function handle.readLine(withTrailing)
+                assert(not closed, "file closed")
+                if seek == #contents then return end
                 local pos = contents:find('\n', 1 + seek, true)
                 local sub = contents:sub(1 + seek, pos) -- if pos is nil, then reads to the end
                 seek = seek + #sub
