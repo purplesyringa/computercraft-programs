@@ -537,6 +537,7 @@ function fs.attributes(path)
     local mount, rel_path = resolvePath(path)
     local attrs = mount.attributes(rel_path)
     assert(attrs, "/" .. path .. ": No such file")
+    attrs.modification = attrs.modified
     return attrs
 end
 
