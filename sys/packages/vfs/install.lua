@@ -459,11 +459,11 @@ function fs.open(path, mode)
         return nil, contents
     end
 
-    local handle, contents = bytesio.open(contents, mode)
+    local handle, get_contents = bytesio.open(contents, mode)
 
     if base_mode ~= "r" then
         function handle.flush()
-            callWithErr(mount, "write", rel_path, contents())
+            callWithErr(mount, "write", rel_path, get_contents())
         end
 
         function handle.close()

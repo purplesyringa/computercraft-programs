@@ -32,7 +32,7 @@ return {
                 newseek = off
             elseif whence == "cur" then
                 newseek = seek + off
-            elseif whence = "end" then
+            elseif whence == "end" then
                 newseek = #contents + off
             else
                 error("unknown seek whence: " .. whence)
@@ -79,17 +79,17 @@ return {
                 assert(not closed, "file closed")
             end
 
-            function handle.write(contents) -- contents OR [charcode, if binary]
+            function handle.write(part) -- string OR [charcode, if binary]
                 assert(not closed, "file closed")
-                if mode_binary and type(contents) == "number" then
-                    contents = string.char(contents)
+                if mode_binary and type(part) == "number" then
+                    part = string.char(part)
                 end
-                contents = tostring(contents)
+                part = tostring(part)
 
-                local newseek = seek + #contents
+                local newseek = seek + #part
                 local before = contents:sub(1, seek)
                 local after = contents:sub(1 + newseek)
-                contents = before .. contents .. after
+                contents = before .. part .. after
                 seek = newseek
             end
 
