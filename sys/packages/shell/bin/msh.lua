@@ -1,3 +1,4 @@
+local named = require "named"
 local svc = require "svc"
 local shell = svc.makeNestedShell(_ENV)
 
@@ -25,8 +26,12 @@ local function show_ps1()
     -- TODO: escape sequences for colors?
     term.setBackgroundColor(colors.black)
     term.setTextColor(colors.yellow)
-    local prompt = settings.get("shell.prompt", "@d> ")
-    prompt = prompt:gsub("@d", "/" .. shell.dir())
+    local prompt = settings.get("shell.prompt", "@h @d> ")
+    local hostname = "unnamed"
+    if named.hasHostname() then
+        hostname = named.hostname()
+    end
+    prompt = prompt:gsub("@h", hostname):gsub("@d", "/" .. shell.dir())
     write(prompt)
     term.setTextColor(colors.white)
 end
