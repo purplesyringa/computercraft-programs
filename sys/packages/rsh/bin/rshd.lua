@@ -1,8 +1,7 @@
-dofile(fs.combine(shell.getRunningProgram(), "../../pkgs.lua"))
 local async = require "async"
 local named = require "named"
-local remote_events = require("events").remote_events
-local vt = require "vt"
+local remote_events = require("rsh.events").remote_events
+local vt = require "rsh.vt"
 
 local function startProgram(program, ...)
     -- Even if we want to run a specific command, we need to run it inside a shell to give it

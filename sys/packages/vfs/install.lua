@@ -1,4 +1,3 @@
-dofile(fs.combine(shell.getRunningProgram(), "../../pkgs.lua"))
 local bytesio = require "bytesio"
 
 local old_vfs = fs._vfs

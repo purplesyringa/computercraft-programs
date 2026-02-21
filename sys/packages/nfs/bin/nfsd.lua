@@ -1,4 +1,3 @@
-dofile(fs.combine(shell.getRunningProgram(), "../../pkgs.lua"))
 local named = require "named"
 
 local PROTOCOL = "sylfn-nfs"
@@ -52,30 +51,15 @@ local nfs = {
     read = function(path)
         return readToString(fs.combine(ROOT, path))
     end,
-
-    -- internal funcitons
-    _driver = function()
-        local read = function(path) return readToString(fs.combine(fs.getDir(shell.getRunningProgram()), path)) end
-
-        return string.format(
-            'do %s end local nfs = (function() %s end)() fs._vfs.api.unmount("nfs") nfs.mount("nfs")', -- shell.run("nfs/startup.lua")
-            read("../vfs/driver.lua"),
-            read("driver.lua")
-        )
-    end,
 }
 
 while true do
     local computer, message = rednet.receive(PROTOCOL)
-    if message == "driver" then
-        rednet.send(computer, nfs._driver(), PROTOCOL)
-    else
-        local response = table.pack(pcall(function()
-            return nfs[message[2]](table.unpack(message, 3, message.n))
-        end))
-        if response[1] == false then
-            response[2] = patchError(response[2])
-        end
-        rednet.send(computer, response, PROTOCOL .. message[1])
+    local response = table.pack(pcall(function()
+        return nfs[message[2]](table.unpack(message, 3, message.n))
+    end))
+    if response[1] == false then
+        response[2] = patchError(response[2])
     end
+    rednet.send(computer, response, PROTOCOL .. message[1])
 end

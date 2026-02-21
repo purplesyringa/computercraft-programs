@@ -1,6 +1,4 @@
--- nfs is part of netboot process and dealing with require bullshit is gonna cost more than adding one little hack
-assert(fs._vfs, "VFS driver not installed")
-local vfs = fs._vfs.api
+local vfs = require "vfs"
 
 local PROTOCOL = "sylfn-nfs"
 peripheral.find("modem", rednet.open)

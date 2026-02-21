@@ -1,4 +1,4 @@
-local remote_events = require("events").remote_events
+local remote_events = require("rsh.events").remote_events
 
 local last_timer = nil
 local TIMEOUT = 5
@@ -87,7 +87,7 @@ end
 local args = { ... }
 
 if #args == 0 then
-    print("Usage: rsh/client <hostname> [<command> <args...>]")
+    print("Usage: rsh <hostname> [<command> <args...>]")
 else
     local hostname = args[1]
 

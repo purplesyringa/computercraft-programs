@@ -56,7 +56,7 @@ return {
 
                 local sub = contents:sub(1 + seek, seek + (count or 1))
                 seek = seek + #sub
-                
+
                 if mode_binary and not count then
                     return sub:byte()
                 end
@@ -78,7 +78,7 @@ return {
             function handle.flush()
                 assert(not closed, "file closed")
             end
-            
+
             function handle.write(contents) -- contents OR [charcode, if binary]
                 assert(not closed, "file closed")
                 if mode_binary and type(contents) == "number" then

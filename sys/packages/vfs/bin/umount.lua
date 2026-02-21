@@ -1,8 +1,8 @@
-local vfs = require("init")
+local vfs = require "vfs"
 
 local args = { ... }
 if #args ~= 1 then
-	print("Usage: vfs/unmount <path>")
+	print("Usage: umount <path>")
 	return
 end
 
