@@ -40,7 +40,6 @@ Similarly, operations scheduled sequentially on the main thread, like [`inventor
 The two core functions are `async.spawn` and `async.drive`. `async.spawn` spawns a new task, while `async.drive` executes all scheduled tasks in parallel. `async.drive` can only be executed once and should typically be the last statement in the program. A typical asynchronous program will look like this:
 
 ```lua
-dofile(fs.combine(shell.getRunningProgram(), "../../pkgs.lua"))
 local async = require "async"
 
 async.spawn(function()
