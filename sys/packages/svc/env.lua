@@ -129,20 +129,23 @@ function env.execWrapped(child_env, program, ...)
     fn(...)
 end
 
-function env.make()
+function env.make(base_env)
+    -- Passing this lets the child shell inherit our path, aliases, and completion info, which we'd
+    -- otherwise have to populate from `rom/startup`, which would get ugly quick.
+    base_env = base_env or {
+        shell = shell,
+    }
+
     -- Run a nested `shell` to create a detached shell environment, so that services don't affect
     -- each other's working directories and program stacks.
     --
     -- We can't run programs by passing arguments to the shell directly, since
     -- a) it uses `shell.run` instead of `shell.execute`, breaking arguments,
     -- b) it ignores its return value, leaving us with no way to detect failures.
-    -- So instead, we have a script save the `shell` instance somewhere where we can access it.
+    -- So instead, we have a script save the `shell` instance somewhere where we can access it and
+    -- then operate on that `shell` object.
     os.run(
-        {
-            -- Passing this lets the child shell inherit our path, aliases, and completion info,
-            -- which we'd otherwise have to populate from `rom/startup`, which would get ugly quick.
-            shell = shell,
-        },
+        base_env,
         "rom/programs/shell.lua",
         -- Calling `svc-setup-env` might take some time due to FS operations possibly being
         -- asynchronous, but when it does load, it should set up the environment and quit instantly,
@@ -152,8 +155,8 @@ function env.make()
     return os._svc._setup_env
 end
 
-function env.makeNestedShell()
-    return env.make().shell
+function env.makeNestedShell(base_env)
+    return env.make(base_env).shell
 end
 
 function env.execIsolated(command, ...)
