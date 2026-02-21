@@ -17,8 +17,12 @@ local function findProgram(command)
     return paths
 end
 
+function env.getCombinedBinPath()
+    return fs.combine(sysroot, "run", "bin")
+end
+
 function env.init()
-    local bin_path = fs.combine(sysroot, "run", "bin")
+    local bin_path = env.getCombinedBinPath()
 
     local function makeAttributes(isDir)
         return {
