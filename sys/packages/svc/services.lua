@@ -126,9 +126,7 @@ function services_api.start(name)
         end
     elseif service.config.type == "process" or service.config.type == "foreground" then
         start = function()
-            if not env.execIsolated(table.unpack(service.config.command)) then
-                error("Command failed", 0)
-            end
+            env.execIsolated(table.unpack(service.config.command))
         end
     end
 

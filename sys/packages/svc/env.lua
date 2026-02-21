@@ -1,4 +1,5 @@
 local vfs = require "vfs"
+local make_package = require("cc.require").make
 
 local sysroot = os._svc.sysroot
 
@@ -145,8 +146,28 @@ function env.make()
     return os._svc._setup_env
 end
 
-function env.execIsolated(...)
-    return env.make().shell.execute(...)
+function env.execIsolated(command, ...)
+    -- `shell.execute` merges errors into a single boolean value, but we need to know if the program
+    -- quit due to a `terminate` event (i.e. has been successfully stopped) or failed otherwise, so
+    -- we reimplement `shell.execute`. This also allows us to remove one level of nesting (isolated
+    -- requirements are already set up by the shell for `svc-setup-env`). We don't support shebangs
+    -- for simplicity.
+    local path = shell.resolveProgram(command)
+    assert(path, "no program named '" .. command .. "'")
+
+    local file, err = fs.open(path, "r")
+    assert(file, err)
+    local code = file.readAll()
+    file.close()
+
+    local isolated_env = env.make()
+    -- Reinitialize `require`/`package` for the correct directory.
+    isolated_env.require, isolated_env.package = make_package(isolated_env, fs.getDir(path))
+    isolated_env.arg = { [0] = command, ... }
+
+    local func, err = load(code, "@/" .. path, nil, isolated_env)
+    assert(func, err)
+    func(...)
 end
 
 return env
