@@ -11,7 +11,7 @@ local function components(path)
 end
 
 return {
-    mount = function(mountpoint)
+    mount = function(mountpoint, tree)
         -- Entry type:
         -- {
         --     attributes = {
@@ -76,7 +76,7 @@ return {
             return copy
         end
 
-        local tree = mkdentry()
+        tree = tree or mkdentry()
 
         local function errorPath(path, message) error("/" .. path .. ": " .. message) end
         local function enotdir(path) errorPath(path, "Not a directory") end
