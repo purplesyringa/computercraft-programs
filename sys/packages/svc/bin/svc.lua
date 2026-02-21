@@ -60,6 +60,10 @@ local function showServiceStatus(service)
 		term.setTextColor(colors.gray)
 	end
 	print(" (" .. status.status .. ")")
+	term.setTextColor(colors.gray)
+	if status.description then
+		print(status.description)
+	end
 	if status.error then
 		term.setTextColor(colors.red)
 		print(status.error)

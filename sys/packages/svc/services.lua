@@ -239,6 +239,7 @@ function services_api.status(name)
             error = service.config_error,
             up = false,
             requires = {},
+            description = nil,
         }
     end
     return {
@@ -249,6 +250,7 @@ function services_api.status(name)
             or (service.runtime_status == "finished" and service.config.type == "oneshot")
         ),
         requires = copyTable(service.config.requires or {}),
+        description = service.config.description,
     }
 end
 
