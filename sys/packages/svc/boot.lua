@@ -31,6 +31,10 @@ local svc = {
 }
 os._svc = svc
 
+function os.version()
+    return "WOR 0.1"
+end
+
 -- Redefine `require` so that we have access to modules normally. This doesn't behave exactly like
 -- normal modules, but it's close enough.
 require, _ = require("cc.require").make(_ENV, fs.combine(svc.sysroot, "packages"))
