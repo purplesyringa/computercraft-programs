@@ -66,6 +66,11 @@ local function showServiceStatus(service)
 	end
 end
 
+local function reload()
+	svc.reload()
+	showSystemStatus()
+end
+
 local function startService(service)
 	svc.start(service)
 	print("Started", service)
@@ -90,6 +95,8 @@ local args = { ... }
 
 if #args == 0 or (#args == 1 and args[1] == "status") then
 	showSystemStatus()
+elseif #args == 1 and args[1] == "reload" then
+	reload()
 elseif #args == 2 and args[1] == "status" then
 	showServiceStatus(args[2])
 elseif #args == 2 and args[1] == "start" then
@@ -103,6 +110,7 @@ elseif #args == 2 and args[1] == "reach" then
 else
 	printError("Usage:")
 	printError("    svc")
+	printError("    svc reload")
 	printError("    svc status <service>")
 	printError("    svc start <service>")
 	printError("    svc stop <service>")
