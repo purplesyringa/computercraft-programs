@@ -3,11 +3,7 @@ assert(fs._vfs, "VFS driver not installed")
 local vfs = fs._vfs.api
 
 local function components(path)
-    local list = {}
-    for component in string.gmatch(path, "([^/]+)") do
-        table.insert(list, component)
-    end
-    return list
+    return string.gmatch(path, "([^/]+)")
 end
 
 return {
@@ -88,7 +84,7 @@ return {
             local parent = nil
             local entry = tree
             local name = nil
-            for _, component in components(path) do
+            for component in components(path) do
                 if not entry.entries then enotdir(path) end
                 local next = entry.entries[component]
                 if not next then enoent(path) end
@@ -127,7 +123,7 @@ return {
 
             makeDir = function(path)
                 local entry = tree
-                for _, component in components(path) do
+                for component in components(path) do
                     if not entry.entries then eexist(path) end
                     if not entry.entries[component] then
                         entry.modified = os.epoch("utc")
