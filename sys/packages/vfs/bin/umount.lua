@@ -6,6 +6,6 @@ if #args ~= 1 then
 	return
 end
 
-if not vfs.unmount(args[1]) then
+if not vfs.unmount(shell.resolve(args[1])) then
 	printError("Not mounted")
 end
