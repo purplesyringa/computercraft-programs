@@ -2,6 +2,7 @@ local vfs = require "vfs"
 local make_package = require("cc.require").make
 
 local sysroot = os._svc.sysroot
+local svc_setup_env = fs.combine(sysroot, "run", "bin", "svc-setup-env")
 
 local env = {}
 
@@ -138,10 +139,10 @@ function env.make()
             shell = shell,
         },
         "rom/programs/shell.lua",
-        -- Calling this file might take some time due to FS operations possibly being asynchronous,
-        -- but when it does load, it should set up the environment and quit instantly, so there's no
-        -- race with reading `_setup_env`.
-        fs.combine(sysroot, "run", "bin", "svc-setup-env")
+        -- Calling `svc-setup-env` might take some time due to FS operations possibly being
+        -- asynchronous, but when it does load, it should set up the environment and quit instantly,
+        -- so there's no race when reading `_setup_env`.
+        svc_setup_env
     )
     return os._svc._setup_env
 end
@@ -161,8 +162,25 @@ function env.execIsolated(command, ...)
     file.close()
 
     local isolated_env = env.make()
-    -- Reinitialize `require`/`package` for the correct directory.
+
+    -- Since the shell is set up for `svc-setup-env`, we need to change some properties depending on
+    -- the executed command.
+
+    -- Reinitialize `require`/`package` to load files from the correct directory.
     isolated_env.require, isolated_env.package = make_package(isolated_env, fs.getDir(path))
+
+    -- Since `svc-setup-env` has already quit, the shell thinks there is no active program. This is
+    -- easy to detect and fix.
+    local old_get_running_program = isolated_env.shell.getRunningProgram
+    isolated_env.shell.getRunningProgram = function()
+        local running_program = old_get_running_program()
+        if not running_program then
+            return path
+        else
+            return running_program
+        end
+    end
+
     isolated_env.arg = { [0] = command, ... }
 
     local func, err = load(code, "@/" .. path, nil, isolated_env)
