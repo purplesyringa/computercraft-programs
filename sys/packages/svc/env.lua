@@ -147,6 +147,10 @@ function env.make()
     return os._svc._setup_env
 end
 
+function env.makeNestedShell()
+    return env.make().shell
+end
+
 function env.execIsolated(command, ...)
     -- `shell.execute` merges errors into a single boolean value, but we need to know if the program
     -- quit due to a `terminate` event (i.e. has been successfully stopped) or failed otherwise, so

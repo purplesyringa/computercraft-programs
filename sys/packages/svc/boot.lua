@@ -64,6 +64,7 @@ end
 svc.serviceStatus = services.status
 svc.targetStatus = targets.status
 
+svc.makeNestedShell = env.makeNestedShell
 svc._execWrapped = env.execWrapped
 
 env.init()
