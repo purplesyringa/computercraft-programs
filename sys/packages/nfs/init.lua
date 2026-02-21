@@ -1,4 +1,5 @@
 local vfs = require "vfs"
+local wakeywakey = require "wakeywakey"
 
 local PROTOCOL = "sylfn-nfs"
 peripheral.find("modem", rednet.open)
@@ -12,7 +13,7 @@ return {
 
         local current_id = math.random(0, 0xFFFFFFFF)
         local function call(func)
-            return function(...)
+            return wakeywakey.toSync(function(...)
                 local id = current_id
                 current_id = (current_id + 1) % (0xFFFFFFFF + 1)
                 rednet.send(host, table.pack(id, func, ...), PROTOCOL)
@@ -21,7 +22,7 @@ return {
                     return table.unpack(message, 2, message.n)
                 end
                 error(message[2])
-            end
+            end)
         end
 
         vfs.mount(mountpoint, {
