@@ -84,6 +84,10 @@ function env.init()
 end
 
 function env.execWrapped(child_env, program, ...)
+    if not child_env.shell or not child_env.package then
+        error("Program executed outside of a valid shell environment", 0)
+    end
+
     -- This is not quite correct: if a program runs a different program with an identical name as
     -- a child, which can happen if the service directory is renamed, `getRunningProgram` can
     -- return the wrong path. There isn't a practical issue and there isn't much we can do about it.
