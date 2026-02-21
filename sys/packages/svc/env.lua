@@ -84,28 +84,29 @@ function env.init()
 end
 
 function env.execWrapped(child_env, program, ...)
-    if not child_env.shell or not child_env.package then
-        error("Program executed outside of a valid shell environment", 0)
-    end
-
-    -- This is not quite correct: if a program runs a different program with an identical name as
-    -- a child, which can happen if the service directory is renamed, `getRunningProgram` can
-    -- return the wrong path. There isn't a practical issue and there isn't much we can do about it.
-    local old_get_running_program = child_env.shell.getRunningProgram
-    local wrapper_program = old_get_running_program()
-    child_env.shell.getRunningProgram = function()
-        local running_program = old_get_running_program()
-        if running_program == wrapper_program then
-            return program
-        else
-            return running_program
+    if child_env.shell then
+        -- This is not quite correct: if a program runs a different program with an identical name
+        -- as a child, which can happen if the service directory is renamed, `getRunningProgram` can
+        -- return the wrong path. There isn't much we can do about this and it should be rare.
+        local old_get_running_program = child_env.shell.getRunningProgram
+        local wrapper_program = old_get_running_program()
+        child_env.shell.getRunningProgram = function()
+            local running_program = old_get_running_program()
+            if running_program == wrapper_program then
+                return program
+            else
+                return running_program
+            end
         end
     end
 
-    -- `shell` creates a new `require`/`package` pair for each program, this one included. We only
-    -- patch this program's `package` -- if it runs subprocesses, their own wrappers are responsible
-    -- for patching. This means that running `bin/*` programs by absolute path doesn't set up
-    -- `package`, but that seems consistent with how other package managers work.
+    -- Provide a `require`/`package` pair from scratch instead of patching the existing ones, since
+    -- they may be absent if the wrapper is executed with `os.run` and it's easy to do.
+    --
+    -- We only patch this program's `package` -- if it runs subprocesses, their own wrappers are
+    -- responsible for patching. This means that running `bin/*` programs by absolute path doesn't
+    -- set up `package`, but that seems consistent with how other package managers work.
+    child_env.require, child_env.package = make_package(child_env, "nonexistent")
     local new_path = (
         "/" .. fs.combine(sysroot, "packages", "?", "init.lua")
         .. ";/" .. fs.combine(sysroot, "packages", "?.lua")
