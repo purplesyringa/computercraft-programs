@@ -1,0 +1,29 @@
+It's quick, it's easy and it's free: unmounting svcbin to brick your system.
+Trans rights!
+Async? Осинка!
+Feeling insecure? This computer is insecure too, because it runs rshd.
+Did you know that computers have infinite RAM? Try it out with tmpfs!
+svc reminds me of a weird chimera of svchost.exe and OpenRC. It's still saner than both of those, though.
+Chose your name yourself? Choose a name for your computer too! set named.hostname "new name here"
+DRM-free (sort of)
+It works!! How? We don't know either. But you may ponder at our git repo.
+Petting cats makes computers run faster. Do it now!
+CC:Tweaked has dropped support for string.dump and Lua bytecode. Cleartext FTW!
+This machine is not backdoored. That door you're pointing at is actually a front door.
+Lua debug API is for writing exploits and tricky code, and not for debugging -- we have prints for those.
+reboot and shutdown commands have a weird one-second sleep. Mine your device for a faster shutdown.
+mount does not show disk drive mounts, because those are not managed by vfs.
+You can do string IO now! bytesio API is inspired by python and aligned with Lua fs handles.
+Need help writing async generators? Phone your nearest mental health clinic.
+Don't forget to touch grass. Or snow, whichever is closer.
+No one knows how printers work. We for sure don't.
+Broken Software Distribution!
+NFS does not require wireless modems.
+Read-only NFS can't protect you if clients have physical access -- airgap your networks.
+Writing to a single file from two threads? Why?
+Welcome to dependency hell.
+Unmount nfs to reduce data transfer costs.
+This is multishell, even if you don't think so.
+Press Shift+Terminate to terminate rsh client session.
+Press Alt+F4 (or equivalent hotkey) to receive free diamonds.
+Press Ctrl+Alt+Del seven times in a row to unmute in voice chat.
