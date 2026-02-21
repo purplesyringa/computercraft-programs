@@ -72,13 +72,17 @@ svc.makeNestedShell = env.makeNestedShell
 svc.getCombinedBinPath = env.getCombinedBinPath
 svc._execWrapped = env.execWrapped
 
+svc.terminateProcess = proc.terminate
+svc.killProcess = proc.kill
+svc.listProcesses = proc.list
+
 env.init()
 svc.reload()
 
 term.setCursorPos(1, 1)
 term.clear()
 
-proc.start(function()
+proc.start("boot", function()
     local ok, err = pcall(svc.reach, target)
     if not ok then
         printError(err)

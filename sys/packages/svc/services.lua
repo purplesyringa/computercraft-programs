@@ -142,7 +142,7 @@ function services_api.start(name)
 
     -- Run even oneshot services in a background process, since we don't want them to be cancelled
     -- if `services.start` is cancelled.
-    service.pid = proc.start(function()
+    service.pid = proc.start("service " .. name, function()
         local ok, err = pcall(start)
         if not ok and err == "Terminated" then
             service.runtime_status = "stopped"

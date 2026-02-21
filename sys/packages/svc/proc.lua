@@ -1,6 +1,6 @@
 local proc = {}
 
-local processes = {} -- { [key] = { coroutine, filter, is_foreground, on_killed } }
+local processes = {} -- { [pid] = { name, coroutine, filter, is_foreground, on_killed } }
 local next_process_id = 1
 
 local function deliverEvent(pid, ...)
@@ -13,10 +13,11 @@ local function deliverEvent(pid, ...)
     end
 end
 
-function proc.start(f, on_killed, is_foreground)
+function proc.start(name, f, on_killed, is_foreground)
     local pid = next_process_id
     next_process_id = next_process_id + 1
     processes[pid] = {
+        name = name,
         coroutine = coroutine.create(f),
         filter = nil,
         is_foreground = is_foreground or false,
@@ -33,9 +34,24 @@ end
 function proc.kill(pid)
     local process = processes[pid]
     processes[pid] = nil
-    if process.on_killed then
+    if process and process.on_killed then
         process.on_killed()
     end
+end
+
+function proc.list()
+    local result = {}
+    for pid, process in pairs(processes) do
+        table.insert(result, {
+            pid = pid,
+            name = process.name,
+            is_foreground = process.is_foreground,
+        })
+    end
+    table.sort(result, function(a, b)
+        return a.pid < b.pid
+    end)
+    return result
 end
 
 local interactive_events = {
