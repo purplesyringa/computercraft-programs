@@ -98,6 +98,6 @@ return {
             end
         end
 
-        return handle
+        return handle, function() return contents end
     end,
 }

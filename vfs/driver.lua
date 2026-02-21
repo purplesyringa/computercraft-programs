@@ -1,20 +1,11 @@
+dofile(fs.combine(shell.getRunningProgram(), "../../pkgs.lua"))
+local bytesio = require "bytesio"
+
 local old_vfs = fs._vfs
 local ofs = fs
 if old_vfs then
     ofs = old_vfs.original_fs
 end
-
-local ROOT = ".vfs"
-local MANAGED_PATH = ofs.combine(ROOT, ".managed")
-local FD_PATH = ofs.combine(ROOT, "fd")
-
-if ofs.exists(ROOT) and not ofs.exists(MANAGED_PATH) then
-    error("/" .. ROOT .. " is not managed by the VFS driver.")
-end
-ofs.makeDir(ROOT)
-ofs.open(MANAGED_PATH, "w").close()
-ofs.delete(FD_PATH)
-local next_fd = 0
 
 -- mount = {
 --     -- Absolute path to the mountpoint.
@@ -469,46 +460,16 @@ function fs.open(path, mode)
         return nil, contents
     end
 
-    local fd = next_fd
-    next_fd = next_fd + 1
-    local local_path = ofs.combine(FD_PATH, tostring(fd))
-
-    local file, err = ofs.open(local_path, "w+")
-    if file == nil then
-        return nil, err
-    end
-    ofs.delete(local_path)
-    file.write(contents)
-    file.seek("set", 0)
-
-    local handle = {
-        seek = file.seek,
-        close = file.close,
-    }
-
-    if base_mode == "r" or base_mode == "r+" or base_mode == "w+" then
-        handle.read = file.read
-        handle.readAll = file.readAll
-        handle.readLine = file.readLine
-    end
+    local handle, contents = bytesio.open(contents, mode)
 
     if base_mode ~= "r" then
-        handle.write = file.write
-        handle.writeLine = file.writeLine
-
-        local function flush()
-            local tell = file.seek("cur", 0)
-            file.seek("set", 0)
-            local contents = file.readAll()
-            file.seek("set", tell)
-            callWithErr(mount, "write", rel_path, contents)
+        function handle.flush()
+            callWithErr(mount, "write", rel_path, contents())
         end
 
-        -- No need to flush to the local file, since it's deleted after restart anyway.
-        handle.flush = flush
-        handle.close = function()
-            flush()
-            file.close()
+        function handle.close()
+            handle.flush()
+            handle.close()
         end
     end
 
