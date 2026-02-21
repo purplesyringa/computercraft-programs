@@ -81,14 +81,11 @@ return {
         local function eexist(path) errorPath(path, "File exists") end
 
         local function walk(path)
-            local parent = nil
-            local entry = tree
-            local name = nil
+            local parent, entry, name = nil, tree, nil
             for component in components(path) do
+                if not entry then enoent(path) end
                 if not entry.entries then enotdir(path) end
-                local next = entry.entries[component]
-                if not next then enoent(path) end
-                parent, entry, name = entry, next, component
+                parent, entry, name = entry, entry.entries[component], component
             end
             return parent, entry, name
         end
@@ -104,38 +101,43 @@ return {
             getCapacity = function() return 0xFFFFFFFF end,
 
             list = function(path)
-                local _, dentry, _ = walk(path)
-                assertDir(path, dentry)
+                local _, entry, _ = walk(path)
+                if not entry then enoent(path) end
+                if not entry.entries then enotdir(path) end
                 local list = {}
-                for name, entry in pairs(dentry.entries) do
-                    table.append(list, {
+                for name, fentry in pairs(entry.entries) do
+                    table.insert(list, {
                         name = name,
-                        attributes = entry.attributes,
+                        attributes = fentry.attributes,
                     })
                 end
                 return list
             end,
 
             attributes = function(path)
-                local _, entry, _ = walk(path)
-                return entry.attributes
+                local entry = tree
+                for component in components(path) do
+                    entry = entry and entry.entries and entry.entries[component]
+                end
+                return entry and entry.attributes
             end,
 
             makeDir = function(path)
                 local entry = tree
                 for component in components(path) do
-                    if not entry.entries then eexist(path) end
                     if not entry.entries[component] then
-                        entry.modified = os.epoch("utc")
+                        entry.attributes.modified = os.epoch("utc")
                         entry.entries[component] = mkdentry()
                     end
                     entry = entry.entries[component]
+                    if not entry.entries then eexist(path) end
                 end
             end,
 
             delete = function(path)
+                assert(path ~= "", "/: Deleting mountpoint is not supported. Remount instead.")
                 local dentry, _, name = walk(path)
-                assert(dentry, "/: Deleting mountpoint is not supported. Remount instead.")
+                dentry.attributes.modified = os.epoch("utc")
                 dentry.entries[name] = nil
             end,
 
@@ -147,6 +149,7 @@ return {
                 if not src_f then enoent(src) end
                 if dst_f then eexist(dst) end
                 src_d.entries[src_fn] = nil
+                dst_d.attributes.modified = os.epoch("utc")
                 dst_d.entries[dst_fn] = src_f
             end,
 
@@ -155,25 +158,23 @@ return {
                 local dst_d, dst_f, dst_fn = walk(dst)
                 if not src_f then enoent(src) end
                 if dst_f then eexist(dst) end
+                dst_d.attributes.modified = os.epoch("utc")
                 dst_d.entries[dst_fn] = clone(src_f)
             end,
 
             read = function(path)
-                local dentry, _, name = walk(path)
-                if not dentry then eisdir("") end
-
-                local entry = dentry.entries[path]
+                local _, entry, _ = walk(path)
                 if not entry then enoent(path) end
                 if entry.entries then eisdir(path) end
                 return entry.contents
             end,
 
             write = function(path, contents)
+                if path == "" then eisdir("") end
                 local dentry, _, name = walk(path)
-                if not dentry then eisdir("") end
 
                 if not dentry.entries[name] then
-                    dentry.modified = os.epoch("utc")
+                    dentry.attributes.modified = os.epoch("utc")
                     dentry.entries[name] = mkfile()
                 end
 
@@ -181,8 +182,8 @@ return {
                 if entry.entries then eisdir(path) end
 
                 entry.attributes.size = #contents
+                entry.attributes.modified = os.epoch("utc")
                 entry.contents = contents
-                entry.modified = os.epoch("utc")
             end,
         })
     end,
