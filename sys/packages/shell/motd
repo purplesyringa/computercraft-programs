@@ -27,3 +27,5 @@ This is multishell, even if you don't think so.
 Press Shift+Terminate to terminate rsh client session.
 Press Alt+F4 (or equivalent hotkey) to receive free diamonds.
 Press Ctrl+Alt+Del seven times in a row to unmute in voice chat.
+Remember that useless Pause key on your keyboard? Try (Shift+)Pause in multishell!
+This shell is accessed by msh command, while sh and shell commands access original CraftOS shell.
