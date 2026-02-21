@@ -1,5 +1,3 @@
--- assert(not os._svc, "system already booted")
-
 local args = { ... }
 local boot_path
 if args[1] == "packages.svc.boot" and args[2] then
