@@ -273,12 +273,10 @@ function async.drive()
     deliverInternalEvents()
     while next(tasks) do
         local event = table.pack(os.pullEventRaw())
-        deliverEvent(table.unpack(event, 1, event.n))
-        deliverInternalEvents()
         if event[1] == "terminate" and not terminate_inhibited then
-            -- Cancel all tasks and bring down the runtime. This happens after waking up tasks
-            -- subscribed to `terminate` and delivering internal events, so that all tasks can shut
-            -- down gracefully.
+            -- Cancel all tasks and bring down the runtime. This happens without waking up tasks
+            -- and delivering internal events, since `os.pullEvent` and other functions error on
+            -- `terminate`, bringing down the runtime unless the coroutine is being cancelled.
 
             -- Move out `tasks` so that tasks spawned during cancellation (which shouldn't happen in
             -- normal code, but is technically allowed) don't break iteration.
@@ -293,6 +291,8 @@ function async.drive()
             driven = false
             error("Terminated", 0)
         end
+        deliverEvent(table.unpack(event, 1, event.n))
+        deliverInternalEvents()
     end
 
     driven = false

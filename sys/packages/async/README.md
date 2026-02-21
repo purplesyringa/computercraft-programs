@@ -91,16 +91,15 @@ Poll spawned tasks to completion. The function completes when all tasks return, 
 
 ## Termination
 
-By default, when the program receives the `terminate` event (e.g. from the user pressing the "Terminate" button), all tasks are cancelled and `drive` throws `Terminated`. Calling `async.inhibitTerminate()` disables this behavior, so that `terminate` is treated like a normal event: tasks will not be automatically cancelled, and listeners like `os.pullEvent("rednet_message")` will not be woken up on `terminate`.
+By default, when the program receives the `terminate` event (e.g. from the user pressing the "Terminate" button), all tasks are cancelled and `drive` throws `Terminated`. Just like with cancellation in general, tasks don't have a chance to perform asynchronous actions, including internal actions like waiting on a queue.
 
-Regardless of whether termination is inhibited, subscriptions like `os.pullEventRaw("terminate")` and `async.subscribe("terminate", ...)` will react to the `terminate` event. The runtime will only shut down once all scheduled tasks are waiting on *external* events. For example, termination handlers can wake up tasks with event queues, and those tasks are guaranteed to be resumed before the runtime shuts down. However, you cannot perform asynchronous actions: you can still schedule them, but you won't be there to act on the result.
-
-If termination is inhibited, the runtime shuts down only when all tasks exit, so graceful shutdown requires listening to `terminate` and stopping tasks manually.
+Calling `async.inhibitTerminate()` disables this behavior, so that `terminate` is treated like a normal event: tasks will not be automatically cancelled, and listeners like `os.pullEvent("rednet_message")` will not be woken up on `terminate`. Subscriptions like `os.pullEventRaw("terminate")` and `async.subscribe("terminate", ...)` will react to the `terminate` event normally. The runtime shuts down only when all tasks exit, so graceful shutdown requires listening to `terminate` and stopping tasks manually.
 
 ```lua
 registerGlobalCallback()
 async.subscribe("terminate", unregisterGlobalCallback)
 
+async.inhibitTerminate()
 async.drive()
 ```
 
