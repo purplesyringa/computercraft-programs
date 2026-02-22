@@ -45,7 +45,5 @@ while not exit do
     show_ps1()
     local input = read(nil, history, settings.get("shell.autocomplete") and shell.complete)
     if input:match("%S") and history[#history] ~= input then table.insert(history, input) end
-    if input == "reboot!" then os.reboot() end
-    if input == "shutdown!" then os.shutdown() end
     shell.run(input)
 end
