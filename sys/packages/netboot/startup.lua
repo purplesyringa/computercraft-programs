@@ -1,0 +1,6 @@
+peripheral.find("modem", rednet.open)
+local server_id = rednet.lookup("netboot")
+assert(server_id, "no netboot server")
+rednet.send(server_id, "request", "netboot")
+local _, payload, _ = rednet.receive("netboot")
+load(payload, "=netboot", nil, _ENV)()
