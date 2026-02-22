@@ -1,3 +1,3 @@
 return {
-    services = { "named", "rshd", "shell" },
+    services = { "named", "rshd", "msh" },
 }
