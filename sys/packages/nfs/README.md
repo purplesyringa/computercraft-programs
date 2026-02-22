@@ -9,12 +9,12 @@ The server needs to run `nfsd <share root path>`. This announces the existence o
 NFS clients are based on [virtual file systems](../vfs), and thus can be mounted either from shell or from Lua:
 
 ```shell
-nfs-mount <mountpoint> [<server hostname>]
+nfs-mount <mountpoint> [<server hostname OR computer id>]
 ```
 
 ```lua
 local nfs = require "nfs"
-nfs.mount(mountpoint, [server_hostname])
+nfs.mount(mountpoint, [server_hostname OR computer_id])
 ```
 
-Multiple servers can co-exist, as long as they have different hostnames. The default server hostname for connections is `fileserver`.
+Multiple servers can co-exist, as long as they have different hostnames or referenced by computer id. The default server hostname for connections is `fileserver`.
