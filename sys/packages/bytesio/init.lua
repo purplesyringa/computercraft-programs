@@ -39,8 +39,7 @@ return {
             end
 
             assert(newseek >= 0, "rewound too far")
-            seek = math.min(newseek, #contents) -- XXX: Should we support "holes" in contents?
-            if seek ~= newseek then printError("fixme: seek past end??") end
+            seek = newseek
             return seek
         end
 
@@ -65,7 +64,7 @@ return {
 
             function handle.readLine(withTrailing)
                 assert(not closed, "file closed")
-                if seek == #contents then return end
+                if seek >= #contents then return nil end
                 local pos = contents:find('\n', 1 + seek, true)
                 local sub = contents:sub(1 + seek, pos) -- if pos is nil, then reads to the end
                 seek = seek + #sub
@@ -89,7 +88,7 @@ return {
                 part = tostring(part)
 
                 local newseek = seek + #part
-                local before = contents:sub(1, seek)
+                local before = contents:sub(1, seek) .. string.rep("\0", seek - #contents)
                 local after = contents:sub(1 + newseek)
                 contents = before .. part .. after
                 seek = newseek
