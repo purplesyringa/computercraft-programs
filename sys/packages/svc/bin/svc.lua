@@ -111,6 +111,10 @@ elseif #args == 2 and args[1] == "kill" then
     killService(args[2])
 elseif #args == 2 and args[1] == "reach" then
     reachTarget(args[2])
+elseif #args == 1 and args[1] == "shutdown" then
+    os.shutdown()
+elseif #args == 1 and args[1] == "reboot" then
+    os.reboot()
 else
     printError("Usage:")
     printError("    svc")
@@ -120,4 +124,6 @@ else
     printError("    svc stop <service>")
     printError("    svc kill <service>")
     printError("    svc reach <target>")
+    printError("    svc shutdown")
+    printError("    svc reboot")
 end
