@@ -54,12 +54,17 @@ local root_mount = {
     getFreeSpace = ofs.getFreeSpace,
     getCapacity = ofs.getCapacity,
     list = function(rel_path)
-        local list = ofs.list(rel_path)
-        for i, name in ipairs(list) do
-            list[i] = {
-                name = name,
-                attributes = ofs.attributes(ofs.combine(rel_path, name)),
-            }
+        local list = {}
+        for _, name in ipairs(ofs.list(rel_path)) do
+            -- `ofs.attributes` can fail unexpectedly: not only due to races, but also due to broken
+            -- symlinks. Wouldn't want to brick the system in this case.
+            local ok, attributes = pcall(ofs.attributes, ofs.combine(rel_path, name))
+            if ok then
+                table.insert(list, {
+                    name = name,
+                    attributes = attributes,
+                })
+            end
         end
         return list
     end,
