@@ -3,12 +3,18 @@ local named = require "named"
 local PROTOCOL = "sylfn-nfs"
 peripheral.find("modem", rednet.open)
 
-local ROOT = "pub"
+local args = { ... }
+if #args == 0 then
+    print("Usage: nfsd <path>")
+    return
+end
+
+local root = fs.combine(args[1])
 rednet.host(PROTOCOL, named.hostname())
 
 local function patchError(err)
-    if type(err) == "string" and string.find(err, "/" .. ROOT) == 1 then
-        return "/" .. string.sub(err, #ROOT + 2)
+    if type(err) == "string" and root ~= "" and string.find(err, "/" .. root) == 1 then
+        return "/" .. string.sub(err, #root + 2)
     end
     return err
 end
@@ -23,24 +29,26 @@ end
 
 local nfs = {
     find = function(path)
-        local list = fs.find(fs.combine(ROOT, path))
-        for key, _ in pairs(list) do
-            list[key] = string.sub(list[key], #ROOT + 1)
+        local list = fs.find(fs.combine(root, path))
+        if root ~= "" then
+            for key, _ in pairs(list) do
+                list[key] = string.sub(list[key], #root + 2)
+            end
         end
         return list
     end,
     list = function(path)
-        local list = fs.list(fs.combine(ROOT, path))
+        local list = fs.list(fs.combine(root, path))
         for i, name in ipairs(list) do
             list[i] = {
                 name = name,
-                attributes = fs.attributes(fs.combine(ROOT, path, name)),
+                attributes = fs.attributes(fs.combine(root, path, name)),
             }
         end
         return list
     end,
     attributes = function(path)
-        path = fs.combine(ROOT, path)
+        path = fs.combine(root, path)
         if not fs.exists(path) then
             return nil
         end
@@ -49,7 +57,7 @@ local nfs = {
         return attrs
     end,
     read = function(path)
-        return readToString(fs.combine(ROOT, path))
+        return readToString(fs.combine(root, path))
     end,
 }
 
