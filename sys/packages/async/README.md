@@ -43,17 +43,17 @@ The two core functions are `async.spawn` and `async.drive`. `async.spawn` spawns
 local async = require "async"
 
 async.spawn(function()
-	-- Do an async operation
+    -- Do an async operation
 end)
 
 async.spawn(function()
-	-- Do another async operation, perhaps in a loop
-	while true do
-		-- Wait for some events and spawn a background task to handle the event.
-		async.spawn(function()
-			-- ...
-		end)
-	end
+    -- Do another async operation, perhaps in a loop
+    while true do
+        -- Wait for some events and spawn a background task to handle the event.
+        async.spawn(function()
+            -- ...
+        end)
+    end
 end)
 
 async.drive()
@@ -116,10 +116,10 @@ Each value can be either a task or a function. If it's a function, it is schedul
 
 ```lua
 local results = async.gather({
-	sleep = os.sleep(1),
-	immediate = function()
-		return 123, 456
-	end,
+    sleep = os.sleep(1),
+    immediate = function()
+        return 123, 456
+    end,
 })
 assert(results.sleep == nil)
 assert(results.immediate == 123)
@@ -133,10 +133,10 @@ Each value can be either a task or a function. If it's a function, it is schedul
 
 ```lua
 local key, value1, value2 = async.race({
-	sleep = os.sleep(1),
-	immediate = function()
-		return 123, 456
-	end,
+    sleep = os.sleep(1),
+    immediate = function()
+        return 123, 456
+    end,
 })
 assert(key == "immediate")
 assert(value1 == 123)
@@ -155,7 +155,7 @@ Invokes `function(value, key)` for each entry in the table concurrently, returni
 
 ```lua
 local result = async.parMap({ a = 1, b = 2 }, function(x)
-	return x * 3
+    return x * 3
 end)
 assert(result.a == 3)
 assert(result.b == 6)
@@ -180,9 +180,9 @@ New tasks should not be added to the task set after `join` or `cancel` are calle
 local task_set = async.newTaskSet(200)
 local chest_contents = {}
 for key, chest in pairs(chests) do
-	task_set.spawn(function()
-		chest_contents[key] = chest.list()
-	end)
+    task_set.spawn(function()
+        chest_contents[key] = chest.list()
+    end)
 end
 task_set.join()
 ```
@@ -205,19 +205,19 @@ The simplest design is to have a per-object request *queue* populated from arbit
 local messages = async.newQueue()
 
 async.spawn(function()
-	-- Since `put` doesn't block, this is guaranteed to not lose events.
-	while true do
-		messages.put(rednet.receive())
-	end
+    -- Since `put` doesn't block, this is guaranteed to not lose events.
+    while true do
+        messages.put(rednet.receive())
+    end
 end)
 
 async.spawn(function()
-	while true do
-		local computer_id, msg, protocol = messages.get()
-		-- `analyzeMessage` can be asynchronous and still won't lose events, since the queue acts as
-		-- a buffer.
-		analyzeMessage(computer_id, msg, protocol)
-	end
+    while true do
+        local computer_id, msg, protocol = messages.get()
+        -- `analyzeMessage` can be asynchronous and still won't lose events, since the queue acts as
+        -- a buffer.
+        analyzeMessage(computer_id, msg, protocol)
+    end
 end)
 ```
 
@@ -238,18 +238,18 @@ If `wait` is not running when `notifyOne` is called, the next call to `wait` ret
 local turtle_inventory = async.newNotifyOne()
 
 async.spawn(function()
-	while true do
-		os.pullEvent("turtle_inventory")
-		turtle_inventory.notifyOne()
-	end
+    while true do
+        os.pullEvent("turtle_inventory")
+        turtle_inventory.notifyOne()
+    end
 end)
 
 async.spawn(function()
-	while true do
-		-- Scan the inventory before waiting so that we have something to start with.
-		scanInventory()
-		turtle_inventory.wait()
-	end
+    while true do
+        -- Scan the inventory before waiting so that we have something to start with.
+        scanInventory()
+        turtle_inventory.wait()
+    end
 end)
 ```
 
@@ -271,22 +271,22 @@ local has_modem = peripheral.find("modem") ~= nil
 local has_modem_updated = async.newNotifyWaiters()
 
 async.spawn(function()
-	while true do
-		local name = os.pullEvent()
-		if name == "peripheral" or name == "peripheral_detach" then
-			has_modem = peripheral.find("modem") ~= nil
-			-- `has_modem` may become outdated by the time `find` completes if the modem is detached
-			-- on the main thread, but that will cause another event to be delivered, eventually
-			-- fixing `has_modem`.
-			has_modem_updated.notifyWaiters()
-		end
-	end
+    while true do
+        local name = os.pullEvent()
+        if name == "peripheral" or name == "peripheral_detach" then
+            has_modem = peripheral.find("modem") ~= nil
+            -- `has_modem` may become outdated by the time `find` completes if the modem is detached
+            -- on the main thread, but that will cause another event to be delivered, eventually
+            -- fixing `has_modem`.
+            has_modem_updated.notifyWaiters()
+        end
+    end
 end)
 
 local function waitForModem()
-	while not has_modem do
-		has_modem_updated.wait()
-	end
+    while not has_modem do
+        has_modem_updated.wait()
+    end
 end
 ```
 
@@ -302,35 +302,35 @@ There are multiple possible interpretations of what this might mean for asynchro
 ```lua
 -- Synchronous callback.
 async.subscribe("char", function(ch)
-	str = str .. ch
+    str = str .. ch
 end)
 
 -- Asynchronous callback, handling events concurrently.
 async.subscribe("char", function(ch)
-	async.spawn(function()
-		someAsyncFn(ch)
-	end)
+    async.spawn(function()
+        someAsyncFn(ch)
+    end)
 end)
 
 -- Asynchronous callback, handling events sequentially.
 local queue = async.newQueue()
 async.subscribe("char", function(ch)
-	queue.put(ch)
+    queue.put(ch)
 end)
 async.spawn(function()
-	while true do
-		someAsyncFn(queue.get())
-	end)
+    while true do
+        someAsyncFn(queue.get())
+    end)
 end)
 
 -- Asynchronous callback, coalescing successive events.
 local notify = async.newNotifyOne()
 async.subscribe("turtle_inventory", notify.notifyOne)
 async.spawn(function()
-	while true do
-		notify.wait()
-		someAsyncFn()
-	end
+    while true do
+        notify.wait()
+        someAsyncFn()
+    end
 end)
 ```
 
