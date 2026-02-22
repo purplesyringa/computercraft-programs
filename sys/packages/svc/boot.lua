@@ -37,7 +37,7 @@ end
 
 -- Redefine `require` so that we have access to modules normally. This doesn't behave exactly like
 -- normal modules, but it's close enough.
-require, _ = require("cc.require").make(_ENV, fs.combine(svc.sysroot, "packages"))
+require = require("cc.require").make(_ENV, fs.combine(svc.sysroot, "packages"))
 
 -- VFS is so critical to running the system that it has to be started manually rather than as
 -- a service, since otherwise we won't even be able to run programs.

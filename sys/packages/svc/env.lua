@@ -199,7 +199,8 @@ function env.execIsolated(command, ...)
 
     isolated_env.arg = { [0] = command, ... }
 
-    local func, err = load(code, "@/" .. path, nil, isolated_env)
+    local func
+    func, err = load(code, "@/" .. path, nil, isolated_env)
     assert(func, err)
     func(...)
 end

@@ -37,20 +37,6 @@ function targets_api.reload()
     end
 end
 
-local function isSameCommand(a, b)
-    a = a or {}
-    b = b or {}
-    if #a ~= #b then
-        return false
-    end
-    for i = 1, #a do
-        if a[i] ~= b[i] then
-            return false
-        end
-    end
-    return true
-end
-
 local function getTargetServiceSet(target)
     local service_statuses = services.allStatus()
     local service_set = {}
