@@ -20,29 +20,6 @@ local function showProcessList()
     end
 end
 
-local function showServiceStatus(service)
-    local status = svc.serviceStatus(service)
-
-    term.setTextColor(colors.white)
-    write("Service: " .. service)
-    if status.status == "failed" then
-        term.setTextColor(colors.red)
-    elseif status.up then
-        term.setTextColor(colors.green)
-    else
-        term.setTextColor(colors.gray)
-    end
-    print(" (" .. status.status .. ")")
-    term.setTextColor(colors.gray)
-    if status.description then
-        print(status.description)
-    end
-    if status.error then
-        term.setTextColor(colors.red)
-        print(status.error)
-    end
-end
-
 local args = { ... }
 
 if #args == 0 then
