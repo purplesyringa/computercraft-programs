@@ -51,38 +51,60 @@ local function isSameCommand(a, b)
     return true
 end
 
-function targets_api.reach(name, force)
-    local target = targets[name]
-    assert(target, name .. ": unknown target")
-    if not target.config then
-        error(name .. ": " .. target.config_error)
+local function getTargetServiceSet(target)
+    local service_statuses = services.allStatus()
+    local service_set = {}
+    local function visitService(name)
+        if service_set[name] or not service_statuses[name] then
+            return
+        end
+        service_set[name] = true
+        for _, dependency in pairs(service_statuses[name].requires) do
+            visitService(dependency)
+        end
     end
 
+    local target_set = {}
+    local function visitTarget(name, is_main)
+        if target_set[name] then
+            return
+        end
+        target_set[name] = true
+        local target = targets[name]
+        assert(target, name .. ": unknown target")
+        if not target.config then
+            error(name .. ": " .. target.config_error)
+        end
+        for _, service in pairs(target.config.services or {}) do
+            visitService(service)
+        end
+        if is_main then
+            for _, service in pairs(target.config.inherent_services or {}) do
+                visitService(service)
+            end
+        end
+        for _, target in pairs(target.config.inherits or {}) do
+            visitTarget(target, false)
+        end
+    end
+
+    visitTarget(target, true)
+    return service_set
+end
+
+function targets_api.reach(name, force)
+    local goal_set = getTargetServiceSet(name)
     current_target = name
 
     local closures = {}
 
     -- Bring up new services.
-    for _, service in ipairs(target.config.services) do
+    for service, _ in pairs(goal_set) do
         table.insert(closures, function() pcall(services.start, service) end)
     end
 
     -- Tear down old services.
     local all_status = services.allStatus()
-
-    local goal_set = {}
-    local function visit(service)
-        if goal_set[service] or not all_status[service] then
-            return
-        end
-        goal_set[service] = true
-        for _, dependency in pairs(all_status[service].requires) do
-            visit(dependency)
-        end
-    end
-    for _, service in pairs(target.config.services) do
-        visit(service)
-    end
     local dependents = {}
     for service, status in pairs(all_status) do
         for _, dependency in pairs(status.requires) do
@@ -124,7 +146,7 @@ function targets_api.status(name)
     end
 
     local failed_services = {}
-    for _, service in ipairs(target.config.services) do
+    for service, _ in pairs(getTargetServiceSet(name)) do
         local status = services.status(service)
         if not status or not status.up then
             table.insert(failed_services, service)

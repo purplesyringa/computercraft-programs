@@ -1,3 +1,4 @@
 return {
-    services = { "named", "rshd", "msh" },
+    services = { "named", "rshd" },
+    inherent_services = { "msh" },
 }
