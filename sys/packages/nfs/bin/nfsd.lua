@@ -1,3 +1,4 @@
+local async = require "async"
 local named = require "named"
 
 local PROTOCOL = "sylfn-nfs"
@@ -10,7 +11,10 @@ if #args == 0 then
 end
 
 local root = fs.combine(args[1])
-rednet.host(PROTOCOL, named.hostname())
+
+async.spawn(function()
+    rednet.host(PROTOCOL, named.hostname())
+end)
 
 local function patchError(err)
     if type(err) == "string" and root ~= "" and string.find(err, "/" .. root) == 1 then
@@ -61,13 +65,29 @@ local nfs = {
     end,
 }
 
-while true do
-    local computer, message = rednet.receive(PROTOCOL)
-    local response = table.pack(pcall(function()
-        return nfs[message[2]](table.unpack(message, 3, message.n))
-    end))
-    if response[1] == false then
-        response[2] = patchError(response[2])
+local requests = async.newQueue()
+
+async.spawn(function()
+    while true do
+        requests.put(rednet.receive(PROTOCOL))
     end
-    rednet.send(computer, response, PROTOCOL .. message[1])
-end
+end)
+
+local set = async.newTaskSet(32)
+
+async.spawn(function()
+    while true do
+        local computer, message = requests.get()
+        set.spawn(function()
+            local response = table.pack(pcall(function()
+                return nfs[message[2]](table.unpack(message, 3, message.n))
+            end))
+            if response[1] == false then
+                response[2] = patchError(response[2])
+            end
+            rednet.send(computer, response, PROTOCOL .. message[1])
+        end)
+    end
+end)
+
+async.drive()
