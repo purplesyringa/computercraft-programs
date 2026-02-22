@@ -1,16 +1,25 @@
 local svc = require "svc"
 local tableui = require "tableui"
 
+local service_status_to_color = {
+    stopped = colors.gray,
+    starting = colors.yellow,
+    up = colors.green,
+    failed = colors.red,
+}
+
+local target_status_to_color = {
+    starting = colors.yellow,
+    up = colors.green,
+    degraded = colors.red,
+}
+
 local function showSystemStatus()
     local status = svc.status()
 
     term.setTextColor(colors.white)
     write("Target: " .. status.target.name)
-    if status.target.status == "running" then
-        term.setTextColor(colors.green)
-    else
-        term.setTextColor(colors.red)
-    end
+    term.setTextColor(target_status_to_color[status.target.status])
     print(" (" .. status.target.status .. ")")
 
     if status.target.error then
@@ -33,13 +42,7 @@ local function showSystemStatus()
     })
     for _, name in pairs(service_names) do
         local service_status = status.services[name]
-        if service_status.status == "failed" then
-            term.setTextColor(colors.red)
-        elseif service_status.up then
-            term.setTextColor(colors.green)
-        else
-            term.setTextColor(colors.gray)
-        end
+        term.setTextColor(service_status_to_color[service_status.status])
         writeRow({
             name = name,
             status = service_status.status,
@@ -52,13 +55,7 @@ local function showServiceStatus(service)
 
     term.setTextColor(colors.white)
     write("Service: " .. service)
-    if status.status == "failed" then
-        term.setTextColor(colors.red)
-    elseif status.up then
-        term.setTextColor(colors.green)
-    else
-        term.setTextColor(colors.gray)
-    end
+    term.setTextColor(service_status_to_color[status.status])
     print(" (" .. status.status .. ")")
     term.setTextColor(colors.gray)
     if status.description then

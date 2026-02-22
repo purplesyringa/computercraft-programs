@@ -63,20 +63,40 @@ function services_api.reload()
     end
 end
 
-function services_api.waitDown(name)
+local function waitForStatusChange(name)
     local service = services[name]
     assert(service, name .. ": unknown service")
-    if service.runtime_status ~= "running" then
-        return
-    end
+    local _, updated_name
+    repeat
+        _, updated_name = os.pullEventRaw("service_status")
+    until updated_name == name
+end
+
+function services_api.waitUp(name)
+    assert(services[name], name .. ": unknown service")
     while true do
-        local _, updated_name = os.pullEventRaw("service_exit")
-        if updated_name == name then
-            break
+        local status = services_api.status(name)
+        if status.status == "stopped" then
+            error(name .. ": service was stopped")
+        elseif status.status == "failed" then
+            error(name .. ": " .. status.error)
+        elseif status.status == "up" then
+            return
         end
+        waitForStatusChange(name)
     end
-    if service.runtime_status == "failed" then
-        error(name .. ": " .. service.runtime_error)
+end
+
+function services_api.waitDown(name)
+    assert(services[name], name .. ": unknown service")
+    while true do
+        local status = services_api.status(name)
+        if status.status == "stopped" then
+            return
+        elseif status.status == "failed" then
+            error(name .. ": " .. status.error)
+        end
+        waitForStatusChange(name)
     end
 end
 
@@ -88,11 +108,22 @@ local function runHook(hook)
 end
 
 function services_api.start(name)
-    local status = services_api.status(name)
-    if not status then
-        error(name .. ": unknown service")
+    local function checkStatus()
+        local status = services_api.status(name)
+        if not status then
+            error(name .. ": unknown service")
+        end
+        if status.status == "up" then
+            return true
+        elseif status.status == "starting" then
+            services_api.waitUp(name)
+            return true
+        else
+            return false
+        end
     end
-    if status.up then
+
+    if checkStatus() then
         return
     end
 
@@ -105,12 +136,13 @@ function services_api.start(name)
 
     -- By the time the dependencies are started, the service might have already been started by
     -- another instance of `services.start` or its config might be changed, so check again.
-    if services_api.status(name).up then
+    if checkStatus() then
         return
     end
 
     service.runtime_status = "running"
     service.runtime_error = nil
+    os.queueEvent("service_status", name)
 
     local start = nil
     if service.config.type == "oneshot" then
@@ -153,16 +185,16 @@ function services_api.start(name)
             service.runtime_error = err
         end
         service.pid = nil
-        os.queueEvent("service_exit", name)
+        os.queueEvent("service_status", name)
     end, function()
         service.runtime_status = "failed"
         service.runtime_error = "Killed"
         service.pid = nil
-        os.queueEvent("service_exit", name)
+        os.queueEvent("service_status", name)
     end, service.config.type == "foreground")
 
     if service.config.type == "oneshot" then
-        services_api.waitDown(name)
+        services_api.waitUp(name)
     end
 end
 
@@ -175,7 +207,11 @@ function services_api.stop(name)
 
     local function assertNotRequired()
         for name2, service2 in pairs(services) do
-            if service2.config and service2.config.requires then
+            local status2 = services_api.status(name2).status
+            if (
+                (status2 == "starting" or status2 == "up")
+                and service2.config and service2.config.requires
+            ) then
                 for _, name3 in pairs(service2.config.requires) do
                     if name3 == name then
                         error(name .. ": required by running service " .. name2)
@@ -189,7 +225,8 @@ function services_api.stop(name)
         assertNotRequired()
         proc.terminate(service.pid)
         -- For oneshot services, `terminate` throws an error, which `pcall` in `start` catches and
-        -- stops the service, so there is no need to call `service.config.stop` here.
+        -- stops the service, so there is no need to call `service.config.stop` or update the status
+        -- here.
         services_api.waitDown(name)
     elseif service.config.type == "oneshot" and service.runtime_status == "finished" then
         assertNotRequired()
@@ -199,6 +236,9 @@ function services_api.stop(name)
         else
             service.runtime_status = "failed"
             service.runtime_error = err
+        end
+        os.queueEvent("service_status", name)
+        if not ok then
             error(name .. ": " .. err)
         end
     end
@@ -221,6 +261,7 @@ function services_api.kill(name)
             service.runtime_status = "failed"
             service.runtime_error = err
         end
+        os.queueEvent("service_status", name)
     end
 end
 
@@ -235,20 +276,41 @@ function services_api.status(name)
     end
     if not service.config then
         return {
-            status = "degraded",
+            status = "failed",
             error = service.config_error,
-            up = false,
             requires = {},
             description = nil,
         }
     end
+
+    local status, err
+    if service.config.type == "oneshot" then
+        status = ({
+            stopped = "stopped",
+            running = "starting",
+            finished = "up",
+            failed = "failed",
+        })[service.runtime_status]
+        if service.runtime_status == "failed" then
+            err = service.runtime_error
+        end
+    elseif service.config.type == "process" or service.config.type == "foreground" then
+        status = ({
+            stopped = "stopped",
+            running = "up",
+            finished = "failed",
+            failed = "failed",
+        })[service.runtime_status]
+        if service.runtime_status == "finished" then
+            err = "Process exited"
+        elseif service.runtime_status == "failed" then
+            err = service.runtime_error
+        end
+    end
+
     return {
-        status = service.runtime_status,
-        error = service.runtime_error,
-        up = (
-            service.runtime_status == "running"
-            or (service.runtime_status == "finished" and service.config.type == "oneshot")
-        ),
+        status = status,
+        error = err,
         requires = copyTable(service.config.requires or {}),
         description = service.config.description,
     }

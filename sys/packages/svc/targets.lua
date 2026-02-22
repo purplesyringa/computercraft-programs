@@ -1,5 +1,3 @@
-local env = require "svc.env"
-local proc = require "svc.proc"
 local services = require "svc.services"
 
 local targets_api = {}
@@ -100,8 +98,8 @@ function targets_api.reach(name, force)
             table.insert(dependents[dependency], service)
         end
     end
-    for service, status in pairs(all_status) do
-        if status.up and not goal_set[service] then
+    for service, _ in pairs(all_status) do
+        if not goal_set[service] then
             if force then
                 services.kill(service)
             else
@@ -131,24 +129,43 @@ function targets_api.status(name)
         }
     end
 
-    local failed_services = {}
+    local services_by_status = {
+        unknown = {},
+        stopped = {},
+        starting = {},
+        up = {},
+        failed = {},
+    }
     for service, _ in pairs(getTargetServiceSet(name)) do
-        local status = services.status(service)
-        if not status or not status.up then
-            table.insert(failed_services, service)
-        end
+        local status = services.status(service) or { status = "unknown" }
+        table.insert(services_by_status[status.status], service)
     end
 
-    if next(failed_services) then
-        return {
-            status = "degraded",
-            error = "failed services: " .. table.concat(failed_services, ", "),
-        }
+    local status
+    local err = nil
+    if (
+        next(services_by_status.failed)
+        or next(services_by_status.stopped)
+        or next(services_by_status.unknown)
+    ) then
+        status = "degraded"
+        local error_lines = {}
+        for _, key in pairs({ "failed", "stopped", "unknown" }) do
+            local list = services_by_status[key]
+            if next(list) then
+                table.insert(error_lines, key .. " services: " .. table.concat(list, ", "))
+            end
+        end
+        err = table.concat(error_lines, "\n")
+    elseif next(services_by_status.starting) then
+        status = "starting"
+    else
+        status = "up"
     end
 
     return {
-        status = "running",
-        error = nil,
+        status = status,
+        error = err,
     }
 end
 
