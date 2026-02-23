@@ -22,10 +22,13 @@ end
 --     getCapacity(rel_path), -- defaults to 0
 --
 --     -- Returns a list containing information about files in the given directory in the following
---     -- format: `{ name = ..., attributes = ... }`.
+--     -- format: `{ name = ..., attributes = ... }`. if `attributes` is missing, simulated with
+--     -- the `attributes` method.
 --     list(rel_path),
 --
---     -- An implementation of `fs.attributes` returning `nil` for absent files.
+--     -- An implementation of `fs.attributes` returning `nil` for absent files. Defaults `created`
+--     -- to `0`, `modified` to `created`, `modification` to `modified`, `size` to `0`, and
+--     -- `isReadOnly` to `true`.
 --     attributes(rel_path),
 --
 --     -- If missing, recursively reimplemented based on `list`.
@@ -55,25 +58,19 @@ local root_mount = {
     getFreeSpace = ofs.getFreeSpace,
     getCapacity = ofs.getCapacity,
     list = function(rel_path)
-        local list = {}
-        for _, name in ipairs(ofs.list(rel_path)) do
-            -- `ofs.attributes` can fail unexpectedly: not only due to races, but also due to broken
-            -- symlinks. Wouldn't want to brick the system in this case.
-            local ok, attributes = pcall(ofs.attributes, ofs.combine(rel_path, name))
-            if ok then
-                table.insert(list, {
-                    name = name,
-                    attributes = attributes,
-                })
-            end
+        local list = ofs.list(rel_path)
+        for i, name in pairs(list) do
+            list[i] = { name = name }
         end
         return list
     end,
     attributes = function(rel_path)
-        if not ofs.exists(rel_path) then
+        -- Use `pcall` instead of `ofs.exists` due to TOCTOU.
+        local ok, attrs = pcall(ofs.attributes, rel_path)
+        if not ok then
             return nil
         end
-        return ofs.attributes(rel_path)
+        return attrs
     end,
     makeDir = ofs.makeDir,
     delete = ofs.delete,
@@ -174,6 +171,36 @@ local fs = {
     getDir = ofs.getDir,
 }
 
+local function mountAttributes(mount, rel_path)
+    local attrs = callWithErr(mount, "attributes", rel_path)
+    if not attrs then
+        return nil
+    end
+    attrs.size = attrs.size or 0
+    if attrs.isReadOnly == nil then
+        attrs.isReadOnly = true
+    end
+    attrs.created = attrs.created or 0
+    attrs.modified = attrs.modified or attrs.created
+    attrs.modification = attrs.modification or attrs.modified
+    return attrs
+end
+
+local function mountList(mount, rel_path)
+    local list = {}
+    for _, entry in ipairs(callWithErr(mount, "list", rel_path)) do
+        if not entry.attributes then
+            entry.attributes = mountAttributes(mount, ofs.combine(rel_path, entry.name))
+        end
+        -- `mountAttributes` can return `nil` here not only due to races, but also due to broken
+        -- symlinks. Wouldn't want to brick the system in this case.
+        if entry.attributes then
+            table.insert(list, entry)
+        end
+    end
+    return list
+end
+
 function fs.complete(pattern, dir, ...)
     local pattern_dir, pattern_name = pattern:match("(.*)/(.*)")
     if pattern_dir == nil then
@@ -189,7 +216,7 @@ function fs.complete(pattern, dir, ...)
     end
 
     local mount, dir_rel_path = resolvePath(dir)
-    local ok, files = pcall(function() return mount.list(dir_rel_path) end)
+    local ok, files = pcall(function() return mountList(mount, dir_rel_path) end)
     if not ok then
         return {}
     end
@@ -301,7 +328,7 @@ local function findInMount(mount, rel_path, rel_pattern, known_exists, result)
         return
     end
     if rel_pattern == "" then
-        if known_exists or mount.attributes(rel_path) then
+        if known_exists or mountAttributes(mount, rel_path) then
             table.insert(result, ofs.combine(mount.root, rel_path))
         end
         return
@@ -314,7 +341,7 @@ local function findInMount(mount, rel_path, rel_pattern, known_exists, result)
             end
         end
     else
-        local ok, entries = pcall(mount.list, rel_path)
+        local ok, entries = pcall(mountList, mount, rel_path)
         if not ok then
             return
         end
@@ -372,7 +399,7 @@ end
 
 function vfs.list(path)
     local mount, rel_path = resolvePath(ofs.combine(path))
-    return mount.list(rel_path)
+    return mountList(mount, rel_path)
 end
 
 function fs.getSize(path)
@@ -383,7 +410,7 @@ end
 -- cause issues even before entering the mountpoint. Hence handling `rel_path == ""` specially.
 function fs.exists(path)
     local mount, rel_path = resolvePath(ofs.combine(path))
-    return rel_path == "" or mount.attributes(rel_path) ~= nil
+    return rel_path == "" or mountAttributes(mount, rel_path) ~= nil
 end
 
 function fs.isDir(path)
@@ -391,7 +418,7 @@ function fs.isDir(path)
     if rel_path == "" then
         return true
     end
-    local attrs = mount.attributes(rel_path)
+    local attrs = mountAttributes(mount, rel_path)
     return attrs ~= nil and attrs.isDir
 end
 
@@ -405,7 +432,7 @@ end
 
 local function copyRecursive(src, dst_mount, dst_rel_path)
     local src_mount, src_rel_path = resolvePath(ofs.combine(src))
-    local attrs = src_mount.attributes(src_rel_path)
+    local attrs = mountAttributes(src_mount, src_rel_path)
     if not attrs then
         return -- race condition
     end
@@ -443,7 +470,7 @@ function fs.move(src, dst)
         callWithErr(src_mount, "move", src_rel_path, dst_rel_path)
         return
     end
-    assert(not dst_mount.attributes(dst_rel_path), "/" .. ofs.combine(dst) .. ": File exists")
+    assert(not mountAttributes(dst_mount, dst_rel_path), "/" .. ofs.combine(dst) .. ": File exists")
     assertOrReadOnly(not dst_mount.isReadOnly(dst_rel_path), dst)
     assertOrReadOnly(dst_mount.write, dst)
     assertDeletable(ofs.combine(src))
@@ -458,7 +485,7 @@ function fs.copy(src, dst)
         callWithErr(src_mount, "copy", src_rel_path, dst_rel_path)
         return
     end
-    assert(not dst_mount.attributes(dst_rel_path), "/" .. ofs.combine(dst) .. ": File exists")
+    assert(not mountAttributes(dst_mount, dst_rel_path), "/" .. ofs.combine(dst) .. ": File exists")
     assertOrReadOnly(not dst_mount.isReadOnly(dst_rel_path), dst)
     assertOrReadOnly(dst_mount.write, dst)
     copyRecursive(src, dst_mount, dst_rel_path)
@@ -529,7 +556,6 @@ function fs.attributes(path)
     path = ofs.combine(path)
     local attrs = vfs.attributes(path)
     assert(attrs, "/" .. path .. ": No such file")
-    attrs.modification = attrs.modified
     return attrs
 end
 
