@@ -82,7 +82,7 @@ return {
         local function eisdir(path) errorPath(path, "Not a file") end
         local function enoent(path) errorPath(path, "No such file") end
         local function eexist(path) errorPath(path, "File exists") end
-        local function assert_rw(entry, path) if read_only or mkattrs(entry).isReadOnly then errorPath(path, "Read-only filesystem") end
+        local function assert_rw(entry, path) if read_only or mkattrs(entry).isReadOnly then errorPath(path, "Read-only filesystem") end end
 
         local function walk(path)
             local parent, entry, name = nil, tree, nil
