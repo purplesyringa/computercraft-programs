@@ -24,17 +24,6 @@ end
 function env.init()
     local bin_path = env.getCombinedBinPath()
 
-    local function makeAttributes(isDir)
-        return {
-            created = 0,
-            isDir = isDir,
-            isReadOnly = true,
-            modification = 0,
-            modified = 0,
-            size = 0,
-        }
-    end
-
     vfs.mount(bin_path, {
         description = "dynamic path",
         drive = "svcbin",
@@ -50,7 +39,7 @@ function env.init()
                     added[name] = true
                     table.insert(files, {
                         name = name,
-                        attributes = makeAttributes(false),
+                        attributes = { isDir = false },
                     })
                 end
             end
@@ -59,12 +48,14 @@ function env.init()
             end)
             return files
         end,
-        isReadOnly = function() return true end,
         attributes = function(rel_path)
-            if rel_path == "" or findProgram(rel_path) then
-                return makeAttributes(rel_path == "")
+            if rel_path == "" then
+                return { isDir = true }
+            elseif findProgram(rel_path) then
+                return { isDir = false }
+            else
+                return nil
             end
-            return nil
         end,
         read = function(rel_path)
             if rel_path == "" then

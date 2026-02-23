@@ -46,11 +46,9 @@ return {
         local function mkattrs(entry)
             if not entry then return nil end
             local attrs = entry.attributes or {}
-            if not attrs.size then attrs.size = (entry.entries and 0) or #entry.contents end
-            if not attrs.isDir then attrs.isDir = (entry.entries and true) or false end
-            if not attrs.isReadOnly then attrs.isReadOnly = true end
-            if not attrs.created then attrs.created = 0 end
-            if not attrs.modified then attrs.modified = attrs.created end
+            if not attrs.size and entry.contents then attrs.size = #entry.contents end
+            if not attrs.isDir then attrs.isDir = entry.entries ~= nil end
+            if attrs.isReadOnly == nil then attrs.isReadOnly = true end
             entry.attrs = attrs
             return attrs
         end
