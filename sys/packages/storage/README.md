@@ -26,7 +26,7 @@ There are two parts to set up: the wired part and, optionally, the wireless part
 
 The wired setup is very simple.
 
-The server is a computer or a turtle running `server.lua` on startup. The clients are advanced turtles running `client.lua` on startup. They should be connected via a wired network, along with some chests. Upon booting, the server will recognize all connected chests as storage (blacklist is not supported). You might want to chunk-load the server and all clients if you're making a long-range network, since ComputerCraft seems to struggle with unloading computers safely. You're now all set.
+The server is a computer or a turtle running `storage-server` on startup. The clients are advanced turtles running `storage-client` on startup. They should be connected via a wired network, along with some chests. Upon booting, the server will recognize all connected chests as storage (blacklist is not supported). You might want to chunk-load the server and all clients if you're making a long-range network, since ComputerCraft seems to struggle with unloading computers safely. You're now all set.
 
 The server also supports bottomless bundles from Spectrum as storage. It cannot allocate items to bundles automatically, so you will need to pre-populate each bundle with 1 item as an indicator. This indicator is not considered in the item count, and the server will make sure not to lose it. When such bundles are added, the server moves matching items from chests to bundles to free up space for other item types.
 
@@ -62,9 +62,9 @@ The Nether home looks like this:
 - The chest minecart is empty.
 - The chest is empty and keeps the top modem enabled when the turtle is away.
 
-The ender helper should run `ender_helper.lua` on startup and needs a diamond sword in an equipment slot.
+The ender helper should run `storage-ender-helper` on startup and needs a diamond sword in an equipment slot.
 
-The ender client should run `ender_client.lua` on startup and needs the following items:
+The ender client should run `storage-ender-client` on startup and needs the following items:
 
 - Mimic gadget.
 - Netherite peripheralium hub.
@@ -75,7 +75,7 @@ The ender client should run `ender_client.lua` on startup and needs the followin
 - Bucket.
 - Diamond sword.
 
-To set it up, place an advanced turtle into its overworld home, move all of the items above into its inventory, and run `ender_client.lua`. The turtle should install the upgrades, get fuel, configure the block it's in as its home, and then open a UI. Break the turtle and place it into its Nether home next. The turtle should record the location as its Nether home and open the UI again. The turtle can now be broken and used in both dimensions.
+To set it up, place an advanced turtle into its overworld home, move all of the items above into its inventory, and run `storage-ender-client`. The turtle should install the upgrades, get fuel, configure the block it's in as its home, and then open a UI. Break the turtle and place it into its Nether home next. The turtle should record the location as its Nether home and open the UI again. The turtle can now be broken and used in both dimensions.
 
 
 ## Add-ons

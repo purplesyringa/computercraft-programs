@@ -1,7 +1,6 @@
-dofile(fs.combine(shell.getRunningProgram(), "../../pkgs.lua"))
 local async = require "async"
-local common = require "common"
-local util = require "util"
+local common = require "storage.common"
+local util = require "storage.util"
 
 local modem = peripheral.find("modem")
 assert(modem, "Modem not available")

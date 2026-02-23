@@ -28,9 +28,8 @@
 -- it, and pull items back to storage if pushing fails. The server serializes operations, so the
 -- index is never visible while items are in flight.
 
-dofile(fs.combine(shell.getRunningProgram(), "../../pkgs.lua"))
 local async = require "async"
-local util = require "util"
+local util = require "storage.util"
 
 peripheral.find("modem", rednet.open)
 

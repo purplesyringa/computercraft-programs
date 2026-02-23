@@ -1,8 +1,7 @@
-dofile(fs.combine(shell.getRunningProgram(), "../../pkgs.lua"))
 local async = require "async"
-local common = require "common"
-local ui = require "ui"
-local util = require "util"
+local common = require "storage.common"
+local ui = require "storage.ui"
+local util = require "storage.util"
 
 local function init()
     -- We can occasionally be in a state where not all peripherals are present. This occurs a) if
