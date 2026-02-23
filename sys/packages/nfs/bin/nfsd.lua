@@ -1,5 +1,6 @@
 local async = require "async"
 local named = require "named"
+local vfs = require "vfs"
 
 local PROTOCOL = "sylfn-nfs"
 peripheral.find("modem", rednet.open)
@@ -19,14 +20,6 @@ local function patchError(err)
     return err
 end
 
-local function readToString(path)
-    local file, err = fs.open(path, "r")
-    if file == nil then error(err) end
-    local contents = file.readAll()
-    file.close()
-    return contents
-end
-
 local nfs = {
     find = function(path)
         local list = fs.find(fs.combine(root, path))
@@ -38,26 +31,17 @@ local nfs = {
         return list
     end,
     list = function(path)
-        local list = fs.list(fs.combine(root, path))
-        for i, name in ipairs(list) do
-            list[i] = {
-                name = name,
-                attributes = fs.attributes(fs.combine(root, path, name)),
-            }
-        end
-        return list
+        return vfs.list(fs.combine(root, path))
     end,
     attributes = function(path)
-        path = fs.combine(root, path)
-        if not fs.exists(path) then
-            return nil
+        local attrs = vfs.attributes(path)
+        if attrs then
+            attrs.isReadOnly = true
         end
-        local attrs = fs.attributes(path)
-        attrs.isReadOnly = true
         return attrs
     end,
     read = function(path)
-        return readToString(fs.combine(root, path))
+        return vfs.read(fs.combine(root, path))
     end,
 }
 
