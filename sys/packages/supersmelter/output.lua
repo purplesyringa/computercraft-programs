@@ -1,6 +1,6 @@
-local data = require("data")
-local names = require("names")
-local util = require("util")
+local data = require("supersmelter.data")
+local names = require("supersmelter.names")
+local util = require("supersmelter.util")
 
 local holding_inventory_queue_updates = {}
 
@@ -82,7 +82,7 @@ function output.flushOutput(immediate)
 			holding_inventory_queue_updates[item.name] = now
 		end
 
-        local count_recipes = math.floor(item.count / 9)
+		local count_recipes = math.floor(item.count / 9)
 		if count_recipes > 0 then
 			local slots = {}
 			for x = 1, 3 do

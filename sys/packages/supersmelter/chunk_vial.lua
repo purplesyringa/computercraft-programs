@@ -1,4 +1,4 @@
-local util = require("util")
+local util = require("supersmelter.util")
 
 local chunk_vial = {}
 

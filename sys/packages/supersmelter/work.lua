@@ -1,9 +1,9 @@
-local names = require("names")
-local util = require("util")
-local input = require("input")
-local fuel = require("fuel")
-local output = require("output")
-local chunk_vial = require("chunk_vial")
+local names = require("supersmelter.names")
+local util = require("supersmelter.util")
+local input = require("supersmelter.input")
+local fuel = require("supersmelter.fuel")
+local output = require("supersmelter.output")
+local chunk_vial = require("supersmelter.chunk_vial")
 
 local is_active = false
 

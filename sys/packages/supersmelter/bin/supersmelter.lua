@@ -1,8 +1,8 @@
-local data = require("data")
-local names = require("names")
-local util = require("util")
-local recovery = require("recovery")
-local work = require("work")
+local data = require("supersmelter.data")
+local names = require("supersmelter.names")
+local util = require("supersmelter.util")
+local recovery = require("supersmelter.recovery")
+local work = require("supersmelter.work")
 
 local function main()
 	util.clear()

@@ -1,5 +1,5 @@
-local names = require("names")
-local data = require("data")
+local names = require("supersmelter.names")
+local data = require("supersmelter.data")
 
 local util = {}
 

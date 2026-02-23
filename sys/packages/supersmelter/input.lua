@@ -1,6 +1,6 @@
-local data = require("data")
-local names = require("names")
-local util = require("util")
+local data = require("supersmelter.data")
+local names = require("supersmelter.names")
+local util = require("supersmelter.util")
 
 local input = {}
 
