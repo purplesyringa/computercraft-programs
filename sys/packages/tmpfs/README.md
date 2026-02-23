@@ -9,7 +9,7 @@ Extend computer disk space with temporary file system.
 tmpfs is based on [virtual file systems](../vfs), and thus can be mounted either from shell or from Lua:
 
 ```shell
-tmpfs-mount <mountpoint>
+tmpfs-mount <mountpoint> [<tree> [<rw>]]
 ```
 
 ```lua
