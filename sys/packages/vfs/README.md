@@ -1,6 +1,6 @@
 # vfs
 
-Virtual file system. Monkey-patches the `fs` API to add support for pluggable filesystems, such as [NFS](../nfs).
+Virtual file system. Monkey-patches the `fs` API to add support for pluggable filesystems, such as [NFS](../nfs) and [tmpfs](../tmpfs).
 
 ## Usage
 
@@ -20,3 +20,5 @@ vfs.mount(mountpoint, {
     read = call("read"),
 })
 ```
+
+VFS driver also exposes saner versions of `fs` APIs, that closely mirror mount handlers: `vfs.list`, `vfs.attributes`, `vfs.read` and `vfs.write`.
