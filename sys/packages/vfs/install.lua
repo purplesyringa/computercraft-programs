@@ -304,14 +304,23 @@ function fs.find(pattern)
             goto ignore_mount
         end
 
-        local rel_pattern = table.concat(pattern_components, "/", #root_components + 1)
-
         -- ...and are not entirely nested within its submounts.
-        local projected_pattern = ofs.combine(mount.root, rel_pattern)
-        if not isOwnedBy(projected_pattern, mount) then
+        local known_prefix = mount.root
+        for i = #root_components + 1, #pattern_components do
+            local component = pattern_components[i]
+            if component:find("[*?]") then
+                break
+            end
+            if known_prefix ~= "" then
+                known_prefix = known_prefix .. "/"
+            end
+            known_prefix = known_prefix .. component
+        end
+        if known_prefix ~= mount.root and not isOwnedBy(known_prefix, mount) then
             goto ignore_mount
         end
 
+        local rel_pattern = table.concat(pattern_components, "/", #root_components + 1)
         for _, rel_path in ipairs(mount.find(rel_pattern)) do
             local path = ofs.combine(mount.root, rel_path)
 
