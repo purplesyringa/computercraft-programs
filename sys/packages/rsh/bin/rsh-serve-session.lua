@@ -109,7 +109,7 @@ while true do
 
     if next(op_queue) then
         sendToClient({ type = "term", ops = op_queue })
-        -- We can't just write `op_queue = {}` because that will just ovewrite the reference.
+        -- We can't just write `op_queue = {}` because that will just overwrite the reference.
         for i, _ in pairs(op_queue) do
             op_queue[i] = nil
         end

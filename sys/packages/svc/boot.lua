@@ -9,7 +9,7 @@ elseif arg and not args[1] then
     boot_path = arg[0]
 else
     -- If this file is `dofile`d, the environment will both lack `arg` and most likely have
-    -- non-matching `args`, so we can detect this condition fairly consitently.
+    -- non-matching `args`, so we can detect this condition fairly consistently.
     error("svc/boot can only be called with `require` or as file")
 end
 
