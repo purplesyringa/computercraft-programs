@@ -5,16 +5,12 @@ local function components(path)
 end
 
 return {
-    mount = function(mountpoint, tree)
+    mount = function(mountpoint, tree, read_only)
+        read_only = (read_only and true) or false
+
         -- Entry type:
         -- {
-        --     attributes = {
-        --         size = ...,
-        --         isDir = ...,
-        --         isReadOnly = ...,
-        --         created = ...,
-        --         modified = ...,
-        --     },
+        --     attributes? = { size?, isDir?, isReadOnly? true, created? 0, modified? created },
         --     -- if file:
         --     contents = "some text",
         --     -- if dir:
@@ -27,9 +23,7 @@ return {
             local now = os.epoch("utc")
             return {
                 attributes = {
-                    size = 0,
-                    isDir = true,
-                    isReadOnly = false,
+                    isReadOnly = read_only,
                     created = now,
                     modified = now,
                 },
@@ -41,9 +35,7 @@ return {
             local now = os.epoch("utc")
             return {
                 attributes = {
-                    size = 0,
-                    isDir = false,
-                    isReadOnly = false,
+                    isReadOnly = read_only,
                     created = now,
                     modified = now,
                 },
@@ -51,8 +43,21 @@ return {
             }
         end
 
+        local function mkattrs(entry)
+            if not entry then return nil end
+            local attrs = entry.attributes or {}
+            if not attrs.size then attrs.size = (entry.entries and 0) or #entry.contents end
+            if not attrs.isDir then attrs.isDir = (entry.entries and true) or false end
+            if not attrs.isReadOnly then attrs.isReadOnly = true end
+            if not attrs.created then attrs.created = 0 end
+            if not attrs.modified then attrs.modified = attrs.created end
+            entry.attrs = attrs
+            return attrs
+        end
+
         local function clone(entry)
             if not entry then return end
+            mkattrs(entry)
 
             if entry.contents then
                 local copy = mkfile()
@@ -77,6 +82,7 @@ return {
         local function eisdir(path) errorPath(path, "Not a file") end
         local function enoent(path) errorPath(path, "No such file") end
         local function eexist(path) errorPath(path, "File exists") end
+        local function assert_rw(entry, path) if read_only or mkattrs(entry).isReadOnly then errorPath(path, "Read-only filesystem") end
 
         local function walk(path)
             local parent, entry, name = nil, tree, nil
@@ -90,11 +96,11 @@ return {
 
         vfs.mount(mountpoint, {
             description = "tmpfs",
-            drive = "tmp",
+            drive = (read_only and "tmp:ro") or "tmp:rw",
             find = function()
                 error("unimplemented! find")
             end,
-            isReadOnly = function() return false end,
+            isReadOnly = function() return read_only end,
             getFreeSpace = function() return 0xFFFFFFFF end,
             getCapacity = function() return 0xFFFFFFFF end,
 
@@ -106,7 +112,7 @@ return {
                 for name, fentry in pairs(entry.entries) do
                     table.insert(list, {
                         name = name,
-                        attributes = fentry.attributes,
+                        attributes = mkattrs(fentry),
                     })
                 end
                 return list
@@ -117,13 +123,14 @@ return {
                 for component in components(path) do
                     entry = entry and entry.entries and entry.entries[component]
                 end
-                return entry and entry.attributes
+                return mkattrs(entry)
             end,
 
             makeDir = function(path)
                 local entry = tree
                 for component in components(path) do
                     if not entry.entries[component] then
+                        assert_rw(entry, path)
                         entry.attributes.modified = os.epoch("utc")
                         entry.entries[component] = mkdentry()
                     end
@@ -135,6 +142,7 @@ return {
             delete = function(path)
                 assert(path ~= "", "/: Deleting mountpoint is not supported. Remount instead.")
                 local dentry, _, name = walk(path)
+                assert_rw(dentry, path)
                 dentry.attributes.modified = os.epoch("utc")
                 dentry.entries[name] = nil
             end,
@@ -146,6 +154,8 @@ return {
                 local dst_d, dst_f, dst_fn = walk(dst)
                 if not src_f then enoent(src) end
                 if dst_f then eexist(dst) end
+                assert_rw(src_d, src)
+                assert_rw(dst_d, dst)
                 src_d.attributes.modified = os.epoch("utc")
                 src_d.entries[src_fn] = nil
                 dst_d.attributes.modified = os.epoch("utc")
@@ -157,6 +167,7 @@ return {
                 local dst_d, dst_f, dst_fn = walk(dst)
                 if not src_f then enoent(src) end
                 if dst_f then eexist(dst) end
+                assert_rw(dst_d, dst)
                 dst_d.attributes.modified = os.epoch("utc")
                 dst_d.entries[dst_fn] = clone(src_f)
             end,
@@ -173,13 +184,14 @@ return {
                 local dentry, _, name = walk(path)
 
                 if not dentry.entries[name] then
+                    assert_rw(dentry, path)
                     dentry.attributes.modified = os.epoch("utc")
                     dentry.entries[name] = mkfile()
                 end
 
                 local entry = dentry.entries[name]
                 if entry.entries then eisdir(path) end
-
+                assert_rw(entry, path)
                 entry.attributes.size = #contents
                 entry.attributes.modified = os.epoch("utc")
                 entry.contents = contents
