@@ -94,9 +94,15 @@ local function killService(service)
     print("Killed", service)
 end
 
-local function reachTarget(target)
+local function reachTarget(target, persist)
     svc.reach(target)
-    print("Reached", target)
+    if persist then
+        settings.set("svc.target", target)
+        settings.save()
+        print("Reached and persisted", target)
+    else
+        print("Reached", target)
+    end
 end
 
 local args = { ... }
@@ -114,7 +120,9 @@ elseif #args == 2 and args[1] == "stop" then
 elseif #args == 2 and args[1] == "kill" then
     killService(args[2])
 elseif #args == 2 and args[1] == "reach" then
-    reachTarget(args[2])
+    reachTarget(args[2], false)
+elseif #args == 3 and args[1] == "reach" and args[3] == "--persist" then
+    reachTarget(args[2], true)
 elseif #args == 1 and args[1] == "shutdown" then
     os.shutdown()
 elseif #args == 1 and args[1] == "reboot" then
@@ -127,7 +135,7 @@ else
     printError("    svc start <service>")
     printError("    svc stop <service>")
     printError("    svc kill <service>")
-    printError("    svc reach <target>")
+    printError("    svc reach <target> [--persist]")
     printError("    svc shutdown")
     printError("    svc reboot")
 end
