@@ -30,7 +30,7 @@ def serialize(obj) -> bytes:
         while b"]" + b"=" * level + b"]" in obj:
             level = level + 1
         if obj.startswith(b"\n"):
-            obj = "\n" + obj
+            obj = b"\n" + obj
         return b"[" + b"=" * level + b"[" + obj + b"]" + b"=" * level + b"]"
     elif isinstance(obj, list):
         if not obj:
@@ -100,6 +100,8 @@ tree = serialize(build_tree(Path("sys")))
 # instead. Since we're using `shell.run` instead of `os.run`, `svc` will get a new
 # `require`/`package` pair, so this won't break anything later on.
 code = b"""local tree = TREE
+
+if mounting then return tree end
 
 local function readFile(path)
     local ptr = tree
