@@ -146,6 +146,7 @@ return {
                 local dst_d, dst_f, dst_fn = walk(dst)
                 if not src_f then enoent(src) end
                 if dst_f then eexist(dst) end
+                src_d.attributes.modified = os.epoch("utc")
                 src_d.entries[src_fn] = nil
                 dst_d.attributes.modified = os.epoch("utc")
                 dst_d.entries[dst_fn] = src_f
