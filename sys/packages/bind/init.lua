@@ -21,28 +21,16 @@ return {
             getCapacity = function() return 0xFFFFFFFF end,
 
             list = function(path)
-                local realpath = fs.combine(origin, path)
-                local list = {}
-                for _, name in ipairs(fs.list(realpath)) do
-                    table.insert(list, {
-                        name = name,
-                        attributes = fs.attributes(fs.combine(realpath, name)),
-                    })
-                end
-                return list
+                return vfs.list(fs.combine(origin, path))
             end,
 
             attributes = function(path)
-                local realpath = fs.combine(origin, path)
-                if not fs.exists(realpath) then
-                    return nil
-                end
-                return fs.attributes(realpath)
+                return vfs.attributes(fs.combine(origin, path))
             end,
 
             makeDir = function(path)
                 assert_rw(path)
-                return fs.makeDir(fs.combine(origin, path))
+                fs.makeDir(fs.combine(origin, path))
             end,
 
             delete = function(path)
@@ -62,17 +50,12 @@ return {
             end,
 
             read = function(path)
-                local file = fs.open(fs.combine(origin, path), "r")
-                local contents = file.readAll()
-                file.close()
-                return contents
+                return vfs.read(fs.combine(origin, path))
             end,
 
             write = function(path, contents)
                 assert_rw(path)
-                local file = fs.open(fs.combine(origin, path), "w")
-                file.write(contents)
-                file.close()
+                vfs.write(fs.combine(origin, path), contents)
             end,
 
             open = function(path, mode)

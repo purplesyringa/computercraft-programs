@@ -8,7 +8,7 @@ local writeRow = tableui.header({
     { key = "description", heading = "Description" },
 })
 
-for _, mount in ipairs(vfs.list()) do
+for _, mount in ipairs(vfs.listMounts()) do
     if mount.shadowed then
         term.setTextColor(colors.gray)
     else

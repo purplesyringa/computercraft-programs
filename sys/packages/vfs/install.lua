@@ -339,12 +339,16 @@ local function wrapOne(func, default_value)
 end
 
 function fs.list(path)
-    local mount, rel_path = resolvePath(ofs.combine(path))
-    local list = mount.list(rel_path)
+    local list = vfs.list(path)
     for i, file in pairs(list) do
         list[i] = file.name
     end
     return list
+end
+
+function vfs.list(path)
+    local mount, rel_path = resolvePath(ofs.combine(path))
+    return mount.list(rel_path)
 end
 
 function fs.getSize(path)
@@ -499,11 +503,26 @@ fs.getCapacity = wrapOne("getCapacity", 0)
 
 function fs.attributes(path)
     path = ofs.combine(path)
-    local mount, rel_path = resolvePath(path)
-    local attrs = mount.attributes(rel_path)
+    local attrs = vfs.attributes(path)
     assert(attrs, "/" .. path .. ": No such file")
     attrs.modification = attrs.modified
     return attrs
+end
+
+function vfs.attributes(path)
+    local mount, rel_path = resolvePath(ofs.combine(path))
+    return callWithErr(mount, "attributes", rel_path)
+end
+
+function vfs.read(path)
+    local mount, rel_path = resolvePath(ofs.combine(path))
+    return callWithErr(mount, "read", rel_path)
+end
+
+function vfs.write(path, contents)
+    local mount, rel_path = resolvePath(ofs.combine(path))
+    assertOrReadOnly(mount.write, path)
+    return callWithErr(mount, "write", rel_path, contents)
 end
 
 function vfs.mount(root, handlers)
@@ -529,7 +548,7 @@ function vfs.unmount(root)
     return false
 end
 
-function vfs.list()
+function vfs.listMounts()
     local result = {}
     for _, mount in ipairs(mounts) do
         table.insert(result, {
