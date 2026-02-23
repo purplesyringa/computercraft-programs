@@ -8,9 +8,9 @@ A small library for drawing tables.
 local tableui = require "tableui"
 
 local writeRow = tableui.header({
-	{ key = "title", heading = "Title", width = 12 },
-	{ key = "rating", heading = "Rating", width = 8 },
-	{ key = "description", heading = "Description" },
+    { key = "title", heading = "Title", width = 12 },
+    { key = "rating", heading = "Rating", width = 8 },
+    { key = "description", heading = "Description" },
 })
 writeRow({ title = "Weird stuff", rating = "3/10", description = "Somewhat approachable" })
 writeRow({ title = "Cinema", rating = "11/10", description = "Absolute cinema" })
