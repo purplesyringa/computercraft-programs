@@ -100,9 +100,19 @@ return {
             find = function()
                 error("unimplemented! find")
             end,
-            isReadOnly = function() return read_only end,
             getFreeSpace = function() return 0xFFFFFFFF end,
             getCapacity = function() return 0xFFFFFFFF end,
+
+            isReadOnly = function(path)
+                if read_only then return true end
+                local entry = tree
+                for component in components(path) do
+                    local next = entry.entries and entry.entries[component]
+                    if not next then break end
+                    entry = next
+                end
+                return mkattrs(entry).isReadOnly
+            end,
 
             list = function(path)
                 local _, entry, _ = walk(path)

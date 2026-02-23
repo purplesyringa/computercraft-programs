@@ -16,9 +16,10 @@ return {
             find = function()
                 error("unimplemented! find")
             end,
-            isReadOnly = function() return read_only end,
-            getFreeSpace = function() return 0xFFFFFFFF end,
-            getCapacity = function() return 0xFFFFFFFF end,
+
+            isReadOnly = function(path)
+                return read_only or fs.isReadOnly(fs.combine(origin, path))
+            end,
 
             list = function(path)
                 return vfs.list(fs.combine(origin, path))
