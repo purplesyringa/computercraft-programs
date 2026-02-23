@@ -27,7 +27,7 @@ Filesystem tree is just an entry for root of the filesystem.
 
 Each entry in the tree is a table that has `attributes` key, and `contents` or `entries` keys, depending on file type.
 
-`attributes` is a table of file attributes, exactly as returned by [`fs.attributes`](https://tweaked.cc/module/fs.html#v:attributes).
+`attributes` is a table of file attributes, exactly as returned by [`fs.attributes`](https://tweaked.cc/module/fs.html#v:attributes). The one exception is `modification` key: it is added by vfs for fs compatibility and there is no need to provide it manually.
 
 `contents` is a string that is file contents. Is present only for regular files. Empty files have `contents` set to `""`.
 
