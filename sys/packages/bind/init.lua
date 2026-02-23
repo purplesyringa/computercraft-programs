@@ -26,6 +26,10 @@ return {
                 return vfs.attributes(fs.combine(origin, path))
             end,
 
+            find = function(path)
+                return fs.find(fs.combine(origin, path))
+            end,
+
             makeDir = function(path)
                 assert_rw(path)
                 fs.makeDir(fs.combine(origin, path))
