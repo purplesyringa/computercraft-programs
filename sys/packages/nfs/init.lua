@@ -1,3 +1,4 @@
+local named = require "named"
 local vfs = require "vfs"
 local wakeywakey = require "wakeywakey"
 
@@ -6,10 +7,9 @@ peripheral.find("modem", rednet.open)
 
 return {
     mount = function(mountpoint, host) -- either hostname or computer id
-        if host == nil then host = "fileserver" end
-        local nfshostarg = host
-        if type(host) == "string" then host = rednet.lookup(PROTOCOL, host) end
-        assert(host ~= nil)
+        local nfshostarg = host or "fileserver"
+        host = named.lookup(nfshostarg)
+        assert(host ~= nil, "unknown host " .. nfshostarg)
 
         local current_id = math.random(0, 0xFFFFFFFF)
         local function call(func)

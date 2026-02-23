@@ -25,7 +25,6 @@ os.shutdown = function()
     old_shutdown()
 end
 
-rednet.host("rsh", named.hostname())
 while true do
     local client_id, msg = rednet.receive("rsh")
     if msg.type == "open" then

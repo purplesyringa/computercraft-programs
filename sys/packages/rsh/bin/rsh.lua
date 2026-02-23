@@ -1,3 +1,4 @@
+local named = require "named"
 local remote_events = require("rsh.events").remote_events
 
 local last_timer = nil
@@ -96,7 +97,7 @@ else
     end
 
     peripheral.find("modem", rednet.open)
-    local server_id = rednet.lookup("rsh", hostname)
+    local server_id = named.lookup(hostname)
     if server_id == nil then
         print("No host named", hostname)
     else

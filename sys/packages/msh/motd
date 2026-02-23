@@ -4,7 +4,7 @@ Async? Осинка!
 Feeling insecure? This computer is insecure too, because it runs rshd.
 Did you know that computers have infinite RAM? Try it out with tmpfs!
 svc reminds me of a weird chimera of svchost.exe and OpenRC. It's still saner than both of those, though.
-Chose your name yourself? Choose a name for your computer too! set named.hostname "new name here"
+Chose your name yourself? Choose a name for your computer too! Run hostname "new name here"
 DRM-free (sort of)
 It works!! How? We don't know either. But you may ponder at our git repo.
 Petting cats makes computers run faster. Do it now!

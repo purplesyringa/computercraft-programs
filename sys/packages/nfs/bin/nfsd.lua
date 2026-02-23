@@ -12,10 +12,6 @@ end
 
 local root = fs.combine(args[1])
 
-async.spawn(function()
-    rednet.host(PROTOCOL, named.hostname())
-end)
-
 local function patchError(err)
     if type(err) == "string" and root ~= "" and string.find(err, "/" .. root) == 1 then
         return "/" .. string.sub(err, #root + 2)
