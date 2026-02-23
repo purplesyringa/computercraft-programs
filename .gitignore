@@ -1,1 +1,3 @@
 www/
+__pycache__/
+initrd.lua
