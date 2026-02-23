@@ -7,138 +7,138 @@ local holding_inventory_queue_updates = {}
 local output = {}
 
 function output.flushOutput(immediate)
-	local now = os.epoch("ingame")
+    local now = os.epoch("ingame")
 
-	::retry::
+    ::retry::
 
-	local ok = true
-	local incomplete_crafting = false
-	util.parForEach(names.all_furnaces, function(furnace)
-		local item = furnace.getItemDetail(3)
-		if not item then
-			return
-		end
+    local ok = true
+    local incomplete_crafting = false
+    util.parForEach(names.all_furnaces, function(furnace)
+        local item = furnace.getItemDetail(3)
+        if not item then
+            return
+        end
 
-		local storage_block_info = data.output_storage_blocks[item.name]
-		if not storage_block_info then
-			ok = ok and util.moveItems(furnace, names.output_inventory, 3) >= item.count
-			return
-		end
+        local storage_block_info = data.output_storage_blocks[item.name]
+        if not storage_block_info then
+            ok = ok and util.moveItems(furnace, names.output_inventory, 3) >= item.count
+            return
+        end
 
-		-- The holding inventory queues output items that can be converted into storage blocks. If
-		-- no new items of a given type arrive for 15s, the slot is flushed to the output inventory.
-		-- If the flow is constant, we wait for 9 items to craft into a storage block.
-		--
-		-- Since the holding inventory is constantly flushed due to crafting, there should be enough
-		-- space in the allocated slot for the whole output, as long as the turtle doesn't shut down
-		-- and the output inventory isn't filled up. If either happens, it'll take multiple
-		-- iterations to flush.
-		--
-		-- Overflowing here is not considered as lack of space, since it can be resolved
-		-- automatically, but it does mean that we have to retry in a loop if we want to complete
-		-- the smelting process completely.
-		local count_moved = util.moveItems(
-			furnace,
-			names.holding_inventory,
-			3,
-			nil,
-			storage_block_info.item_slot
-		)
-		incomplete_crafting = incomplete_crafting or count_moved < item.count
-		holding_inventory_queue_updates[item.name] = now
-	end)
+        -- The holding inventory queues output items that can be converted into storage blocks. If
+        -- no new items of a given type arrive for 15s, the slot is flushed to the output inventory.
+        -- If the flow is constant, we wait for 9 items to craft into a storage block.
+        --
+        -- Since the holding inventory is constantly flushed due to crafting, there should be enough
+        -- space in the allocated slot for the whole output, as long as the turtle doesn't shut down
+        -- and the output inventory isn't filled up. If either happens, it'll take multiple
+        -- iterations to flush.
+        --
+        -- Overflowing here is not considered as lack of space, since it can be resolved
+        -- automatically, but it does mean that we have to retry in a loop if we want to complete
+        -- the smelting process completely.
+        local count_moved = util.moveItems(
+            furnace,
+            names.holding_inventory,
+            3,
+            nil,
+            storage_block_info.item_slot
+        )
+        incomplete_crafting = incomplete_crafting or count_moved < item.count
+        holding_inventory_queue_updates[item.name] = now
+    end)
 
-	local holding_inventory_list = names.holding_inventory.list()
+    local holding_inventory_list = names.holding_inventory.list()
 
-	-- This loop has to be sequential due to crafting. Iterations that touch non-existing metals
-	-- don't take time.
-	for _, info in pairs(data.output_storage_blocks) do
-		-- Flush output storage blocks that we didn't have space for.
-		local item = holding_inventory_list[info.block_slot]
-		if item then
-			local count_moved = util.moveItems(
-				names.holding_inventory,
-				names.output_inventory,
-				info.block_slot
-			)
-			item.count = item.count - count_moved
-			if item.count > 0 then
-				ok = false
-			end
-			if item.count >= 32 then
-				-- There is little enough space that we shouldn't craft new output storage blocks.
-				goto continue
-			end
-		end
+    -- This loop has to be sequential due to crafting. Iterations that touch non-existing metals
+    -- don't take time.
+    for _, info in pairs(data.output_storage_blocks) do
+        -- Flush output storage blocks that we didn't have space for.
+        local item = holding_inventory_list[info.block_slot]
+        if item then
+            local count_moved = util.moveItems(
+                names.holding_inventory,
+                names.output_inventory,
+                info.block_slot
+            )
+            item.count = item.count - count_moved
+            if item.count > 0 then
+                ok = false
+            end
+            if item.count >= 32 then
+                -- There is little enough space that we shouldn't craft new output storage blocks.
+                goto continue
+            end
+        end
 
-		-- Craft items into storage blocks.
-		local item = holding_inventory_list[info.item_slot]
-		if not item then
-			goto continue
-		end
+        -- Craft items into storage blocks.
+        local item = holding_inventory_list[info.item_slot]
+        if not item then
+            goto continue
+        end
 
-		-- If the queue was populated during a previous run, pessimistically assume it's recent.
-		if not holding_inventory_queue_updates[item.name] then
-			holding_inventory_queue_updates[item.name] = now
-		end
+        -- If the queue was populated during a previous run, pessimistically assume it's recent.
+        if not holding_inventory_queue_updates[item.name] then
+            holding_inventory_queue_updates[item.name] = now
+        end
 
-		local count_recipes = math.floor(item.count / 9)
-		if count_recipes > 0 then
-			local slots = {}
-			for x = 1, 3 do
-				for y = 1, 3 do
-					table.insert(slots, (y - 1) * 4 + x)
-				end
-			end
-			util.parForEach(slots, function(slot)
-				local count_moved = util.moveItems(
-					names.holding_inventory,
-					turtle,
-					info.item_slot,
-					count_recipes,
-					slot
-				)
-				assert(count_moved == count_recipes, "Move failed/cr")
-			end)
-			turtle.select(1)
-			local craft_ok, _ = turtle.craft()
-			assert(craft_ok, "Craft failed/cr")
-			local count_moved = util.moveItems(turtle, names.output_inventory, 1)
-			if count_moved < count_recipes then
-				ok = false
-			end
-			count_moved = count_moved + util.moveItems(
-				turtle,
-				names.holding_inventory,
-				1,
-				nil,
-				info.block_slot
-			)
-			assert(count_moved == count_recipes, "Block slot full/cr")
-			item.count = item.count - count_recipes * 9
-			-- Crafting frees up space for new items, so we don't flush the remaining items
-			-- immediately, since perhaps the furnace was just full and we'll get new items soon.
-			holding_inventory_queue_updates[item.name] = now
-		end
+        local count_recipes = math.floor(item.count / 9)
+        if count_recipes > 0 then
+            local slots = {}
+            for x = 1, 3 do
+                for y = 1, 3 do
+                    table.insert(slots, (y - 1) * 4 + x)
+                end
+            end
+            util.parForEach(slots, function(slot)
+                local count_moved = util.moveItems(
+                    names.holding_inventory,
+                    turtle,
+                    info.item_slot,
+                    count_recipes,
+                    slot
+                )
+                assert(count_moved == count_recipes, "Move failed/cr")
+            end)
+            turtle.select(1)
+            local craft_ok, _ = turtle.craft()
+            assert(craft_ok, "Craft failed/cr")
+            local count_moved = util.moveItems(turtle, names.output_inventory, 1)
+            if count_moved < count_recipes then
+                ok = false
+            end
+            count_moved = count_moved + util.moveItems(
+                turtle,
+                names.holding_inventory,
+                1,
+                nil,
+                info.block_slot
+            )
+            assert(count_moved == count_recipes, "Block slot full/cr")
+            item.count = item.count - count_recipes * 9
+            -- Crafting frees up space for new items, so we don't flush the remaining items
+            -- immediately, since perhaps the furnace was just full and we'll get new items soon.
+            holding_inventory_queue_updates[item.name] = now
+        end
 
-		if immediate or holding_inventory_queue_updates[item.name] < now - 15 then
-			-- No items have arrived recently -- flush as-is.
-			local count_moved = util.moveItems(
-				names.holding_inventory,
-				names.output_inventory,
-				info.item_slot
-			)
-			ok = ok and count_moved >= item.count
-		end
+        if immediate or holding_inventory_queue_updates[item.name] < now - 15 then
+            -- No items have arrived recently -- flush as-is.
+            local count_moved = util.moveItems(
+                names.holding_inventory,
+                names.output_inventory,
+                info.item_slot
+            )
+            ok = ok and count_moved >= item.count
+        end
 
-		::continue::
-	end
+        ::continue::
+    end
 
-	if ok and immediate and incomplete_crafting then
-		goto retry
-	end
+    if ok and immediate and incomplete_crafting then
+        goto retry
+    end
 
-	return ok
+    return ok
 end
 
 return output
