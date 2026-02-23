@@ -13,9 +13,6 @@ return {
         vfs.mount(mountpoint, {
             description = ("bind://%s"):format(origin),
             drive = (read_only and "bind:ro") or "bind:rw",
-            find = function()
-                error("unimplemented! find")
-            end,
 
             isReadOnly = function(path)
                 return read_only or fs.isReadOnly(fs.combine(origin, path))

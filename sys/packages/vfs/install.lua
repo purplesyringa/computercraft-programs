@@ -17,7 +17,6 @@ end
 --     description = ...,
 --
 --     -- Implementations directly mirroring `fs` methods.
---     find(rel_pattern),
 --     isReadOnly(rel_path), -- defaults to true
 --     getFreeSpace(rel_path), -- defaults to 0
 --     getCapacity(rel_path), -- defaults to 0
@@ -28,6 +27,9 @@ end
 --
 --     -- An implementation of `fs.attributes` returning `nil` for absent files.
 --     attributes(rel_path),
+--
+--     -- If missing, recursively reimplemented based on `list`.
+--     find(rel_pattern),
 --
 --     -- If missing, throws the read-only error.
 --     makeDir(rel_path),
@@ -49,7 +51,6 @@ local root_mount = {
     root = "",
     drive = "root",
     description = "physical",
-    find = ofs.find,
     isReadOnly = ofs.isReadOnly,
     getFreeSpace = ofs.getFreeSpace,
     getCapacity = ofs.getCapacity,
@@ -280,6 +281,51 @@ local function globMatches(s, pattern)
     return s:find("^" .. pattern:gsub(".", find_escape) .. "$") ~= nil
 end
 
+local function findInMount(mount, rel_path, rel_pattern, known_exists, result)
+    local i = rel_pattern:find("/")
+    local component_pattern, rest_pattern = rel_pattern, ""
+    if i then
+        component_pattern, rest_pattern = rel_pattern:sub(1, i - 1), rel_pattern:sub(i + 1)
+    end
+    if rel_pattern ~= "" and not component_pattern:find("[*?]") then
+        return findInMount(
+            mount,
+            ofs.combine(rel_path, component_pattern),
+            rest_pattern,
+            false,
+            result
+        )
+    end
+    -- Ignore paths nested within submounts.
+    if rel_path ~= "" and not isOwnedBy(ofs.combine(mount.root, rel_path), mount) then
+        return
+    end
+    if rel_pattern == "" then
+        if known_exists or mount.attributes(rel_path) then
+            table.insert(result, ofs.combine(mount.root, rel_path))
+        end
+        return
+    end
+    if mount.find then
+        for _, rel_found_path in ipairs(mount.find(ofs.combine(rel_path, rel_pattern))) do
+            local found_path = ofs.combine(mount.root, rel_found_path)
+            if isOwnedBy(found_path, mount) then
+                table.insert(result, found_path)
+            end
+        end
+    else
+        local ok, entries = pcall(mount.list, rel_path)
+        if not ok then
+            return
+        end
+        for _, entry in ipairs(entries) do
+            if entry.attributes.isDir or rest_pattern == "" then
+                findInMount(mount, ofs.combine(rel_path, entry.name), rest_pattern, true, result)
+            end
+        end
+    end
+end
+
 function fs.find(pattern)
     -- This doesn't make much sense semantically, but mirrors the behavior of the original `find`.
     pattern = ofs.combine(pattern)
@@ -288,49 +334,18 @@ function fs.find(pattern)
     local pattern_components = components(pattern)
 
     for _, mount in ipairs(mounts) do
-        if isShadowed(mount) then
-            goto ignore_mount
-        end
-
         local root_components = components(mount.root)
-
         -- Check if matching paths can be nested strictly within this mount.
-        if not (
+        if (
+            not isShadowed(mount)
             -- If the pattern is empty, we want to return the root as a single result. The root is
             -- not strictly nested within itself, so there's a bit of special-casing.
-            (mount.root == "" or #pattern_components > #root_components)
+            and (mount.root == "" or #pattern_components > #root_components)
             and globMatches(mount.root, table.concat(pattern_components, "/", 1, #root_components))
         ) then
-            goto ignore_mount
+            local rel_pattern = table.concat(pattern_components, "/", #root_components + 1)
+            findInMount(mount, "", rel_pattern, true, result)
         end
-
-        -- ...and are not entirely nested within its submounts.
-        local known_prefix = mount.root
-        for i = #root_components + 1, #pattern_components do
-            local component = pattern_components[i]
-            if component:find("[*?]") then
-                break
-            end
-            if known_prefix ~= "" then
-                known_prefix = known_prefix .. "/"
-            end
-            known_prefix = known_prefix .. component
-        end
-        if known_prefix ~= mount.root and not isOwnedBy(known_prefix, mount) then
-            goto ignore_mount
-        end
-
-        local rel_pattern = table.concat(pattern_components, "/", #root_components + 1)
-        for _, rel_path in ipairs(mount.find(rel_pattern)) do
-            local path = ofs.combine(mount.root, rel_path)
-
-            -- Ignore paths nested within submounts.
-            if isOwnedBy(path, mount) then
-                table.insert(result, path)
-            end
-        end
-
-        ::ignore_mount::
     end
 
     return result

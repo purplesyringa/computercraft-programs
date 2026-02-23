@@ -97,9 +97,6 @@ return {
         vfs.mount(mountpoint, {
             description = "tmpfs",
             drive = (read_only and "tmp:ro") or "tmp:rw",
-            find = function()
-                error("unimplemented! find")
-            end,
             getFreeSpace = function() return 0xFFFFFFFF end,
             getCapacity = function() return 0xFFFFFFFF end,
 

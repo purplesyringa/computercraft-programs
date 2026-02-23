@@ -38,7 +38,6 @@ function env.init()
     vfs.mount(bin_path, {
         description = "dynamic path",
         drive = "svcbin",
-        find = function() return {} end, -- TODO
         list = function(rel_path)
             if rel_path ~= "" then
                 error("/" .. rel_path .. ": not a directory", 0)
