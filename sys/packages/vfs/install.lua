@@ -57,13 +57,7 @@ local root_mount = {
     isReadOnly = ofs.isReadOnly,
     getFreeSpace = ofs.getFreeSpace,
     getCapacity = ofs.getCapacity,
-    list = function(rel_path)
-        local list = ofs.list(rel_path)
-        for i, name in pairs(list) do
-            list[i] = { name = name }
-        end
-        return list
-    end,
+    list = ofs.list,
     attributes = function(rel_path)
         -- Use `pcall` instead of `ofs.exists` due to TOCTOU.
         local ok, attrs = pcall(ofs.attributes, rel_path)
@@ -189,6 +183,9 @@ end
 local function mountList(mount, rel_path)
     local list = {}
     for _, entry in ipairs(callWithErr(mount, "list", rel_path)) do
+        if type(entry) == "string" then
+            entry = { name = entry }
+        end
         if not entry.attributes then
             entry.attributes = mountAttributes(mount, ofs.combine(rel_path, entry.name))
         end
