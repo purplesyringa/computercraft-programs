@@ -40,14 +40,21 @@ local function showSystemStatus()
         { key = "name", heading = "Service", width = 16 },
         { key = "status", heading = "Status" },
     })
+    local n_stopped_services = 0
     for _, name in pairs(service_names) do
         local service_status = status.services[name]
-        term.setTextColor(service_status_to_color[service_status.status])
-        writeRow({
-            name = name,
-            status = service_status.status,
-        })
+        if service_status.status == "stopped" then
+            n_stopped_services = n_stopped_services + 1
+        else
+            term.setTextColor(service_status_to_color[service_status.status])
+            writeRow({
+                name = name,
+                status = service_status.status,
+            })
+        end
     end
+    term.setTextColor(colors.gray)
+    print("...and", n_stopped_services, "stopped service(s)")
 end
 
 local function showServiceStatus(service)
