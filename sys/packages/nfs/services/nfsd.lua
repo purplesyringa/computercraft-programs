@@ -1,5 +1,6 @@
 return {
     description = "Hosts NFS server",
+    requires = { "pub" },
     type = "process",
-    command = { "nfsd", "/" },
+    command = { "nfsd", "pub" },
 }
