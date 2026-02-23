@@ -27,7 +27,7 @@ local function show_ps1()
     term.setBackgroundColor(colors.black)
     term.setTextColor(colors.yellow)
     local prompt = settings.get("shell.prompt", "@h @d> ")
-    local hostname = "unnamed"
+    local hostname = tostring(os.computerID())
     if named.hasHostname() then
         hostname = named.hostname()
     end
