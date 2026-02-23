@@ -74,7 +74,7 @@ def build_tree(path):
         "created": int(created / 1e6),
         "modified": int(stat.st_mtime_ns / 1e6),
     }
-    if path.info.is_dir():
+    if path.is_dir():
         return {
             "attributes": attributes,
             "entries": {
@@ -83,7 +83,7 @@ def build_tree(path):
                 if not child.name.endswith(".png")
             },
         }
-    elif path.info.is_file():
+    elif path.is_file():
         return {
             "attributes": attributes,
             "contents": path.read_bytes(),
