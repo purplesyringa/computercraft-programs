@@ -84,6 +84,9 @@ term.setCursorPos(1, 1)
 term.clear()
 
 proc.start("boot", function()
+    if not svc.targetStatus(target) then
+        target = "base"
+    end
     local ok, err = pcall(svc.reach, target)
     if not ok then
         printError(err)
