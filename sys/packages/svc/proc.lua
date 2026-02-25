@@ -27,8 +27,8 @@ function proc.start(name, f, on_killed, is_foreground)
     return pid
 end
 
-function proc.terminate(pid)
-    os.queueEvent("terminate_process", pid)
+function proc.stop(pid)
+    os.queueEvent("stop_process", pid)
 end
 
 function proc.kill(pid)
@@ -70,10 +70,13 @@ local interactive_events = {
 function proc.loop()
     while true do
         local event = table.pack(os.pullEventRaw())
-        if event[1] == "terminate_process" then
+        if event[1] == "stop_process" then
             local _, pid = table.unpack(event)
             if processes[pid] then
-                deliverEvent(pid, "terminate")
+                -- `hangup` means that the program should assume it's no longer needed and quit
+                -- entirely. This is different for shells, which otherwise typically forward
+                -- `terminate` to running children and don't exit by default.
+                deliverEvent(pid, "terminate", "hangup")
             end
         else
             for pid, process in pairs(processes) do

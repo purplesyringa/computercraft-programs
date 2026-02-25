@@ -36,7 +36,7 @@ nfsd            stopped
 rshd            up
 ```
 
-Processes are tasks that are automatically polled by `svc`. Anything that doesn't have a parent or that shouldn't be cancelled when its parent is terminated is a process. This includes all commands configured by servives, e.g. `msh` and `rshd`, as well as detached background tasks, like [`rsh-serve-session`](../rsh/bin/rsh-serve-session.lua). It does not include commands manually run from the shell. The list of running processes can be viewed with `proc`, and processes can be stopped with `proc stop <name>`:
+Processes are tasks that are automatically polled by `svc`. Anything that doesn't have a parent or that shouldn't be cancelled when its parent is stopped is a process. This includes all commands configured by servives, e.g. `msh` and `rshd`, as well as detached background tasks, like [`rsh-serve-session`](../rsh/bin/rsh-serve-session.lua). It does not include commands manually run from the shell. The list of running processes can be viewed with `proc`, and processes can be stopped with `proc stop <name>`:
 
 ```shell
 > proc

@@ -223,10 +223,9 @@ function services_api.stop(name)
 
     if service.runtime_status == "running" then
         assertNotRequired()
-        proc.terminate(service.pid)
-        -- For oneshot services, `terminate` throws an error, which `pcall` in `start` catches and
-        -- stops the service, so there is no need to call `service.config.stop` or update the status
-        -- here.
+        proc.stop(service.pid)
+        -- For oneshot services, `stop` throws an error, which `pcall` in `start` catches and stops
+        -- the service, so there is no need to call `service.config.stop` or update the status here.
         services_api.waitDown(name)
     elseif service.config.type == "oneshot" and service.runtime_status == "finished" then
         assertNotRequired()

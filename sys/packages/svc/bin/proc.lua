@@ -27,7 +27,7 @@ if #args == 0 then
 elseif #args == 2 and args[1] == "stop" then
     local pid = tonumber(args[2])
     assert(pid ~= nil, "Invalid PID " .. args[2])
-    svc.terminateProcess(pid)
+    svc.stopProcess(pid)
 elseif #args == 2 and args[1] == "kill" then
     local pid = tonumber(args[2])
     assert(pid ~= nil, "Invalid PID " .. args[2])

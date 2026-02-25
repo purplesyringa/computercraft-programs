@@ -24,7 +24,7 @@ Writing to a single file from two threads? Why?
 Welcome to dependency hell.
 Unmount nfs to reduce data transfer costs.
 This is multishell, even if you don't think so.
-Press Shift+Terminate to terminate rsh client session.
+Press Shift+Terminate to kill rsh client session.
 Press Alt+F4 (or equivalent hotkey) to receive free diamonds.
 Press Ctrl+Alt+Del seven times in a row to unmute in voice chat.
 Remember that useless Pause key on your keyboard? Try (Shift+)Pause in multishell!

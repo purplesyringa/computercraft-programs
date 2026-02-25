@@ -73,7 +73,7 @@ svc.getCombinedBinPath = env.getCombinedBinPath
 svc._execWrapped = env.execWrapped
 
 svc.startProcess = proc.start
-svc.terminateProcess = proc.terminate
+svc.stopProcess = proc.stop
 svc.killProcess = proc.kill
 svc.listProcesses = proc.list
 

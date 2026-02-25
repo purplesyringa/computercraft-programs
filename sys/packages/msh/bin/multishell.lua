@@ -3,6 +3,9 @@ local first_run = true
 local nested
 local shift_held = false
 
+local hangup_in_process = 0
+local hangup_saved_focus = nil
+
 os.run({
     shell = shell,
     os = setmetatable({
@@ -25,11 +28,30 @@ os.run({
                 nested = v
             end
 
+            if hangup_in_process > 0 then
+                nested.setFocus(hangup_in_process)
+                hangup_in_process = hangup_in_process - 1
+                if hangup_in_process == 0 then
+                    nested.setFocus(hangup_saved_focus)
+                end
+                return "terminate", "hangup"
+            end
+
             while true do
                 local event = table.pack(os.pullEventRaw())
 
                 if (event[1] == "key" or event[1] == "key_up") and (event[2] == keys.leftShift or event[2] == keys.rightShift) then
                     shift_held = event[1] == "key"
+                end
+
+                if event[1] == "terminate" and event[2] == "hangup" then
+                    -- Initiate hangup, delivering events to processes one by one. A bit ugly, but
+                    -- it works.
+                    hangup_saved_focus = nested.getFocus()
+                    local count = nested.getCount()
+                    nested.setFocus(count)
+                    hangup_in_process = count - 1
+                    return "terminate", "hangup"
                 end
 
                 if event[1] == "key" and event[2] == keys.pause then
