@@ -16,7 +16,7 @@ local code = pack.packString(([[
     fs.makeDir("nfs")
     nfs.mount("nfs", %q)
     os.run(_ENV, %q, "packages.svc.boot", %q)
-]]):format(hostname, boot_path, boot_path))
+]]):format(os.computerID(), boot_path, boot_path))
 
 while true do
     local computer_id, _ = rednet.receive("netboot-request")
