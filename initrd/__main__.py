@@ -5,7 +5,7 @@ from .bz import compress
 from .snippets import generate_sfx
 
 if len(sys.argv) < 2:
-    print("Usage: python3 make-initrd.py <output path>")
+    print("Usage: python3 -m initrd <output path>")
     raise SystemExit()
 output_path = sys.argv[1]
 
