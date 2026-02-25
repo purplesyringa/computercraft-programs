@@ -77,7 +77,7 @@ function services_api.waitUp(name)
     while true do
         local status = services_api.status(name)
         if status.status == "stopped" then
-            error(name .. ": service was stopped")
+            error(name .. ": service stopped")
         elseif status.status == "failed" then
             error(name .. ": " .. status.error)
         elseif status.status == "up" then
@@ -282,7 +282,7 @@ function services_api.status(name)
         }
     end
 
-    local status, err
+    local status
     if service.config.type == "oneshot" then
         status = ({
             stopped = "stopped",
@@ -290,21 +290,18 @@ function services_api.status(name)
             finished = "up",
             failed = "failed",
         })[service.runtime_status]
-        if service.runtime_status == "failed" then
-            err = service.runtime_error
-        end
     elseif service.config.type == "process" or service.config.type == "foreground" then
         status = ({
             stopped = "stopped",
             running = "up",
-            finished = "failed",
+            finished = "stopped",
             failed = "failed",
         })[service.runtime_status]
-        if service.runtime_status == "finished" then
-            err = "Process exited"
-        elseif service.runtime_status == "failed" then
-            err = service.runtime_error
-        end
+    end
+
+    local err = nil
+    if service.runtime_status == "failed" then
+        err = service.runtime_error
     end
 
     return {
