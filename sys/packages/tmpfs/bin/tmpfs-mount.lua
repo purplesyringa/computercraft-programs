@@ -12,6 +12,7 @@ if #args == 1 then
     return
 end
 
-local image = loadfile(shell.resolve(args[2]), nil, { mounting = true })()
+local env = setmetatable({ mounting = true }, { __index = _G })
+local image = loadfile(shell.resolve(args[2]), nil, env)()
 local read_only = args[3] ~= "true"
 tmpfs.mount(mountpoint, image, read_only)
