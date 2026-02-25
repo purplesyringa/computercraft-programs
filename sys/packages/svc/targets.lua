@@ -1,3 +1,4 @@
+local proc = require "svc.proc"
 local services = require "svc.services"
 
 local targets_api = {}
@@ -100,21 +101,30 @@ function targets_api.reach(name, force)
     end
     for service, _ in pairs(all_status) do
         if not goal_set[service] then
-            if force then
-                services.kill(service)
-            else
-                table.insert(closures, function()
+            table.insert(closures, function()
+                if force then
+                    services.kill(service)
+                else
                     for _, dependent in pairs(dependents[service] or {}) do
                         -- Stopping the dependents will be triggered by other closures.
                         services.waitDown(dependent)
                     end
                     pcall(services.stop, service)
-                end)
-            end
+                end
+            end)
         end
     end
 
-    parallel.waitForAll(table.unpack(closures))
+    -- Start this logic in a separate process, since if `svc.reach` is called from a service that is
+    -- disabled in the new target, we might fail to finish reaching it.
+    proc.start("reach " .. name, function()
+        parallel.waitForAll(table.unpack(closures))
+        os.queueEvent("target_reached")
+    end, function()
+        os.queueEvent("target_reached")
+    end)
+
+    os.pullEvent("target_reached")
 end
 
 function targets_api.status(name)
