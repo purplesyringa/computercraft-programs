@@ -10,23 +10,40 @@ return {
             end
         end
 
+        local function patchError(err)
+            if type(err) == "string" and origin ~= "" and string.find(err, "/" .. origin) == 1 then
+                return "/" .. string.sub(err, #origin + 2)
+            end
+            return err
+        end
+
+        local function wrap(func)
+            return function(...)
+                local result = table.pack(pcall(func, ...))
+                if result[1] == false then
+                    error(patchError(result[2]), 0)
+                end
+                return table.unpack(result, 2, result.n)
+            end
+        end
+
         vfs.mount(mountpoint, {
             description = ("bind://%s"):format(origin),
             drive = (read_only and "bind:ro") or "bind:rw",
 
-            isReadOnly = function(path)
+            isReadOnly = wrap(function(path)
                 return read_only or fs.isReadOnly(fs.combine(origin, path))
-            end,
+            end),
 
-            list = function(path)
+            list = wrap(function(path)
                 return vfs.list(fs.combine(origin, path))
-            end,
+            end),
 
-            attributes = function(path)
+            attributes = wrap(function(path)
                 return vfs.attributes(fs.combine(origin, path))
-            end,
+            end),
 
-            find = function(path)
+            find = wrap(function(path)
                 local list = fs.find(fs.combine(origin, path))
                 if origin ~= "" then
                     for key, _ in pairs(list) do
@@ -34,42 +51,42 @@ return {
                     end
                 end
                 return list
-            end,
+            end),
 
-            makeDir = function(path)
+            makeDir = wrap(function(path)
                 assert_rw(path)
                 fs.makeDir(fs.combine(origin, path))
-            end,
+            end),
 
-            delete = function(path)
+            delete = wrap(function(path)
                 assert(path ~= "", "/: Deleting mountpoint is not supported.")
                 assert_rw(path)
                 return fs.delete(fs.combine(origin, path))
-            end,
+            end),
 
-            move = function(src, dst)
+            move = wrap(function(src, dst)
                 assert_rw(path)
                 return fs.move(fs.combine(origin, src), fs.combine(origin, dst))
-            end,
+            end),
 
-            copy = function(src, dst)
+            copy = wrap(function(src, dst)
                 assert_rw(path)
                 return fs.copy(fs.combine(origin, src), fs.combine(origin, dst))
-            end,
+            end),
 
-            read = function(path)
+            read = wrap(function(path)
                 return vfs.read(fs.combine(origin, path))
-            end,
+            end),
 
-            write = function(path, contents)
+            write = wrap(function(path, contents)
                 assert_rw(path)
                 vfs.write(fs.combine(origin, path), contents)
-            end,
+            end),
 
-            open = function(path, mode)
+            open = wrap(function(path, mode)
                 assert_rw(path, mode == "r" or mode == "rb")
                 return vfs.open(fs.combine(origin, path), mode)
-            end,
+            end),
         })
     end,
 }
