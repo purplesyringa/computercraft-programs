@@ -5,7 +5,7 @@ return {
         assert(origin ~= mountpoint, "bind-mounting over self is not supported")
 
         local function assert_rw(path, cond)
-            if read_only and cond ~= false then
+            if read_only and cond ~= true then
                 error("/" .. path .. ": Read-only filesystem")
             end
         end
