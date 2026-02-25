@@ -36,7 +36,8 @@ def serialize(obj) -> bytes:
                 prefix = b'('
                 suffix = b'):gsub("Er","\\r"):gsub("E]","E")'.replace(b"E", escape_s)
         level = 0
-        while b"]" + b"=" * level + b"]" in obj:
+        # Somewhat surprisingly, Lua forbids even opening brackets inside brackets.
+        while b"[" + b"=" * level + b"[" in obj or b"]" + b"=" * level + b"]" in obj:
             level = level + 1
         if obj.startswith(b"\n"):
             obj = b"\n" + obj
