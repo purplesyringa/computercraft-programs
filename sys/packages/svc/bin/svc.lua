@@ -59,6 +59,9 @@ end
 
 local function showServiceStatus(service)
     local status = svc.serviceStatus(service)
+    if not status then
+        error("Service " .. service .. " does not exist", 0)
+    end
 
     term.setTextColor(colors.white)
     write("Service: " .. service)
