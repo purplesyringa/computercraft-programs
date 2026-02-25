@@ -18,6 +18,9 @@ local code = pack.packString(([[
     os.run(_ENV, %q, "packages.svc.boot", %q)
 ]]):format(os.computerID(), boot_path, boot_path))
 
+-- There might have been devices waiting for their startup (e.g. when minecraft server restarts).
+rednet.broadcast(code, "netboot-response")
+
 while true do
     local computer_id, _ = rednet.receive("netboot-request")
     rednet.send(computer_id, code, "netboot-response")
