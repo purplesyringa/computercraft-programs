@@ -459,7 +459,7 @@ function async.newQueue()
             local values = queue[queue.head]
             queue[queue.head] = nil
             queue.head = queue.head + 1
-            return table.unpack(values)
+            return table.unpack(values, 1, values.n)
         end,
         put = function(...)
             queue[queue.tail] = table.pack(...)

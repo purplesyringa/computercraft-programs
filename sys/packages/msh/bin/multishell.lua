@@ -49,7 +49,7 @@ os.run({
                         end
                     end
                 elseif not filter or event[1] == filter or event[1] == "terminate" then
-                    return table.unpack(event)
+                    return table.unpack(event, 1, event.n)
                 end
             end
         end,
