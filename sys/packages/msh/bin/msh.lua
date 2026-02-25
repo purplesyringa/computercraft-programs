@@ -39,11 +39,12 @@ end
 local history = {}
 
 local exit = false
+local hangup = false
 local is_running = false
 function shell.exit() exit = true end
 
 parallel.waitForAny(function()
-    while not exit do
+    while not exit and not hangup do
         show_ps1()
         local input = read(nil, history, settings.get("shell.autocomplete") and shell.complete)
         if input:match("%S") and history[#history] ~= input then table.insert(history, input) end
@@ -51,18 +52,21 @@ parallel.waitForAny(function()
         shell.run(input)
         is_running = false
     end
+    if hangup then
+        error("Terminated", 0)
+    end
 end, function()
     while true do
         local _, reason = os.pullEventRaw("terminate")
         if reason == "hangup" then
             if is_running then
-                -- Exit when the current process completes.
-                shell.exit()
+                -- Terminate when the current process completes.
+                hangup = true
             else
-                -- Exit immediately. This is necessary if a process is running, so `terminate` is
-                -- delivered to it and not to `read`, and then the process quits immediately, so
+                -- Terminate immediately. This is necessary if a process is running, so `terminate`
+                -- is delivered to it and not to `read`, and then the process quits immediately, so
                 -- plain `shell.exit` would execute one more line than intended.
-                break
+                error("Terminated", 0)
             end
         end
     end
