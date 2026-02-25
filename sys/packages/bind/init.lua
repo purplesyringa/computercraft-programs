@@ -61,7 +61,8 @@ return {
             end,
 
             open = function(path, mode)
-                assert_rw(path, mode == "r" or mode == "rb")
+                local ok, err = pcall(assert_rw, path, mode == "r" or mode == "rb")
+                if not ok then return nil, err end
                 return fs.open(fs.combine(origin, path), mode)
             end,
         })
