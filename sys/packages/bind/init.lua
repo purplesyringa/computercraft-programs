@@ -27,7 +27,13 @@ return {
             end,
 
             find = function(path)
-                return fs.find(fs.combine(origin, path))
+                local list = fs.find(fs.combine(origin, path))
+                if origin ~= "" then
+                    for key, _ in pairs(list) do
+                        list[key] = string.sub(list[key], #origin + 2)
+                    end
+                end
+                return list
             end,
 
             makeDir = function(path)
