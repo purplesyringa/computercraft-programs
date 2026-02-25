@@ -6,7 +6,7 @@ return {
 
         local function assert_rw(path, cond)
             if read_only and cond ~= true then
-                error("/" .. path .. ": Read-only filesystem")
+                error("/" .. path .. ": Read-only filesystem", 0)
             end
         end
 
@@ -61,9 +61,8 @@ return {
             end,
 
             open = function(path, mode)
-                local ok, err = pcall(assert_rw, path, mode == "r" or mode == "rb")
-                if not ok then return nil, err end
-                return fs.open(fs.combine(origin, path), mode)
+                assert_rw(path, mode == "r" or mode == "rb")
+                return vfs.open(fs.combine(origin, path), mode)
             end,
         })
     end,

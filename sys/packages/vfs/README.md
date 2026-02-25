@@ -75,7 +75,7 @@ A feature-complete file system can also support the following:
 
 - Implement `getFreeSpace(rel_path)`.
 - Implement `getCapacity(rel_path)`.
-- Implement `open(rel_path, mode)`.
+- Implement `open(rel_path, mode)`. Note that unlike `fs.open`, this function should throw instead of returning nil for failure.
 - Return `created` and `modified` attributes.
 
 Check implementations of existing file systems for inspiration: [bind](../bind), [nfs](../nfs), [tmpfs](../tmpfs), [svcbin](../svc/env.lua).
@@ -84,6 +84,7 @@ Check implementations of existing file systems for inspiration: [bind](../bind),
 
 - `vfs.list(path)`: like `fs.list`, but returns a list of `{ name = ..., attributes = ... }`.
 - `vfs.attributes(path)`: like `fs.attributes`, but returns `nil` if the file is absent.
+- `vfs.open(path, mode)`: like `fs.open`, but throws instead of returning `nil, error`.
 - `vfs.read(path)`: returns the contents of the file as a string.
 - `vfs.write(path, contents)`: overwrites the file with the given string.
 - `vfs.unmount(root)`: unmounts the filesystem at the given path. Returns `true` on success and `false` if `root` is not a mountpoint.

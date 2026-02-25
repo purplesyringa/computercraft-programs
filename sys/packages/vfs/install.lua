@@ -70,7 +70,13 @@ local root_mount = {
     delete = ofs.delete,
     move = ofs.move,
     copy = ofs.copy,
-    open = ofs.open,
+    open = function(rel_path, mode)
+        local handle, err = ofs.open(rel_path, mode)
+        if not handle then
+            error(err, 0)
+        end
+        return handle
+    end,
     read = function(rel_path)
         local file = ofs.open(rel_path, "r")
         local contents = file.readAll()
@@ -495,15 +501,29 @@ function fs.delete(path)
     callWithErr(mount, "delete", rel_path)
 end
 
-function fs.open(path, mode)
+local function checkBaseMode(mode)
     local base_mode = mode:gsub("b$", "")
     if not ({ r = true, w = true, a = true, ["r+"] = true, ["w+"] = true })[base_mode] then
         error("Unsupported mode")
     end
+    return base_mode
+end
+
+function fs.open(path, mode)
+    checkBaseMode(mode)
+    local ok, result = pcall(vfs.open, path, mode)
+    if not ok then
+        return nil, result
+    end
+    return result
+end
+
+function vfs.open(path, mode)
+    local base_mode = checkBaseMode(mode)
 
     local mount, rel_path = resolvePath(ofs.combine(path))
     if mount.open then
-        return mount.open(rel_path, mode)
+        return callWithErr(mount, "open", rel_path, mode)
     end
 
     if base_mode ~= "r" then
@@ -511,10 +531,7 @@ function fs.open(path, mode)
         assertOrReadOnly(mount.write, path)
     end
 
-    local ok, contents = pcall(function() return callWithErr(mount, "read", rel_path) end)
-    if not ok then
-        return nil, contents
-    end
+    local contents = callWithErr(mount, "read", rel_path)
 
     local handle, get_contents = bytesio.open(contents, mode)
 

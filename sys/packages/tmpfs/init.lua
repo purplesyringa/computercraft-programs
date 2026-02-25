@@ -75,7 +75,7 @@ return {
 
         tree = tree or mkdentry()
 
-        local function errorPath(path, message) error("/" .. path .. ": " .. message) end
+        local function errorPath(path, message) error("/" .. path .. ": " .. message, 0) end
         local function enotdir(path) errorPath(path, "Not a directory") end
         local function eisdir(path) errorPath(path, "Not a file") end
         local function enoent(path) errorPath(path, "No such file") end
