@@ -2,7 +2,7 @@ import re
 from .minify import minify
 from .ser import serialize
 
-decompress_mtf = minify("""
+decompress_mtf = minify("decompress_mtf", """
     local compressed = ...
 
     local repetitions = {}
@@ -56,7 +56,7 @@ bit_pos = re.search(r"local (\w+)=8", decompress_mtf)[1]
 decompress_mtf1, decompress_mtf2 = decompress_mtf.split("DECODE_SYMBOL()")
 decompress_mtf2 = " " + decompress_mtf2 # for concatenation with generated code
 
-code_template = minify("""
+code_template = minify("code_template", """
     local compressed = DATA
     local tree = TREE
 
