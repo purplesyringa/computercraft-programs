@@ -125,6 +125,14 @@ function targets_api.reach(name, force)
     end)
 
     os.pullEvent("target_reached")
+
+    local status = targets_api.status(name) or {
+        status = "degraded",
+        error = "missing target definition"
+    }
+    if status.status == "degraded" then
+        error(status.error, 0)
+    end
 end
 
 function targets_api.status(name)
