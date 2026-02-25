@@ -33,7 +33,7 @@ More to the point, say you want to run the server of the instant storage. To do 
 
 This might seem like overengineering, but it enables orthogonal configuration. Running `storage-server` directly is useful for debugging, easy log access, and termination. Isolating commands into a service allows multiple targets to include one service, which is how you get `rshd` on each device.
 
-At this point, you can either call it a day and just install the OS on each device (nothing wrong with that if you have just a few computers), or set up an NFS + netboot combination for easier redeployment. The `fileserver` sets up the server: just run `svc reach fileserver --persist` on a server booted from `initrd` and you're set. This script will boot clients from this server:
+At this point, you can either call it a day and just install the OS on each device (nothing wrong with that if you have just a few computers), or set up an NFS + netboot combination for easier redeployment. The `fileserver` target sets up the server: just run `svc reach fileserver --persist` on a server booted from `initrd` and you're set. You can then fetch this script to boot clients:
 
 ```shell
 > wget https://cc.purplesyringa.moe/netboot.lua
