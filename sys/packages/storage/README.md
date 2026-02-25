@@ -82,7 +82,7 @@ To set it up, place an advanced turtle into its overworld home, move all of the 
 
 The server exposes a simple protocol for implementing custom clients, so that you can request or deposit items programmatically. (Clients are always turtles.)
 
-This repository includes one such add-on, which you can install on a turtle anywhere in the wired network if you need it: a [compacting turtle](compacter.lua) that crafts nuggets into ingots and ingots into blocks, among others.
+This repository includes one such add-on, which you can install on a turtle anywhere in the wired network if you need it: a [compacting turtle](bin/compacter.lua) that crafts nuggets into ingots and ingots into blocks, among others.
 
 If your use case calls for a custom client, consult the protocol description below and the example clients.
 
