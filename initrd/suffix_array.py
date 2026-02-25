@@ -1,43 +1,52 @@
 def suffix_array(data: bytes) -> list[int]:
-    counts = [0] * max(256, len(data))
+    n = len(data)
+
+    counts = [0] * max(256, n)
     for cl in data:
         counts[cl] += 1
     for cl in range(1, 256):
         counts[cl] += counts[cl - 1]
-    permutation = [0] * len(data)
+    permutation = [0] * n
     for i, cl in enumerate(data):
         counts[cl] -= 1
         permutation[counts[cl]] = i
 
-    class_of_shift = [0] * len(data)
-    class_of_shift[permutation[0]] = 0
-    n_classes = 1
-    for prev, cur in zip(permutation, permutation[1:]):
-        n_classes += data[cur] != data[prev]
-        class_of_shift[cur] = n_classes - 1
+    class_of_shift = [0] * n
+    pointers = [0]
+    prev_key = None
+    for cur in permutation:
+        cur_key = data[cur]
+        if cur_key != prev_key:
+            pointers.append(pointers[-1])
+        pointers[-1] += 1
+        class_of_shift[cur] = len(pointers) - 2
+        prev_key = cur_key
 
     sorted_len = 1
-    while sorted_len < len(data):
-        new_permutation = [(start - sorted_len) % len(data) for start in permutation]
-        counts = [0] * n_classes
-        for start in new_permutation:
-            counts[class_of_shift[start]] += 1
-        for cl in range(1, n_classes):
-            counts[cl] += counts[cl - 1]
-        for start in new_permutation[::-1]:
+    while sorted_len < n:
+        for start in permutation[:]:
+            start = (start - sorted_len) % n
             cl = class_of_shift[start]
-            counts[cl] -= 1
-            permutation[counts[cl]] = start
+            permutation[pointers[cl]] = start
+            pointers[cl] += 1
 
-        new_class_of_shift = [0] * len(data)
-        new_class_of_shift[permutation[0]] = 0
-        n_classes = 1
-        for prev, cur in zip(permutation, permutation[1:]):
-            cur_pair = class_of_shift[cur], class_of_shift[(cur + sorted_len) % len(data)]
-            prev_pair = class_of_shift[prev], class_of_shift[(prev + sorted_len) % len(data)]
-            n_classes += cur_pair != prev_pair
-            new_class_of_shift[cur] = n_classes - 1
+        new_class_of_shift = [0] * n
+        pointers = [0]
+        prev_key = None
+        finished = True
+        for cur in permutation:
+            cur_key = class_of_shift[cur], class_of_shift[(cur + sorted_len) % n]
+            if cur_key == prev_key:
+                finished = False
+            else:
+                pointers.append(pointers[-1])
+            pointers[-1] += 1
+            new_class_of_shift[cur] = len(pointers) - 2
+            prev_key = cur_key
         class_of_shift = new_class_of_shift
+
+        if finished:
+            break
 
         sorted_len *= 2
 
