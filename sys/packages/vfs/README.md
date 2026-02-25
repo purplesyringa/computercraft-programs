@@ -26,7 +26,7 @@ vfs.mount(mountpoint, {
     -- Simulates `fs.list`.
     list = function(rel_path)
         if rel_path ~= "" then
-            error("/" .. rel_path .. ": not a directory")
+            error("/" .. rel_path .. ": not a directory", 0)
         end
         local files = {}
         for name, _ in files do
@@ -48,7 +48,7 @@ vfs.mount(mountpoint, {
     -- Returns the contents of a given file.
     read = function(rel_path)
         if not files[rel_path] then
-            error("/" .. rel_path .. ": not a file")
+            error("/" .. rel_path .. ": not a file", 0)
         end
         return files[rel_path]
     end,
