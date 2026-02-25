@@ -77,15 +77,27 @@ local function getTargetServiceSet(target)
     return service_set
 end
 
-function targets_api.reach(name, force)
+function targets_api.reach(name, force, persist)
     local goal_set = getTargetServiceSet(name)
     current_target = name
 
     local closures = {}
 
     -- Bring up new services.
+    local services_left = 0
+    for _ in pairs(goal_set) do
+        services_left = services_left + 1
+    end
     for service, _ in pairs(goal_set) do
-        table.insert(closures, function() pcall(services.start, service) end)
+        table.insert(closures, function()
+            if pcall(services.start, service) then
+                services_left = services_left - 1
+                if services_left == 0 and persist then
+                    settings.set("svc.target", name)
+                    settings.save()
+                end
+            end
+        end)
     end
 
     -- Tear down old services.

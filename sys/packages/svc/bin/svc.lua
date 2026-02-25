@@ -95,10 +95,8 @@ local function killService(service)
 end
 
 local function reachTarget(target, persist)
-    svc.reach(target)
+    svc.reach(target, false, persist)
     if persist then
-        settings.set("svc.target", target)
-        settings.save()
         print("Reached and persisted", target)
     else
         print("Reached", target)
