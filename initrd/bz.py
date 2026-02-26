@@ -42,7 +42,6 @@ def rle_encode(data: bytes) -> list[int]:
 
 
 def compress(data: bytes) -> tuple[bytes, object, int, int]:
-    assert b"\r" not in data, "cannot compress data with CR"
     data, shift = bwt_encode(data)
     data, tree, total_bit_len = huffman_encode(rle_encode(mtf_encode(data)) + [2], 257)
     data += b"\x00\x00\x00"
