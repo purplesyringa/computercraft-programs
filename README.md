@@ -19,7 +19,7 @@ This basically amounts to a full-blown operating system, and all the "actually" 
 
 ## Setting up
 
-Start by downloading an `initrd` image. It includes all the files in this repo (except images), so you don't need to copy anything manually or use a git client.
+Start by downloading an `initrd` image. It includes all the files in this repo (except images) in a compressed format, so you don't need to copy anything manually or use a git client.
 
 ```shell
 > wget https://cc.purplesyringa.moe/initrd.lua
