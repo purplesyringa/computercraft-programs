@@ -1,3 +1,4 @@
+local vfs = require "vfs"
 local voicez = require "voicez"
 
 local args = { ... }
@@ -7,18 +8,6 @@ if #args ~= 2 then
     return
 end
 
-local f, err = fs.open(shell.resolve(args[1]), "r")
-if f == nil then
-    error(err, 0)
-end
-local input = f.readAll()
-f.close()
-
+local input = vfs.read(shell.resolve(args[1]))
 local output = voicez.encode(input)
-
-f = fs.open(shell.resolve(args[2]), "w")
-if f == nil then
-    error(err, 0)
-end
-f.write(output)
-f.close()
+vfs.write(shell.resolve(args[2]), output)
