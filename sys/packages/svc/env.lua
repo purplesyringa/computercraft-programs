@@ -195,5 +195,32 @@ function env.execIsolated(command, ...)
     func(...)
 end
 
+function env.reloadShellEnv(shell)
+    -- When starting processes in a terminal redirect, we need to reinitialize the shell because
+    -- PATH changes depending on whether the terminal is advanced. The ROM startup script is
+    -- responsible for this, but it also runs MOTD and startup scripts from disks and the filesystem
+    -- root, so we have to monkey-patch `settings.get` to disable that behavior.
+    local overrides = {
+        ["shell.allow_startup"] = false,
+        ["shell.allow_disk_startup"] = false,
+        ["motd.enable"] = false,
+    }
+    os.run({
+        shell = shell,
+        -- `startup.lua` requires various built-in modules; this is close enough.
+        require = require,
+        settings = setmetatable({
+            get = function(name, ...)
+                if overrides[name] ~= nil then
+                    return overrides[name]
+                end
+                return settings.get(name, ...)
+            end,
+        }, { __index = settings }),
+    }, "rom/startup.lua")
+    -- Since `startup.lua` overrides path, we have to inject the combined /bin back.
+    shell.setPath("/" .. env.getCombinedBinPath() .. ":" .. shell.path())
+end
+
 return env
 

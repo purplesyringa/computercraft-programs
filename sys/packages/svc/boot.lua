@@ -69,6 +69,7 @@ svc.serviceStatus = services.status
 svc.targetStatus = targets.status
 
 svc.makeNestedShell = env.makeNestedShell
+svc.reloadShellEnv = env.reloadShellEnv
 svc.getCombinedBinPath = env.getCombinedBinPath
 svc._execWrapped = env.execWrapped
 

@@ -39,30 +39,7 @@ end
 
 local function startProgram(program, ...)
     local nested_shell = svc.makeNestedShell({ shell = shell })
-    -- The shell PATH changes depending on whether the connected terminal is advanced, which can
-    -- change across network, so we need to reinitialize it. The ROM startup script is responsible
-    -- for this, but it also runs MOTD and startup scripts from disks and the filesystem root, so we
-    -- have to monkey-patch `settings.get` to disable that behavior.
-    local overrides = {
-        ["shell.allow_startup"] = false,
-        ["shell.allow_disk_startup"] = false,
-        ["motd.enable"] = false,
-    }
-    os.run({
-        shell = nested_shell,
-        -- `startup.lua` requires various built-in modules; this is close enough.
-        require = require,
-        settings = setmetatable({
-            get = function(name, ...)
-                if overrides[name] ~= nil then
-                    return overrides[name]
-                end
-                return settings.get(name, ...)
-            end,
-        }, { __index = settings }),
-    }, "rom/startup.lua")
-    -- Since `startup.lua` overrides path, we have to inject the combined /bin back.
-    nested_shell.setPath("/" .. svc.getCombinedBinPath() .. ":" .. nested_shell.path())
+    svc.reloadShellEnv(nested_shell)
     nested_shell.execute(program or "msh", ...)
 end
 
