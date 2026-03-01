@@ -1,4 +1,4 @@
 return {
     services = { "named", "rshd" },
-    inherent_services = { "msh" },
+    inherent_services = { "getty-default" },
 }

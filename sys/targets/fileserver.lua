@@ -1,5 +1,5 @@
 return {
     inherits = { "base" },
     services = { "nfsd", "netbootd" },
-    inherent_services = { "msh" },
+    inherent_services = { "getty-default" },
 }

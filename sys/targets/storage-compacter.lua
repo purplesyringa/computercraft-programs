@@ -1,5 +1,5 @@
 return {
     inherits = { "base" },
     services = { "storage-compacter" },
-    inherent_services = { "msh" },
+    inherent_services = { "getty-default" },
 }
