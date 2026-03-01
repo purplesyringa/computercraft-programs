@@ -2,13 +2,19 @@ local redirect = require "redirect"
 local svc = require "svc"
 
 local args = { ... }
-if #args < 3 then
-    print("Usage: getty <monitor-name> <keyboard-name> <command...>")
+if #args < 2 then
+    print("Usage: getty <monitor-name>/<keyboard-name> <command...>")
     print("Use 'default' as the peripheral name to use the built-in monitor/keyboard.")
     return
 end
-local monitor_name, keyboard_name = args[1], args[2]
-local command = { table.unpack(args, 3) }
+local seat_def = args[1]
+local command = { table.unpack(args, 2) }
+
+if seat_def == "default" then
+    seat_def = "default/default"
+end
+local monitor_name, keyboard_name = seat_def:match("^([^/]+)/([^/]+)$")
+assert(monitor_name, "Invalid seat definition '" .. seat_def .. "'")
 
 local monitor
 if monitor_name == "default" then
