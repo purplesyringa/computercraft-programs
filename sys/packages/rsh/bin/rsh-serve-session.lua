@@ -1,3 +1,4 @@
+local redirect = require "redirect"
 local remote_events = require("rsh.events").remote_events
 local svc = require "svc"
 local vt = require "rsh.vt"
@@ -9,7 +10,7 @@ local function sendToClient(msg)
     rednet.send(params.client, msg, "rsh")
 end
 
-local function makeRedirect()
+local function makeVt()
     local handlers = {
         isColor = function() return params.is_color end,
         getSize = function() return params.size[1], params.size[2] end,
@@ -31,15 +32,9 @@ local function makeRedirect()
             table.insert(op_queue, table.pack(name, ...))
         end
     end
-    local redirect = vt.newTerminalRedirect(handlers)
-    redirect.setCursorPos(params.cursor_pos[1], params.cursor_pos[2])
-    return redirect, op_queue
-end
-
-local function startProgram(program, ...)
-    local nested_shell = svc.makeNestedShell({ shell = shell })
-    svc.reloadShellEnv(nested_shell)
-    nested_shell.execute(program or "msh", ...)
+    local virtual_term = vt.newTerminalRedirect(handlers)
+    virtual_term.setCursorPos(params.cursor_pos[1], params.cursor_pos[2])
+    return virtual_term, op_queue
 end
 
 local function pullEventNetworked()
@@ -68,21 +63,9 @@ local function pullEventNetworked()
     end
 end
 
-local redirect, op_queue = makeRedirect()
-local coro = coroutine.create(startProgram)
-local resume_args = params.command
+local virtual_term, op_queue = makeVt()
 
-while true do
-    local old_term = term.current()
-    term.redirect(redirect)
-    local out = table.pack(coroutine.resume(coro, table.unpack(resume_args, 1, resume_args.n)))
-    if not out[1] then
-        printError(out[2])
-    end
-    -- Reload `redirect` because the process might have set up its own terminal redirect.
-    redirect = term.current()
-    term.redirect(old_term)
-
+local function flushOpQueue()
     if next(op_queue) then
         sendToClient({ type = "term", ops = op_queue })
         -- We can't just write `op_queue = {}` because that will just overwrite the reference.
@@ -90,26 +73,31 @@ while true do
             op_queue[i] = nil
         end
     end
-
-    if not out[1] or coroutine.status(coro) == "dead" then
-        break
-    end
-
-    local event
-    local filter = out[2]
-    repeat
-        event = table.pack(pullEventNetworked())
-        if remote_events[event[1]] then
-            sendToClient({ type = "ack" })
-            -- The client adds dimension information to `term_resize` -- read it and make sure
-            -- to remove it for consistency with base CraftOS.
-            if event[1] == "term_resize" then
-                params.size[1], params.size[2] = event[2], event[3]
-                event = { "term_resize" }
-            end
-        end
-    until event[1] == filter or filter == nil or event[1] == "terminate"
-    resume_args = event
 end
+
+redirect.runWithEventSource(function()
+    flushOpQueue()
+    local event = table.pack(pullEventNetworked())
+    if remote_events[event[1]] then
+        sendToClient({ type = "ack" })
+        -- The client adds dimension information to `term_resize` -- read it and make sure to remove
+        -- it for consistency with base CraftOS.
+        if event[1] == "term_resize" then
+            params.size[1], params.size[2] = event[2], event[3]
+            event = { "term_resize" }
+        end
+    end
+    return table.unpack(event, 1, event.n)
+end, function()
+    redirect.runWithTerm(virtual_term, function()
+        if not params.command[1] then
+            params.command[1] = "msh"
+        end
+        local nested_shell = svc.makeNestedShell({ shell = shell })
+        svc.reloadShellEnv(nested_shell)
+        nested_shell.execute(table.unpack(params.command))
+    end)
+end)
+flushOpQueue()
 
 sendToClient({ type = "close", reason = "exit" }, "rsh")
