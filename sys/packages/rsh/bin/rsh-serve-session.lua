@@ -10,10 +10,9 @@ local function sendToClient(msg)
 end
 
 local function makeRedirect()
-    local size_x, size_y = params.size[1], params.size[2]
     local handlers = {
         isColor = function() return params.is_color end,
-        getSize = function() return size_x, size_y end,
+        getSize = function() return params.size[1], params.size[2] end,
     }
     local op_queue = {}
     for _, name in pairs({
@@ -105,7 +104,7 @@ while true do
             -- The client adds dimension information to `term_resize` -- read it and make sure
             -- to remove it for consistency with base CraftOS.
             if event[1] == "term_resize" then
-                size_x, size_y = event[2], event[3]
+                params.size[1], params.size[2] = event[2], event[3]
                 event = { "term_resize" }
             end
         end
