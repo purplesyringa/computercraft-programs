@@ -1,5 +1,5 @@
 return {
     description = "Supersmelter",
-    type = "foreground",
+    type = "process",
     command = { "supersmelter" },
 }

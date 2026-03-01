@@ -1,6 +1,6 @@
 local proc = {}
 
-local processes = {} -- { [pid] = { name, coroutine, filter, is_foreground, on_killed } }
+local processes = {} -- { [pid] = { name, coroutine, filter, on_killed } }
 local next_process_id = 1
 
 local function deliverEvent(pid, ...)
@@ -13,14 +13,13 @@ local function deliverEvent(pid, ...)
     end
 end
 
-function proc.start(name, f, on_killed, is_foreground)
+function proc.start(name, f, on_killed)
     local pid = next_process_id
     next_process_id = next_process_id + 1
     processes[pid] = {
         name = name,
         coroutine = coroutine.create(f),
         filter = nil,
-        is_foreground = is_foreground or false,
         on_killed = on_killed,
     }
     deliverEvent(pid)
@@ -45,7 +44,6 @@ function proc.list()
         table.insert(result, {
             pid = pid,
             name = process.name,
-            is_foreground = process.is_foreground,
         })
     end
     table.sort(result, function(a, b)
@@ -79,16 +77,14 @@ function proc.loop()
                 deliverEvent(pid, "terminate", "hangup")
             end
         else
+            if event[1] == "terminate" then
+                -- Don't terminate all processes, instead treat this as a key press that processes
+                -- can decide how to handle on a best-effort basis. `getty` rewrites this to
+                -- `terminate`.
+                event[1] = "fg_terminate"
+            end
             for pid, process in pairs(processes) do
-                local matches = (
-                    process.filter == event[1]
-                    or process.filter == nil
-                    or event[1] == "terminate"
-                )
-                if interactive_events[event[1]] then
-                    matches = matches and process.is_foreground
-                end
-                if matches then
+                if process.filter == event[1] or process.filter == nil then
                     deliverEvent(pid, table.unpack(event, 1, event.n))
                 end
             end

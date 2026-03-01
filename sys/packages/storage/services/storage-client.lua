@@ -1,5 +1,5 @@
 return {
     description = "Wired storage client",
-    type = "foreground",
+    type = "process",
     command = { "storage-client" },
 }

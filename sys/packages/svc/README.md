@@ -49,7 +49,7 @@ Processes are a more low-level mechanism than services, and you typically don't 
 
 ## Targets
 
-Targets specify the sets of services that are started when the system boots. The default target is `base`, which includes services like `msh`, `named`, and `rshd`. You can define custom targets that *inherit* from smaller targets, like `base`, so that you don't need to repeat yourself. For example, in a kiosk-like application, you might define the target `kiosk` that inherits from `base` and adds a foreground `kiosk` service.
+Targets specify the sets of services that are started when the system boots. The default target is `base`, which includes services like `msh`, `named`, and `rshd`. You can define custom targets that *inherit* from smaller targets, like `base`, so that you don't need to repeat yourself. For example, in a kiosk-like application, you might define the target `kiosk` that inherits from `base` and adds a `kiosk` service.
 
 You can start services according to a target temporarily with `svc reach <name>`, or make it the default boot target with `set svc.target <name>`.
 
@@ -117,11 +117,11 @@ return {
 }
 ```
 
-A service definition is a normal Lua file. It is run with an empty environment and is not supposed to have local variables or do anything except returning a table literal. `description` is a string that declares the purpose of the service and is shown by `svc status <name>`. `type` declares what kind of runtime behavior the service has, and can be one of three values:
+A service definition is a normal Lua file. It is run with an empty environment and is not supposed to have local variables or do anything except returning a table literal. `description` is a string that declares the purpose of the service and is shown by `svc status <name>`. `type` declares what kind of runtime behavior the service has, and can be one of two values:
 
-- `process` means that a background command should be run, as specified in the `command` field. The first element is the name of the program (automatically resolved according to `PATH`), and the rest are arguments. The service is considered to be up as soon as the command starts executing, and is considered down when it exits or errors.
-- `foreground` is similar to `process`, but denotes that the command should be run in foreground. For example, this is used by the [`msh`](../msh/services/msh.lua) service to show an interactive shell on boot. Errors in foreground services are shown to screen to ease debugging. You most likely want this over `process` for user-facing applications.
-- `oneshot` services, unlike `process` or `foreground`, define actions that should be performed to start or stop the service, but do not run any code in the background. `command` is absent, and instead `start` must contain a function that is run when the service is started, and `stop` (optional) is run when it's stopped. `start` can be asynchronous, and the service is only considered to be up when it finishes. `stop`, if present, must be synchronous. Consider [`named`](../named/services/named.lua) for example:
+- `process` means that a command specified in the `command` field should be run. The first element is the name of the program (automatically resolved according to `PATH`), and the rest are arguments. The service is considered to be up as soon as the command starts executing, and is considered down when it exits or errors.
+
+- `oneshot` services define actions that should be performed to start or stop the service, but do not run any code in the background. `command` is absent, and instead `start` must contain a function that is run when the service is started, and `stop` (optional) is run when it's stopped. `start` can be asynchronous, and the service is only considered to be up when it finishes. `stop`, if present, must be synchronous. Consider [`named`](../named/services/named.lua) for example:
 
 ```lua
 return {
@@ -142,11 +142,13 @@ return {
 }
 ```
 
+Processes receive all machine events, including events from [external keyboards](https://modrinth.com/mod/ducky-periphs), so user-facing applications, like shells, should typically be run under `getty`, which filters events from a specific seat and redirects the terminal if necessary. For example, take a look at the [`getty-default`](../getty/services/getty-default.lua) service that shows an interactive shell on boot.
+
 Finally, let's look at targets. Targets are defined outside of `packages` at [`<sysroot>/targets`](../../targets) by the end user. Much like services, targets are pure Lua files that should return a table literal with the following properties:
 
 - `services`: a list of services to start when this target is booted.
 - `inherits` (optional): a list of targets to pull services from, in addition to the `services` field in the current target. For example, writing `inherits = { "base" }` will bring up `named` regardless of whether it's present in `services`. Pulling is performed recursively.
-- `inherent_services` (optional): similar to `services`, contains a list of services to start, but this field is not pulled when inheriting other targets. Services listed here will only be started if this target is booted, but not if the booted target inherits from it. For example, `base` lists `msh` here, so that inheriting from `base` lets you specify your own foreground service.
+- `inherent_services` (optional): similar to `services`, contains a list of services to start, but this field is not pulled when inheriting other targets. Services listed here will only be started if this target is booted, but not if the booted target inherits from it. For example, `base` lists `getty-default` here, so that inheriting from `base` lets you specify your own foreground service.
 
 A hypothetical `kiosk` target might look like this:
 

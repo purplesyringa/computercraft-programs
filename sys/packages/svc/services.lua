@@ -158,10 +158,6 @@ function services_api.start(name)
         end
     elseif service.config.type == "process" then
         start = function()
-            env.execIsolated(table.unpack(service.config.command))
-        end
-    elseif service.config.type == "foreground" then
-        start = function()
             local ok, err = pcall(env.execIsolated, table.unpack(service.config.command))
             if not ok then
                 -- Log the error to screen, since the user won't be able to observe it without
@@ -191,7 +187,7 @@ function services_api.start(name)
         service.runtime_error = "Killed"
         service.pid = nil
         os.queueEvent("service_status", name)
-    end, service.config.type == "foreground")
+    end)
 
     if service.config.type == "oneshot" then
         services_api.waitUp(name)
@@ -290,7 +286,7 @@ function services_api.status(name)
             finished = "up",
             failed = "failed",
         })[service.runtime_status]
-    elseif service.config.type == "process" or service.config.type == "foreground" then
+    elseif service.config.type == "process" then
         status = ({
             stopped = "stopped",
             running = "up",

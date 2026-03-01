@@ -1,5 +1,5 @@
 return {
     description = "Ender storage client",
-    type = "foreground",
+    type = "process",
     command = { "storage-ender-client" },
 }

@@ -8,11 +8,7 @@ local function showProcessList()
         { key = "name", heading = "Name" },
     })
     for _, process in pairs(svc.listProcesses()) do
-        if process.is_foreground then
-            term.setTextColor(colors.yellow)
-        else
-            term.setTextColor(colors.white)
-        end
+        term.setTextColor(colors.white)
         writeRow({
             pid = tostring(process.pid),
             name = process.name,

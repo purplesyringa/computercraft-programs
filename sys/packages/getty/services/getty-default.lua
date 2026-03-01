@@ -1,5 +1,5 @@
 return {
     description = "Shell on default seat",
-    type = "foreground",
+    type = "process",
     command = { "getty", "default", "default", "multishell" },
 }
