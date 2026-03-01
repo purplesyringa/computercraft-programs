@@ -90,8 +90,11 @@ redirect.runWithEventSource(coroutine.wrap(function()
                 deliver()
             end
         elseif event[1] == "terminate" then
-            if event[2] == "hangup" or matchesMonitor(event[2]) then
-                deliver()
+            -- e.g. hangup
+            deliver()
+        elseif event[1] == "fg_terminate" then
+            if matchesMonitor(event[2]) then
+                coroutine.yield("terminate")
             end
         else
             deliver()
