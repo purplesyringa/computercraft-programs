@@ -75,8 +75,16 @@ local function flushOpQueue()
     end
 end
 
-redirect.runWithEventSource(function()
-    flushOpQueue()
+local bg_command = redirect.runWithEventSource(redirect.runWithTerm, virtual_term, function()
+    if not params.command[1] then
+        params.command[1] = "msh"
+    end
+    local nested_shell = svc.makeNestedShell({ shell = shell })
+    svc.reloadShellEnv(nested_shell)
+    nested_shell.execute(table.unpack(params.command))
+end)
+
+while not bg_command.isDead() do
     local event = table.pack(pullEventNetworked())
     if remote_events[event[1]] then
         sendToClient({ type = "ack" })
@@ -87,17 +95,8 @@ redirect.runWithEventSource(function()
             event = { "term_resize" }
         end
     end
-    return table.unpack(event, 1, event.n)
-end, function()
-    redirect.runWithTerm(virtual_term, function()
-        if not params.command[1] then
-            params.command[1] = "msh"
-        end
-        local nested_shell = svc.makeNestedShell({ shell = shell })
-        svc.reloadShellEnv(nested_shell)
-        nested_shell.execute(table.unpack(params.command))
-    end)
-end)
-flushOpQueue()
+    bg_command.pushEvent(table.unpack(event, 1, event.n))
+    flushOpQueue()
+end
 
 sendToClient({ type = "close", reason = "exit" }, "rsh")
