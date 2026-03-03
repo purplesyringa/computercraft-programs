@@ -36,7 +36,7 @@ First, note that Turtlematic mod is extremely buggy, and you will need to instal
 
 Install an ender modem somewhere on the wired network and reboot the server.
 
-We're now going to set up *homes* for ender clients. These are locations in the world where the turtles will teleport to connect to the storage. Since turtles can break other turtles when warping, each ender client should have its own home. Homes have a specific 1-wide tileable layout, so you can place multiple homes next to each other. All homes should be chunk-loaded.
+We're now going to set up *homes* for ender clients. These are locations in the world where the turtles will teleport to connect to the storage. Since turtles can break other turtles when warping, each ender client should have its own home. Homes have a specific 1-wide tileable layout (but see below), so you can place multiple homes next to each other. All homes should be chunk-loaded.
 
 Since turtles cannot warp across dimensions, there are separate homes in the overworld and the Nether. The overworld home is connected directly to the wired network and an infinite source of lava, e.g. from Create: warping takes a lot of fuel, so lava is pretty much the only option. The Nether home is connected to the overworld home via a portal.
 
@@ -61,6 +61,8 @@ The Nether home looks like this:
 - The turtle is the ender storage turtle.
 - The chest minecart is empty.
 - The chest is empty and keeps the top modem enabled when the turtle is away.
+
+**Note that due to [MC-164084](https://bugs.mojang.com/browse/MC/issues/MC-164084), homes are only 1-wide-tileable if the rails are oriented east-west.** If you cannot use this orientation and the rails are oriented north-south, leave an empty row between homes so that minecarts don't collide.
 
 The ender helper should run `storage-ender-helper` on startup and needs a diamond sword in an equipment slot.
 
