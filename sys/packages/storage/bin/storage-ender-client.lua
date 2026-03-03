@@ -736,10 +736,10 @@ async.subscribe("mouse_click", function(button, x, y)
                 items_to_withdraw = {}
                 renderScreen()
             else
-                commitOperation()
+                async.spawn(commitOperation)
             end
         elseif has_items_in_inventory then
-            commitOperation()
+            async.spawn(commitOperation)
         end
     end
 end)
