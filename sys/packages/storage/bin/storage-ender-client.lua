@@ -102,8 +102,6 @@ local function init()
                 -- fails in the nether, but that seems fine.
                 slot = findSlot("minecraft:bucket")
                 if slot ~= nil then
-                    local down = turtle.inspectDown()
-                    assert(not (down and down.name == "minecraft:fire"), "stuck in the nether")
                     turtle.select(slot)
                     turtle.placeUp()
                     while turtle.getItemDetail(slot).name ~= "minecraft:lava_bucket" do
