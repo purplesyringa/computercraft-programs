@@ -77,7 +77,7 @@ The ender client should run `storage-ender-client` on startup and needs the foll
 - Bucket.
 - Diamond sword.
 
-To set it up, place an advanced turtle into its overworld home, move all of the items above into its inventory, and run `storage-ender-client`. The turtle should install the upgrades, get fuel, configure the block it's in as its home, and then open a UI. Break the turtle and place it into its Nether home next. The turtle should record the location as its Nether home and open the UI again. The turtle can now be broken and used in both dimensions.
+To set it up, place an advanced turtle into its overworld home, move all of the items above into its inventory, and run `storage-ender-client`. (Note that the ender modem needs to be in the inventory, not in an equipment slot. If you're booting via network, you can install another ender modem somewhere on the wired network for bootstrapping.) The turtle should install the upgrades, get fuel, configure the block it's in as its home, and then open a UI. Break the turtle and place it into its Nether home next. The turtle should record the location as its Nether home and open the UI again. The turtle can now be broken and used in both dimensions.
 
 
 ## Add-ons
