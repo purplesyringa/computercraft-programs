@@ -47,9 +47,9 @@ The overworld home looks like this:
 - The turtle at the top is an *ender helper*, which executes tasks on behalf of the client when it's in the Nether.
 - The pipe should be connected to a pump, refilling the lava source block.
 - Make sure that all modems are enabled and connected to one wired network with the storage.
-- The block to the right of lava is a dropper. Its orientation does not matter, and it serves exclusively as a non-flammable peripheral to keep the modem enabled when the client is away.
 - The rail is oriented towards the portal; you will need to play around with rails to place multiple such rails side by side, so maybe build that part first.
 - The turtle at the bottom is the ender storage turtle. When it's away, there will be flowing lava in its space, that's fine. You'll need to break the turtle for maintenance, so make sure you have a way of removing lava sources during that time.
+- The chest is empty and keeps the bottom modem enabled while the turtle is away.
 
 The Nether home looks like this:
 
