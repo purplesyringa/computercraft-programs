@@ -86,7 +86,9 @@ function Index:new(on_keys_changed)
         total_cells = 0,
     }, self)
 
-    local chests = { peripheral.find("minecraft:chest") }
+    local chests = {peripheral.find("inventory", function(name)
+        return name:match("^minecraft:chest_") or name:match("^spectrum:.*_amphora_")
+    end) }
     local bundles = { peripheral.find("spectrum:bottomless_bundle") }
 
     -- ComputerCraft limits the event queue to 256 events, so we have to batch requests. Set
