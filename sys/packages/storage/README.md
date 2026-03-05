@@ -26,7 +26,7 @@ There are two parts to set up: the wired part and, optionally, the wireless part
 
 The wired setup is very simple.
 
-The server is a computer or a turtle running `storage-server` on startup. The clients are advanced turtles running `storage-client` on startup. They should be connected via a wired network, along with some chests. Upon booting, the server will recognize all connected chests as storage (blacklist is not supported). You might want to chunk-load the server and all clients if you're making a long-range network, since ComputerCraft seems to struggle with unloading computers safely. You're now all set.
+The server is a computer or a turtle running `storage-server` on startup. The clients are advanced turtles running `storage-client` on startup. They should be connected via a wired network, along with some chests. Upon booting, the server will recognize all connected chests as storage (blacklist is not supported). Make sure that each chest is only connected to a single modem, otherwise the storage will overbook chests. You might want to chunk-load the server and all clients if you're making a long-range network, since ComputerCraft seems to struggle with unloading computers safely. You're now all set.
 
 If you're playing with [Spectrum](https://modrinth.com/mod/spectrum), the storage also uses some other containers for compactness:
 
