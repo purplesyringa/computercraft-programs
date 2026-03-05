@@ -49,7 +49,7 @@ The overworld home looks like this:
 - Make sure that all modems are enabled and connected to one wired network with the storage.
 - The rail is oriented towards the portal; you will need to play around with rails to place multiple such rails side by side, so maybe build that part first.
 - The turtle at the bottom is the ender storage turtle. When it's away, there will be flowing lava in its space, that's fine. You'll need to break the turtle for maintenance, so make sure you have a way of removing lava sources during that time.
-- The barrel is empty and keeps the bottom modem enabled while the turtle is away. Any non-flammable peripheral can be used here, except a chest, since the server uses all chests reachable over wired network for storage.
+- The barrel is empty and keeps the bottom modem enabled while the turtle is away. Any non-flammable peripheral can be used here, except for chests and other containers that the server considers as storage.
 
 The Nether home looks like this:
 
