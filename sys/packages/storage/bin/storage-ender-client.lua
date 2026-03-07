@@ -689,7 +689,14 @@ end
 
 async.subscribe("key", function(key_code)
     onInteraction()
-    if key_code == keys.enter then
+    if ui.ctrl_pressed and key_code == keys.c then -- cancel
+        if edited_item == nil then
+            items_to_withdraw = {}
+        else
+            edited_item = nil
+        end
+        renderScreen()
+    elseif key_code == keys.enter then
         if edited_item ~= nil then
             onItemEnter()
         end
@@ -707,22 +714,13 @@ async.subscribe("key", function(key_code)
 end)
 async.subscribe("char", function(ch)
     onInteraction()
-    if ui.ctrl_pressed and ch == "c" then -- cancel
-        if edited_item == nil then
-            items_to_withdraw = {}
-        else
-            edited_item = nil
+    if edited_item == nil then
+        if common.onChar(ch) ~= nil then
+            renderScreen()
         end
-        renderScreen()
     else
-        if edited_item == nil then
-            if common.onChar(ch) ~= nil then
-                renderScreen()
-            end
-        else
-            if count_field:onChar(ch) then
-                renderScreen()
-            end
+        if count_field:onChar(ch) then
+            renderScreen()
         end
     end
 end)

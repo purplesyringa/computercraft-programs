@@ -46,6 +46,12 @@ function ui.TextField:onKey(key_code)
             self.value = self.value:sub(1, self.position - 1) .. self.value:sub(self.position + 1)
             return true
         end
+    elseif ui.ctrl_pressed and key_code == keys.d then -- clear
+        if self.value ~= "" then
+            self.value = ""
+            self.position = 1
+            return true
+        end
     elseif key_code == keys.right then
         if self.position <= #self.value then
             self.position = self.position + 1
@@ -67,13 +73,7 @@ function ui.TextField:onKey(key_code)
 end
 
 function ui.TextField:onChar(ch)
-    if ui.ctrl_pressed and ch == "d" then -- clear
-        if self.value ~= "" then
-            self.value = ""
-            self.position = 1
-            return true
-        end
-    elseif not ui.ctrl_pressed then
+    if not ui.ctrl_pressed then
         self.value = self.value:sub(1, self.position - 1) .. ch .. self.value:sub(self.position)
         self.position = self.position + 1
         return true
