@@ -118,27 +118,25 @@ end)
 
 async.subscribe("key", function(key_code)
     recordInteraction()
-    if common.ctrl_pressed and key_code == keys.c then -- cancel pulling
-        if selected_item then
-            setPreviewGoal(true)
-            readjust.notifyOne()
-            renderScreen()
-        end
-    else
-        local changes = common.onKey(key_code, term_height - 2)
-        if changes == "search" then
-            setPreviewGoal(true)
-            readjust.notifyOne()
-        end
-        if changes ~= nil then
-            renderScreen()
-        end
+    local changes = common.onKey(key_code, term_height - 2)
+    if changes == "search" then
+        setPreviewGoal(true)
+        readjust.notifyOne()
+    end
+    if changes ~= nil then
+        renderScreen()
     end
 end)
 async.subscribe("key_up", recordInteraction)
 async.subscribe("char", function(ch)
     recordInteraction()
-    if common.onChar(ch) == "search" then
+    if common.ctrl_pressed and ch == "c" then -- cancel pulling
+        if selected_item then
+            setPreviewGoal(true)
+            readjust.notifyOne()
+            renderScreen()
+        end
+    elseif common.onChar(ch) == "search" then
         setPreviewGoal(true)
         readjust.notifyOne()
         renderScreen()
