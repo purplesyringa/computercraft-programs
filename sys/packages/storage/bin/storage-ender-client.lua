@@ -448,7 +448,7 @@ local function onItemEnter()
     renderScreen()
 end
 
-local function openItemDialog(item)
+local function handleItemClick(item, button)
     local key = util.getItemKey(item)
     edited_item = nil
     for _, reserved_item in pairs(items_to_withdraw) do
@@ -464,8 +464,18 @@ local function openItemDialog(item)
             renderScreen()
             return
         end
-        edited_item = util.itemWithCount(item, 0)
-        count_field:clear()
+        if button == 1 then
+            local server_item = common.index[key]
+            if server_item and server_item.count > 0 then
+                local count = math.min(item.maxCount, server_item.count)
+                table.insert(items_to_withdraw, util.itemWithCount(item, count))
+            else
+                error_message = "No items in storage"
+            end
+        else
+            edited_item = util.itemWithCount(item, 0)
+            count_field:clear()
+        end
     else
         count_field.value = common.formatItemCount(edited_item)
         count_field.position = #count_field.value + 1
@@ -719,17 +729,14 @@ async.subscribe("mouse_click", function(button, x, y)
     if edited_item ~= nil then
         return
     end
-    if button ~= 1 then
-        return
-    end
     local first_y = term_height - #items_to_withdraw
     if y >= 2 and y < first_y then
         local item = common.getVisibleItem(y - 1)
         if item then
-            openItemDialog(item)
+            handleItemClick(item, button)
         end
     elseif y >= first_y and y < term_height then
-        openItemDialog(items_to_withdraw[y - first_y + 1])
+        handleItemClick(items_to_withdraw[y - first_y + 1], button)
     elseif y == term_height then
         if next(items_to_withdraw) then
             if x <= 7 then
