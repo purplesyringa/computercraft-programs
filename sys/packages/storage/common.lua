@@ -63,7 +63,7 @@ function common.formatItemName(item)
         for _, enchantment in ipairs(item.enchantments) do
             table.insert(enchantments, enchantment.displayName)
         end
-        return "\xa7 " .. table.concat(enchantments, " + ")
+        return "\x15 " .. table.concat(enchantments, " + ")
     end
 
     local inferred_name = snakeCaseToTitleCase(item.name:match(":(.*)"))
@@ -71,7 +71,6 @@ function common.formatItemName(item)
     -- Smithing templates don't export their name anywhere. Match by display name exclusively
     -- because mods add their own smithing templates without setting any recognizable tags.
     if item.displayName == "Smithing Template" then
-        local i = item.name:find(":")
         return "\x08 " .. inferred_name:gsub(" Smithing Template$", "")
     end
 
