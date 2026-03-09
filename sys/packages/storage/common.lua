@@ -154,6 +154,41 @@ function common.formatItemName(item)
         end
     end
 
+    if item.name == "supplementaries:cage" and item.displayName == "Cage" then
+        return "Filled " .. item.displayName
+    end
+
+    if item.name == "supplementaries:lunch_basket" and item.displayName == "Lunch Basket" then
+        -- {SelectedSlot:N}
+        local selected_slot = ({
+            ["fb8043f08eeff71170c3a484156606c8"] = 0,
+            ["75abc772f41b13b164b4228d5fed9baa"] = 1,
+            ["d05887fb2ade5806c0f141381a5d897e"] = 2,
+            ["d9549e8b32dfa280556dd395afc8acae"] = 3,
+            ["76425bd180df4830331884a915978a71"] = 4,
+            ["218feebde48864e492b5db66ffb2be66"] = 5,
+        })[item.nbt]
+        if not selected_slot then
+            return item.displayName .. " with food"
+        end
+    end
+
+    if (
+        item.name == "additionaladditions:pocket_jukebox"
+        and item.displayName == "Pocket Jukebox"
+    ) then
+        return item.displayName .. " with disc"
+    end
+
+    if (
+        item.name == "supplementaries:blackboard"
+        and item.displayName == "Blackboard"
+        -- {BlockEntityTag:{Pixels:[L;0L,0L,0L,0L,0L,0L,0L,0L,0L,0L,0L,0L,0L,0L,0L,0L]}}
+        and item.nbt ~= "943fe9452c6f0c3306d7ba602b719d87"
+    ) then
+        return item.displayName .. " with drawing"
+    end
+
     return item.displayName
 end
 
