@@ -7,7 +7,7 @@ return {
 	["minecraft:music_disc_far"] = "C418 - far",
 	["minecraft:music_disc_mall"] = "C418 - mall",
 	["minecraft:music_disc_mellohi"] = "C418 - mellohi",
-	["minecraft:music_disc_stall"] = "C418 - stall",
+	["minecraft:music_disc_stal"] = "C418 - stal",
 	["minecraft:music_disc_strad"] = "C418 - strad",
 	["minecraft:music_disc_ward"] = "C418 - ward",
 	["minecraft:music_disc_11"] = "C418 - 11",
@@ -20,7 +20,7 @@ return {
 	["minecraft:music_disc_relic"] = "Aaron Cherof - Relic",
 	["minecraft:music_disc_precipice"] = "Aaron Cherof - Precipice",
 	["minecraft:music_disc_tears"] = "Amos Roddy - Tears",
-	["minecraft:music_disc_lava_chicken"] = "Hyper Potions - Tears",
+	["minecraft:music_disc_lava_chicken"] = "Hyper Potions - Lava Chicken",
 
 	-- Modded
 	["additionaladditions:music_disc_0308"] = "adoghr - 0308",
