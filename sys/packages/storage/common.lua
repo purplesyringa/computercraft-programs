@@ -79,6 +79,25 @@ function common.formatItemName(item)
         return "\x0f Unknown - " .. title
     end
 
+    -- Flight duration of rockets is stored exclusively as part of NBT, but we don't have direct
+    -- access to it. Still, we can hard-code specific hashes for the default three flight durations.
+    if item.name == "minecraft:firework_rocket" then
+        -- The `nbt` property is computed as hexadecimal MD5 of binary NBT. For sNBT of
+        -- `{Fireworks:{Flight:Nb}}`, binary NBT looks like:
+        --     0a00000a0009 "Fireworks" 010006 "Flight" N 0000
+        local flight_duration = 1
+        if item.nbt then
+            flight_duration = ({
+                ["d0ff6bc9806f9055938eb48aedf0c2d4"] = 1,
+                ["2a39747329a0f0c6429c3a43d291a409"] = 2,
+                ["eed0556fe00e36dbb354b0f833973efc"] = 3,
+            })[item.nbt]
+        end
+        if flight_duration then
+            return "\x18 Flight duration " .. flight_duration
+        end
+    end
+
     return item.displayName
 end
 
