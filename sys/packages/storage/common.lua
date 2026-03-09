@@ -105,6 +105,23 @@ function common.formatItemName(item)
         end
     end
 
+    if item.name == "minecraft:goat_horn" then
+        -- {instrument:"minecraft:..._goat_horn"}
+        local sound = ({
+            ["ebcaa0a0c0569860e8c1896828aff6bc"] = "Ponder",
+            ["f4851fff21ad8937ce60d581b886a4c1"] = "Sing",
+            ["cb24dd66d7be3d4b5e1c73fea8a398fe"] = "Seek",
+            ["d6c185ca11d6750f2c11493b0d8a258c"] = "Feel",
+            ["8e4a5ae425abb90b07c76e85fb0a097e"] = "Admire",
+            ["3c921ec6b4789b9351c999dd5cc36e42"] = "Call",
+            ["c30632d04e95071c7b48b7b843828865"] = "Yearn",
+            ["54ce224c49ee3a7e86fdb7f60bd0f387"] = "Dream",
+        })[item.nbt]
+        if sound then
+            return sound .. " " .. item.displayName
+        end
+    end
+
     -- For containers that can have contents while in item form, disambiguate between empty and
     -- populated versions. Equate empty NBT with no NBT, since both can be present in different
     -- circumstances.
