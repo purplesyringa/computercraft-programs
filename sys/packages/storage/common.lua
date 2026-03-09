@@ -55,7 +55,7 @@ function common.formatItemName(item)
         for _, enchantment in ipairs(item.enchantments) do
             table.insert(enchantments, enchantment.displayName)
         end
-        return table.concat(enchantments, " + ")
+        return "\xa7 " .. table.concat(enchantments, " + ")
     end
 
     -- Smithing templates don't export their name anywhere. Match by display name because mods add
@@ -63,7 +63,7 @@ function common.formatItemName(item)
     -- locale, but that makes some sense because we can't print non-Latin characters anyway.
     if item.displayName == "Smithing Template" then
         local i = item.name:find(":")
-        return snakeCaseToTitleCase(item.name:sub(i + 1):gsub("_smithing_template$", ""))
+        return "\x08 " .. snakeCaseToTitleCase(item.name:sub(i + 1):gsub("_smithing_template$", ""))
     end
 
     -- The full names of music discs (author + title) can only be extracted by calling
@@ -71,11 +71,12 @@ function common.formatItemName(item)
     -- can't push the disc into a disc drive, get the title, and move it back within a tick, so it'd
     -- quickly get messy. Hard-code the names instead.
     if discs[item.name] then
-        return discs[item.name]
+        return "\x0f " .. discs[item.name]
     elseif item.displayName == "Music Disc" then
         -- Best-effort fallback.
         local i = item.name:find(":")
-        return "Unknown - " .. snakeCaseToTitleCase(item.name:sub(i + 1):gsub("^music_disc_", ""))
+        local title = snakeCaseToTitleCase(item.name:sub(i + 1):gsub("^music_disc_", ""))
+        return "\x0f Unknown - " .. title
     end
 
     return item.displayName
