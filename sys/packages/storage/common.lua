@@ -50,7 +50,15 @@ local function snakeCaseToTitleCase(s)
 end
 
 function common.formatItemName(item)
-    if item.name == "minecraft:enchanted_book" and next(item.enchantments or {}) then
+    -- Override display names of items whose default names are too vague to be useful. We only
+    -- override the *default* name, keeping anvil-renamed names as-is. This assumes the English
+    -- locale, but that makes some sense because we can't print non-Latin characters anyway.
+
+    if (
+        item.name == "minecraft:enchanted_book"
+        and item.displayName == "Enchanted Book"
+        and next(item.enchantments or {})
+    ) then
         local enchantments = {}
         for _, enchantment in ipairs(item.enchantments) do
             table.insert(enchantments, enchantment.displayName)
@@ -58,34 +66,35 @@ function common.formatItemName(item)
         return "\xa7 " .. table.concat(enchantments, " + ")
     end
 
-    -- Smithing templates don't export their name anywhere. Match by display name because mods add
-    -- their own smithing templates without setting any recognizable tags. This assumes English
-    -- locale, but that makes some sense because we can't print non-Latin characters anyway.
+    local inferred_name = snakeCaseToTitleCase(item.name:match(":(.*)"))
+
+    -- Smithing templates don't export their name anywhere. Match by display name exclusively
+    -- because mods add their own smithing templates without setting any recognizable tags.
     if item.displayName == "Smithing Template" then
         local i = item.name:find(":")
-        return "\x08 " .. snakeCaseToTitleCase(item.name:sub(i + 1):gsub("_smithing_template$", ""))
+        return "\x08 " .. inferred_name:gsub(" Smithing Template$", "")
     end
 
     -- The full names of music discs (author + title) can only be extracted by calling
     -- `getAudioTitle` on a disk drive, but since `getAudioTitle` runs on the computer thread, we
     -- can't push the disc into a disc drive, get the title, and move it back within a tick, so it'd
     -- quickly get messy. Hard-code the names instead.
-    if discs[item.name] then
-        return "\x0f " .. discs[item.name]
-    elseif item.displayName == "Music Disc" then
-        -- Best-effort fallback.
-        local i = item.name:find(":")
-        local title = snakeCaseToTitleCase(item.name:sub(i + 1):gsub("^music_disc_", ""))
-        return "\x0f Unknown - " .. title
+    if item.tags["minecraft:music_discs"] and item.displayName == "Music Disc" then
+        local name = discs[item.name] or ("Unknown - " .. inferred_name:gsub("^Music Disc ", ""))
+        return "\x0f " .. name
     end
 
     -- Plenty of useful information is stored in NBT, but we don't have direct access to it, so we
     -- hard-code specific hashes. The hashes can be computed from sNBT using
     -- [nbtlib](https://pypi.org/project/nbtlib/) like this:
     --     nbt --plain -w '{Fireworks:{Flight:1b}}' /dev/stdout | md5sum
+    if not item.nbt then
+        return item.displayName
+    end
 
-    -- Hard-code the default three rocket flight durations.
-    if item.name == "minecraft:firework_rocket" and item.nbt then
+    -- The default three rocket flight durations. No need to filter for display name here, since
+    -- we're only changing names for known NBTs, and renaming affects the NBT.
+    if item.name == "minecraft:firework_rocket" then
         -- {Fireworks:{Flight:Nb}}
         local flight_duration = ({
             ["d0ff6bc9806f9055938eb48aedf0c2d4"] = 1,
@@ -94,6 +103,55 @@ function common.formatItemName(item)
         })[item.nbt]
         if flight_duration then
             return "\x18 Flight duration " .. flight_duration
+        end
+    end
+
+    -- For containers that can have contents while in item form, disambiguate between empty and
+    -- populated versions. Equate empty NBT with no NBT, since both can be present in different
+    -- circumstances.
+    if (
+        (
+            item.tags["c:shulker_boxes"]
+            or item.tags["supplementaries:sacks"]
+            -- Presents never have empty NBT, but otherwise behave the same.
+            or item.name == "spectrum:present"
+        )
+        -- {BlockEntityTag:{Items:[],id:"minecraft:shulker_box"}}
+        and item.nbt ~= "bc54a5748935980a545887a339976847"
+    ) then
+        local default_name = inferred_name
+        -- Supplementaries Squared spells IDs like `sack_purple` while translating them like "Purple
+        -- Sack", so it needs a small hack.
+        if item.name:match("^suppsquared:sack_") then
+            default_name = inferred_name:gsub("^Sack ", "") .. " Sack"
+        end
+        if item.displayName == default_name then
+            return item.displayName .. " with items"
+        end
+    end
+
+    -- It seems useful to disambiguate between nests/hives that are empty vs contain bees vs contain
+    -- honey only, so we hard-code the default five honey levels as opposed to just the level 0.
+    -- Don't filter for the default name here, since it's non-trivial to get (e.g. Friends & Foes
+    -- renames the default beehive to "Oak Beehive") and people are unlikely to rename hives.
+    if (
+        item.name == "minecraft:bee_nest"
+        or item.name == "minecraft:beehive"
+        or item.name:match("^friendsandfoes:.*_beehive$")
+    ) then
+        -- {BlockEntityTag:{Bees:[]},BlockStateTag:{honey_level:"N"}}
+        local honey_level = ({
+            ["8dd5298dc53246c577f3b0baaa365fc9"] = 0,
+            ["39b8373a630d3821fd8330d57172160d"] = 1,
+            ["67e049292d3aa2d99fbbd7605e0b7733"] = 2,
+            ["edd063c6746d63e89092ddadd86bbb0c"] = 3,
+            ["376ebd29ee931d3bff919772592aeaa6"] = 4,
+            ["4daa8ea9ebca9d7477d610a49d3e529f"] = 5,
+        })[item.nbt]
+        if honey_level == nil then
+            return item.displayName .. " with bees"
+        elseif honey_level > 0 then
+            return item.displayName .. " with honey"
         end
     end
 
