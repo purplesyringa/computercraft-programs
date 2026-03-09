@@ -74,6 +74,21 @@ function common.formatItemName(item)
         return "\x08 " .. inferred_name:gsub(" Smithing Template$", "")
     end
 
+    -- Similar thing for banner patterns, plus hard-coding for known patterns that don't follow
+    -- the pattern.
+    if item.displayName == "Banner Pattern" then
+        local name = ({
+            ["minecraft:flower_banner_pattern"] = "Flower Charge",
+            ["minecraft:creeper_banner_pattern"] = "Creeper Charge",
+            ["minecraft:skull_banner_pattern"] = "Skull Charge",
+            ["minecraft:mojang_banner_pattern"] = "Thing",
+            ["minecraft:piglin_banner_pattern"] = "Snout",
+            ["minecraft:dragon_banner_pattern"] = "Dragon Charge",
+            ["spectrum:logo_banner_pattern"] = "Color Theory",
+        })[item.name] or inferred_name:gsub(" Banner Pattern$", "")
+        return name .. " Banner Pattern"
+    end
+
     -- The full names of music discs (author + title) can only be extracted by calling
     -- `getAudioTitle` on a disk drive, but since `getAudioTitle` runs on the computer thread, we
     -- can't push the disc into a disc drive, get the title, and move it back within a tick, so it'd
