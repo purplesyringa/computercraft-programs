@@ -1,6 +1,7 @@
 local async = require "async"
 local util = require "storage.util"
 local ui = require "storage.ui"
+local discs = require "storage.discs"
 
 local common = {}
 
@@ -40,6 +41,14 @@ function common.getVisibleItem(position)
     return common.filtered_index[position + scroll_pos - 1]
 end
 
+local function snakeCaseToTitleCase(s)
+    local words = {}
+    for word in s:gmatch("[^_]+") do
+        table.insert(words, word:sub(1, 1):upper() .. word:sub(2))
+    end
+    return table.concat(words, " ")
+end
+
 function common.formatItemName(item)
     if item.name == "minecraft:enchanted_book" and next(item.enchantments or {}) then
         local enchantments = {}
@@ -54,12 +63,19 @@ function common.formatItemName(item)
     -- locale, but that makes some sense because we can't print non-Latin characters anyway.
     if item.displayName == "Smithing Template" then
         local i = item.name:find(":")
-        local name = item.name:sub(i + 1):gsub("_smithing_template$", "")
-        local words = {}
-        for word in name:gmatch("[^_]+") do
-            table.insert(words, word:sub(1, 1):upper() .. word:sub(2))
-        end
-        return table.concat(words, " ")
+        return snakeCaseToTitleCase(item.name:sub(i + 1):gsub("_smithing_template$", ""))
+    end
+
+    -- The full names of music discs (author + title) can only be extracted by calling
+    -- `getAudioTitle` on a disk drive, but since `getAudioTitle` runs on the computer thread, we
+    -- can't push the disc into a disc drive, get the title, and move it back within a tick, so it'd
+    -- quickly get messy. Hard-code the names instead.
+    if discs[item.name] then
+        return discs[item.name]
+    elseif item.displayName == "Music Disc" then
+        -- Best-effort fallback.
+        local i = item.name:find(":")
+        return "Unknown - " .. snakeCaseToTitleCase(item.name:sub(i + 1):gsub("^music_disc_", ""))
     end
 
     return item.displayName
@@ -144,8 +160,8 @@ local function itemMatchesQuery(item, query)
     if checkNameOrDisplayName(item) then
         return true
     end
-    -- Some items, like smithing templates, are formatted into a name that is not present as
-    -- a substring in data. Recognize that.
+    -- Some items, like smithing templates and music discs, are formatted into a name that is not
+    -- present as a substring in data. Recognize that.
     if util.stringContainsCaseInsensitive(
         stripFormatting(common.formatItemName(item)),
         query
