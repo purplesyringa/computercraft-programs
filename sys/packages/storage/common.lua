@@ -267,6 +267,9 @@ function common.formatItemName(item)
         return item.displayName .. " with drawing"
     end
 
+    -- Suspicious Stew is not exposed deliberately, even though we could match NBT. At the current
+    -- scale we use suspicious stew exclusively for gambling.
+
     return item.displayName
 end
 
