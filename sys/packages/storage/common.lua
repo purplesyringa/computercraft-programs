@@ -73,15 +73,19 @@ function common.formatItemName(item)
     end
 
     if (
-        item.name == "minecraft:potion"
+        (
+            item.name == "minecraft:potion"
+            or item.name == "minecraft:splash_potion"
+            or item.name == "minecraft:lingering_potion"
+        )
         and next(item.potionEffects or {})
         -- Filter out Spectrum's potions, since they can combine multiple effects with different
         -- durations.
-        and not ({
-            ["Pigment Potion"] = true,
-            ["Splash Pigment Potion"] = true,
-            ["Lingering Pigment Potion"] = true,
-        })[stripFormatting(item.displayName)]
+        and stripFormatting(item.displayName) ~= ({
+            ["minecraft:potion"] = "Pigment Potion",
+            ["minecraft:splash_potion"] = "Splash Pigment Potion",
+            ["minecraft:lingering_potion"] = "Lingering Pigment Potion",
+        })[item.name]
     ) then
         local max_duration = 0
         local max_potency = 1
@@ -254,6 +258,7 @@ function common.formatItemName(item)
     if (
         item.name == "additionaladditions:pocket_jukebox"
         and item.displayName == "Pocket Jukebox"
+        and item.nbt ~= "41883520c3071f5f4a4a4613fb005e0c" -- {}
     ) then
         return item.displayName .. " with disc"
     end
