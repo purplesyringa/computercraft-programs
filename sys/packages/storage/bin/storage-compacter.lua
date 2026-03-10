@@ -166,63 +166,88 @@ local function sumCounts(inv)
     return res
 end
 
+local function pack_item(item, item_packed, recipe_size)
+    -- print("P", item.name, item.count, item_packed.name, item_packed.count)
+
+    -- adjust to KEEP_LOW: craft this item away
+    while item.count > KEEP_HIGH do
+        local count = math.min(
+            item.maxCount,
+            16 * item_packed.maxCount,
+            math.floor((item.count - KEEP_LOW) / recipe_size)
+        )
+        -- print("P!", count)
+        item.count = item.count - recipe_size * count
+        item_packed.count = item_packed.count + count
+        waitAdjust(makeGoalOf(item, count, recipe_size))
+        if sumCounts(currentInventory()) ~= count * recipe_size then
+            break
+        end
+        crafter.craft()
+    end
+end
+
+local function unpack_item(item, item_unpacked, recipe_size)
+    -- print("U", item.name, item.count, item_unpacked.name, item_unpacked.count)
+
+    -- adjust to KEEP_HIGH: uncraft packed items
+    while item_unpacked.count < KEEP_LOW and item.count > 0 do
+        local count = math.min(
+            item.maxCount,
+            item.count,
+            math.floor(
+                math.min(
+                    16 * item_unpacked.maxCount,
+                    KEEP_HIGH - item_unpacked.count
+                ) / recipe_size
+            )
+        )
+        -- print("U!", count)
+        item.count = item.count - count
+        item_unpacked.count = item_unpacked.count + count * recipe_size
+        waitAdjust(makeGoalOf(item, count, 1))
+        if sumCounts(currentInventory()) ~= count then
+            break
+        end
+        crafter.craft()
+    end
+end
+
+local function emptyItem(name)
+    return {
+        name = name,
+        count = 0,
+        maxCount = ir.describe("item", name).maxCount,
+    }
+end
+
 async.spawn(function()
     while true do
+        -- print("A")
         local my_index = incremental_index
         incremental_index = {}
         for _, item in pairs(my_index) do
             local packed = nine_to_one[item.name] or four_to_one[item.name]
             if packed then
                 local recipe_size = nine_to_one[item.name] and 9 or 4
-                -- index may not have packed, so maxCount needs to be queried from elsewhere
-                local max_packed_count = ir.describe("item", packed).maxCount
 
                 -- does not contaminate incremental_index and therefore is never sent to server
-                index[packed] = index[packed] or { name = packed, count = 0 }
+                local key = util.getItemKey({ name = packed })
+                index[key] = index[key] or emptyItem(packed)
 
-                -- adjust to KEEP_LOW: craft this item away
-                while item.count > KEEP_HIGH do
-                    local count = math.min(
-                        item.maxCount,
-                        16 * max_packed_count,
-                        math.floor((item.count - KEEP_LOW) / recipe_size)
-                    )
-                    item.count = item.count - recipe_size * count
-                    index[packed].count = index[packed].count + count
-                    waitAdjust(makeGoalOf(item, count, recipe_size))
-                    if sumCounts(currentInventory()) ~= count * recipe_size then
-                        break
-                    end
-                    crafter.craft()
-                end
+                pack_item(item, index[key], recipe_size)
+                unpack_item(index[key], item, recipe_size)
             end
 
             local unpacked = one_to_nine[item.name] or one_to_four[item.name]
             if unpacked then
                 local recipe_size = one_to_nine[item.name] and 9 or 4
-                local max_unpacked_count = ir.describe("item", unpacked).maxCount
-                index[unpacked] = index[unpacked] or { name = unpacked, count = 0 }
 
-                -- adjust to KEEP_HIGH: uncraft packed items
-                while index[unpacked].count < KEEP_LOW and item.count > 0 do
-                    local count = math.min(
-                        item.maxCount,
-                        item.count,
-                        math.floor(
-                            math.min(
-                                16 * max_unpacked_count,
-                                KEEP_HIGH - index[unpacked].count
-                            ) / recipe_size
-                        )
-                    )
-                    item.count = item.count - count
-                    index[unpacked].count = index[unpacked].count + count * recipe_size
-                    waitAdjust(makeGoalOf(item, count, 1))
-                    if sumCounts(currentInventory()) ~= count then
-                        break
-                    end
-                    crafter.craft()
-                end
+                local key = util.getItemKey({ name = unpacked })
+                index[key] = index[key] or emptyItem(unpacked)
+
+                pack_item(index[key], item, recipe_size)
+                unpack_item(item, index[key], recipe_size)
             end
         end
         waitAdjust({})
@@ -240,10 +265,12 @@ async.spawn(function()
         elseif msg.type == "patch_index" then
             server_id = computer_id
             if msg.reset then
+                -- print("IR")
                 index = {}
                 incremental_index = {}
             end
             for key, item in pairs(msg.items) do
+                -- print("I", key, item.name, item.count)
                 index[key] = item
                 incremental_index[key] = item
             end
