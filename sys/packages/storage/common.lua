@@ -107,7 +107,13 @@ function common.formatItemName(item)
             potency_part = " II"
         end
         local duration_part = ""
-        if max_duration > 0 then
+        if max_duration >= 3600 then
+            duration_part = (" (%02d:%02d:%02d)"):format(
+                math.floor(max_duration / 3600),
+                math.floor(max_duration / 60) % 60,
+                max_duration % 60
+            )
+        elseif max_duration > 0 then
             duration_part = (" (%02d:%02d)"):format(
                 math.floor(max_duration / 60),
                 max_duration % 60
