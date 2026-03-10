@@ -49,6 +49,12 @@ local function snakeCaseToTitleCase(s)
     return table.concat(words, " ")
 end
 
+local SECTION_SIGN = "\xa7"
+
+local function stripFormatting(text)
+    return text:gsub(SECTION_SIGN .. ".", "")
+end
+
 function common.formatItemName(item)
     -- Override display names of items whose default names are too vague to be useful. We only
     -- override the *default* name, keeping anvil-renamed names as-is. This assumes the English
@@ -64,6 +70,46 @@ function common.formatItemName(item)
             table.insert(enchantments, enchantment.displayName)
         end
         return "\x15 " .. table.concat(enchantments, " + ")
+    end
+
+    if (
+        item.name == "minecraft:potion"
+        and next(item.potionEffects or {})
+        -- Filter out Spectrum's potions, since they can combine multiple effects with different
+        -- durations.
+        and not ({
+            ["Pigment Potion"] = true,
+            ["Splash Pigment Potion"] = true,
+            ["Lingering Pigment Potion"] = true,
+        })[stripFormatting(item.displayName)]
+    ) then
+        local max_duration = 0
+        local max_potency = 1
+        for _, effect in pairs(item.potionEffects) do
+            -- Computing the maximum duration is not obviously correct, but seems to check out for
+            -- all vanilla potions.
+            max_duration = math.max(max_duration, effect.duration or 0)
+            max_potency = math.max(max_potency, effect.potency or 1)
+        end
+        -- A potent Potion of Slowness inflicts Slowness IV compared to the normal Slowness I, so we
+        -- write "II" regardless of the effect potency. This covers everything except Potion of
+        -- Turtle Master, which starts with a high potency and thus requires a higher cutoff.
+        local default_potency = 1
+        if item.displayName:match("Turtle Master") then
+            default_potency = 4
+        end
+        local potency_part = ""
+        if max_potency > default_potency then
+            potency_part = " II"
+        end
+        local duration_part = ""
+        if max_duration > 0 then
+            duration_part = (" (%02d:%02d)"):format(
+                math.floor(max_duration / 60),
+                max_duration % 60
+            )
+        end
+        return item.displayName .. potency_part .. duration_part
     end
 
     local inferred_name = snakeCaseToTitleCase(item.name:match(":(.*)"))
@@ -237,8 +283,6 @@ function common.formatItemCount(item)
     end
 end
 
-local SECTION_SIGN = "\xa7"
-
 local function parseFormattedText(text)
     local out = {}
     local color = nil
@@ -265,10 +309,6 @@ local function parseFormattedText(text)
         text = text:sub(i),
     })
     return out
-end
-
-local function stripFormatting(text)
-    return text:gsub(SECTION_SIGN .. ".", "")
 end
 
 local function itemMatchesQuery(item, query)
