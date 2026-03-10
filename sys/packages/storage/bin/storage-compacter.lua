@@ -190,7 +190,7 @@ async.spawn(function()
                     item.count = item.count - recipe_size * count
                     index[packed].count = index[packed].count + count
                     waitAdjust(makeGoalOf(item, count, recipe_size))
-                    if sumCounts(currentInventory()) ~= count then
+                    if sumCounts(currentInventory()) ~= count * recipe_size then
                         break
                     end
                     crafter.craft()
@@ -204,7 +204,7 @@ async.spawn(function()
                 index[unpacked] = index[unpacked] or { name = unpacked, count = 0 }
 
                 -- adjust to KEEP_HIGH: uncraft packed items
-                while index[unpacked].count < KEEP_LOW do
+                while index[unpacked].count < KEEP_LOW and item.count > 0 do
                     local count = math.min(
                         item.maxCount,
                         item.count,
@@ -218,7 +218,7 @@ async.spawn(function()
                     item.count = item.count - count
                     index[unpacked].count = index[unpacked].count + count * recipe_size
                     waitAdjust(makeGoalOf(item, count, 1))
-                    if sumCounts(currentInventory()) ~= count * recipe_size then
+                    if sumCounts(currentInventory()) ~= count then
                         break
                     end
                     crafter.craft()
