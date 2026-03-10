@@ -1,79 +1,127 @@
 local async = require "async"
 local util = require "storage.util"
 
-local modem = peripheral.find("modem")
-assert(modem, "Modem not available")
+local modem = assert(peripheral.find("modem"), "Modem not available")
 rednet.open(peripheral.getName(modem))
-
-local crafter = peripheral.find("workbench")
-assert(crafter, "Crafting table not available")
-
 os.setComputerLabel("Compacting turtle")
-
 local wired_name = modem.getNameLocal()
-
 local server_id = rednet.CHANNEL_BROADCAST
 
+local crafter = assert(peripheral.find("workbench"), "Crafting table not available")
+
+local rr = assert(peripheral.find("recipe_registry"), "Recipe registry not available")
+local ir = assert(peripheral.find("informative_registry"), "Informative registry not available")
+
+local recipes = rr.list("minecraft:crafting")
+
+-- like { ["minecraft:iron_nugget"] = "minecraft:iron_ingot" }
+local nine_to_one = {}
+local one_to_nine = {}
+local four_to_one = {}
+local one_to_four = {}
+
+local function tile_to_items(tile)
+    if tile.type == "empty" then
+        -- pass
+    elseif tile.item then
+        coroutine.yield(tile.item)
+    elseif tile.tag then
+        local items = ir.describe("itemTags", tile.tag) or {}
+        for _, item in pairs(items) do
+            coroutine.yield(item)
+        end
+    else
+        for _, nested in pairs(tile) do
+            tile_to_items(nested)
+        end
+    end
+end
+
+local function process_recipe(recipe)
+    -- sanity checks
+    assert(recipe.type == "crafting")
+    assert(#recipe.output == 1)
+
+    local input = recipe.input
+    local output = recipe.output[1]
+
+    local category = nil
+    if #input == 9 and recipe.extra and recipe.extra.height == 3 and output.count == 1 then
+        category = nine_to_one
+    elseif #input == 4 and recipe.extra and recipe.extra.height == 2 and output.count == 1 then
+        category = four_to_one
+    elseif #input == 1 then
+        if output.count == 9 then
+            category = one_to_nine
+        elseif output.count == 4 then
+            category = one_to_four
+        end
+    end
+
+    if not category or output.nbt then
+        return
+    end
+
+    local materials = {}
+    for _, tile in pairs(recipe.input) do
+        for item in coroutine.wrap(function() tile_to_items(tile) end) do
+            materials[item] = (materials[item] or 0) + 1
+        end
+    end
+
+    for material, count in pairs(materials) do
+        if count == #input then
+            if category[material] and category[material] ~= output.name then
+                category[material] = "!ambiguous"
+            else
+                category[material] = output.name
+            end
+        end
+    end
+end
+
+for _, recipe_id in pairs(recipes) do
+    process_recipe(rr.get(recipe_id))
+end
+
+local function filter_roundtrip(left_to_right, right_to_left)
+    for left, right in pairs(left_to_right) do
+        if left ~= right_to_left[right] then
+            left_to_right[left] = nil
+        end
+    end
+end
+
+-- filter out ambiguous decrafting recipes
+for one, _ in pairs(one_to_nine) do
+    if one_to_four[one] then
+        one_to_four[one] = nil
+        one_to_nine[one] = nil
+    end
+end
+
+filter_roundtrip(nine_to_one, one_to_nine)
+filter_roundtrip(one_to_nine, nine_to_one)
+filter_roundtrip(four_to_one, one_to_four)
+filter_roundtrip(one_to_four, four_to_one)
+
 local index = {} -- Type: { [key] = item, ... }
+local index_updated = async.newNotifyWaiters()
+local incremental_index = {}
 
-local INCLUDE_NAMES = {
-    ["minecraft:coal"] = true,
-    ["minecraft:diamond"] = true,
-    ["minecraft:emerald"] = true,
-    ["minecraft:redstone"] = true,
-    ["minecraft:lapis_lazuli"] = true,
-    ["minecraft:flint"] = true,
-}
-local INCLUDE_TAGS = {
-    ["c:nuggets"] = true,
-    ["c:ingots"] = true,
-    ["c:raw_materials"] = true,
-    -- ["spectrum:gemstone_powders"] = true, -- Requires pigment pedestal
-    ["spectrum:gemstone_shards"] = true,
-}
-local EXCLUDE_NAMES = {
-    ["minecraft:brick"] = true,
-    ["minecraft:nether_brick"] = true,
-}
-local EXCLUDE_TAGS = {}
 local CRAFTING_SLOTS = {
-    1, 2, 3, -- 4
-    5, 6, 7, -- 8
-    9, 10, 11, -- 12
-    -- 13, 14, 15, 16
+    [1] = { 1 },
+    [4] = { 1, 2, 5, 6 },
+    [9] = {
+        1, 2, 3, -- 4
+        5, 6, 7, -- 8
+        9, 10, 11, -- 12
+        -- 13, 14, 15, 16
+    },
 }
-local KEEP_COUNT = 32
 
-local function validItem(item)
-    if EXCLUDE_NAMES[item.name] then
-        return false
-    end
-    for tag, _ in pairs(item.tags) do
-        if EXCLUDE_TAGS[tag] then
-            return false
-        end
-    end
-    if INCLUDE_NAMES[item.name] then
-        return true
-    end
-    for tag, _ in pairs(item.tags) do
-        if INCLUDE_TAGS[tag] then
-            return true
-        end
-    end
-    return false
-end
-
-local function filterIndex()
-    local filtered_index = {}
-    for _, item in pairs(index) do
-        if validItem(item) and item.count >= KEEP_COUNT + 9 then
-            local count = 9 * math.floor((item.count - KEEP_COUNT) / 9)
-            table.insert(filtered_index, util.itemWithCount(item, count))
-        end
-    end
-    return filtered_index
-end
+local KEEP_LOW = 96
+local KEEP_HIGH = 128
 
 local function currentInventory()
     return async.parMap(util.iota(16), function(slot)
@@ -101,13 +149,13 @@ local function waitAdjust(goal_inventory)
     end
 end
 
-local function makeGoalOf(item)
+local function makeGoalOf(item, rounded, recipe_size)
+    item = util.itemWithCount(item, rounded)
     local goal = {}
-    local count = math.min(64, item.count / 9)
-    for _, slot in pairs(CRAFTING_SLOTS) do
-        goal[slot] = util.itemWithCount(item, count)
+    for _, slot in pairs(CRAFTING_SLOTS[recipe_size]) do
+        goal[slot] = item
     end
-    return goal, 9 * count
+    return goal
 end
 
 local function sumCounts(inv)
@@ -120,23 +168,65 @@ end
 
 async.spawn(function()
     while true do
-        local filtered_index = filterIndex()
-        for _, item in pairs(filtered_index) do
-            while item.count > 0 do
-                local goal, count = makeGoalOf(item)
-                item.count = item.count - count
-                waitAdjust(goal)
-                if sumCounts(currentInventory()) ~= count then
-                    break
+        local my_index = incremental_index
+        incremental_index = {}
+        for _, item in pairs(my_index) do
+            local packed = nine_to_one[item.name] or four_to_one[item.name]
+            if packed then
+                local recipe_size = nine_to_one[item.name] and 9 or 4
+                -- index may not have packed, so maxCount needs to be queried from elsewhere
+                local max_packed_count = ir.describe("item", packed).maxCount
+
+                -- does not contaminate incremental_index and therefore is never sent to server
+                index[packed] = index[packed] or { name = packed, count = 0 }
+
+                -- adjust to KEEP_LOW: craft this item away
+                while item.count > KEEP_HIGH do
+                    local count = math.min(
+                        item.maxCount,
+                        16 * max_packed_count,
+                        math.floor((item.count - KEEP_LOW) / recipe_size)
+                    )
+                    item.count = item.count - recipe_size * count
+                    index[packed].count = index[packed].count + count
+                    waitAdjust(makeGoalOf(item, count, recipe_size))
+                    if sumCounts(currentInventory()) ~= count then
+                        break
+                    end
+                    crafter.craft()
                 end
-                crafter.craft()
+            end
+
+            local unpacked = one_to_nine[item.name] or one_to_four[item.name]
+            if unpacked then
+                local recipe_size = one_to_nine[item.name] and 9 or 4
+                local max_unpacked_count = ir.describe("item", unpacked).maxCount
+                index[unpacked] = index[unpacked] or { name = unpacked, count = 0 }
+
+                -- adjust to KEEP_HIGH: uncraft packed items
+                while index[unpacked].count < KEEP_LOW do
+                    local count = math.min(
+                        item.maxCount,
+                        item.count,
+                        math.floor(
+                            math.min(
+                                16 * max_unpacked_count,
+                                KEEP_HIGH - index[unpacked].count
+                            ) / recipe_size
+                        )
+                    )
+                    item.count = item.count - count
+                    index[unpacked].count = index[unpacked].count + count * recipe_size
+                    waitAdjust(makeGoalOf(item, count, 1))
+                    if sumCounts(currentInventory()) ~= count * recipe_size then
+                        break
+                    end
+                    crafter.craft()
+                end
             end
         end
         waitAdjust({})
-
-        if not next(filtered_index) then
-            os.sleep(10)
-        end
+        index_updated.wait()
     end
 end)
 
@@ -151,10 +241,13 @@ async.spawn(function()
             server_id = computer_id
             if msg.reset then
                 index = {}
+                incremental_index = {}
             end
             for key, item in pairs(msg.items) do
                 index[key] = item
+                incremental_index[key] = item
             end
+            index_updated.notifyWaiters()
         end
     end
 end)
