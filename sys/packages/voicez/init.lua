@@ -1,5 +1,6 @@
-local PRECISION = 8
-local CTX_LEN = 8
+local PRECISION = 1024
+local SHIFT = 4
+local CTX_LEN = 5
 
 local function makePredictor()
     -- P(0) for each context, scaled by PRECISION, from 1 to PRECISION - 1
@@ -14,9 +15,9 @@ local function makePredictor()
         end,
         feedBit = function(bit)
             if bit == 0 then
-                prob0[ctx] = math.min(prob0[ctx] + 1, PRECISION - 1)
+                prob0[ctx] = prob0[ctx] + bit32.rshift(PRECISION - prob0[ctx], SHIFT)
             else
-                prob0[ctx] = math.max(prob0[ctx] - 1, 1)
+                prob0[ctx] = prob0[ctx] - bit32.rshift(prob0[ctx], SHIFT)
             end
             ctx = (ctx * 2 + bit) % bit32.lshift(1, CTX_LEN)
         end,
