@@ -18,7 +18,7 @@ def build_tree(path: Path) -> dict:
             "entries": {
                 child.name: build_tree(child)
                 for child in path.iterdir()
-                if not child.name.endswith(".png")
+                if not (child / ".rdignore").exists()
             },
         }
     elif path.is_file():
