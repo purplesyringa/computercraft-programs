@@ -1,5 +1,5 @@
 local st = assert(peripheral.find("Create_Station"), "no station?")
-assert(peripheral.getName(st) == "front", "wrong orientation")
+assert(peripheral.getName(st) == "bottom", "wrong orientation")
 local args = { ... }
 if #args == 0 then
     printError("autoschedule <train_count>")
@@ -8,7 +8,7 @@ end
 local train_count = tonumber(args[1])
 local train_seen = 0
 local trains = {}
-turtle.suck()
+turtle.suckDown()
 while train_seen < train_count do
     local _, _ = os.pullEvent("train_arrival")
     local train = st.getTrainName()
@@ -16,8 +16,8 @@ while train_seen < train_count do
         trains[train] = true
         train_seen = train_seen + 1
         print(textutils.formatTime(os.time("local"), true), train)
-        turtle.drop()
+        turtle.dropDown()
         os.sleep(1)
-        turtle.suck()
+        turtle.suckDown()
     end
 end
