@@ -205,6 +205,9 @@ function common.formatItemName(item)
         )
         -- {BlockEntityTag:{Items:[],id:"minecraft:shulker_box"}}
         and item.nbt ~= "bc54a5748935980a545887a339976847"
+        -- Easy Shulker Boxes removes `Items` from empty shulkerboxes entirely.
+        -- {BlockEntityTag:{id:"minecraft:shulker_box"}}
+        and item.nbt ~= "27ef9809d8b22c0bd4b5208a6b4277ab"
     ) then
         local default_name = inferred_name
         -- Supplementaries Squared spells IDs like `sack_purple` while translating them like "Purple
