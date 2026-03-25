@@ -17,7 +17,7 @@ def build_tree(path: Path) -> dict:
             "attributes": attributes,
             "entries": {
                 child.name: build_tree(child)
-                for child in path.iterdir()
+                for child in sorted(path.iterdir(), key = lambda child: child.name)
                 if not (child / ".rdignore").exists()
             },
         }
