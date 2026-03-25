@@ -94,34 +94,7 @@ function Index:new(on_keys_changed)
     -- ComputerCraft limits the event queue to 256 events, so we have to batch requests. Set
     -- a slightly smaller limit to allow other events to be handled, e.g. rednet.
     local task_set = async.newTaskSet(200)
-    for _, chest in pairs(chests) do
-        index.total_cells = index.total_cells + chest.size()
-        for slot = 1, chest.size() do
-            task_set.spawn(function()
-                local item = chest.getItemDetail(slot)
-                if item then
-                    local key = util.getItemKey(item)
-                    if not index.items[key] then
-                        index.items[key] = {
-                            item = item,
-                            chest_cells = {},
-                            bundles = {},
-                        }
-                    end
-                    table.insert(index.items[key].chest_cells, {
-                        chest = chest,
-                        slot = slot,
-                        count = item.count,
-                    })
-                else
-                    table.insert(index.empty_cells, {
-                        chest = chest,
-                        slot = slot,
-                    })
-                end
-            end)
-        end
-    end
+
     for _, bundle in pairs(bundles) do
         task_set.spawn(function()
             local out = async.gather({
@@ -145,6 +118,52 @@ function Index:new(on_keys_changed)
             end
         end)
     end
+
+    -- Querying many slots for item detail is slow, even with parallelization, so we minimize the
+    -- number of such queries by calling `list` on containers first and then only requesting item
+    -- detail for each item type once. This speeds up querying by about 2x in our storage instance.
+    for _, chest in pairs(chests) do
+        index.total_cells = index.total_cells + chest.size()
+        task_set.spawn(function()
+            local list = chest.list()
+            for slot = 1, chest.size() do
+                local item = list[slot]
+                if item then
+                    local key = util.getItemKey(item)
+                    if not index.items[key] then
+                        index.items[key] = {
+                            item = nil, -- populated later
+                            chest_cells = {},
+                            bundles = {},
+                        }
+                    end
+                    table.insert(index.items[key].chest_cells, {
+                        chest = chest,
+                        slot = slot,
+                        count = item.count,
+                    })
+                else
+                    table.insert(index.empty_cells, {
+                        chest = chest,
+                        slot = slot,
+                    })
+                end
+            end
+        end)
+    end
+
+    task_set.join()
+
+    for key, item_info in pairs(index.items) do
+        if not item_info.item then -- may already be populated for items from bundles
+            local chest_cell = item_info.chest_cells[1]
+            task_set.spawn(function()
+                item_info.item = chest_cell.chest.getItemDetail(chest_cell.slot)
+                assert(util.getItemKey(item_info.item) == key, "concurrent modification")
+            end)
+        end
+    end
+
     task_set.join()
 
     -- Prefer to put non-full cells closer to the end so that they can be quickly located, added,
