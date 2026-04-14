@@ -36,7 +36,7 @@ nfsd            stopped
 rshd            up
 ```
 
-Processes are tasks that are automatically polled by `svc`. Anything that doesn't have a parent or that shouldn't be cancelled when its parent is stopped is a process. This includes all commands configured by servives, e.g. `msh` and `rshd`, as well as detached background tasks, like [`rsh-serve-session`](../rsh/bin/rsh-serve-session.lua). It does not include commands manually run from the shell. The list of running processes can be viewed with `proc`, and processes can be stopped with `proc stop <name>`:
+Processes are tasks that are automatically polled by `svc`. Anything that doesn't have a parent or that shouldn't be cancelled when its parent is stopped is a process. This includes all commands configured by servives, e.g. `msh` and `rshd`, as well as detached background tasks, like [`rsh-serve-session`](../rsh/bin/rsh-serve-session.lua). It does not include commands manually run from the shell. The list of running processes can be viewed with `proc`, and processes can be killed with `proc stop <pid>`:
 
 ```shell
 > proc
@@ -64,13 +64,13 @@ Packages are units of applications. A package can define:
 For example:
 
 - `svc` declares a library, programs like `svc` and `proc`, and no services.
-- `rsh` declares no library, but has two programs `rsh` and `rshd` and the `rshd` service.
+- `rsh` declares no library, but has three programs `rsh`, `rshd`, `rsh-serve-session`, and the `rshd` service.
 
 Packages are stored in the [`packages`](..) subdirectory of the sysroot. They cannot be installed otherwise or located elsewhere: whatever is in `packages` declares the entire environment.
 
-When booting, `svc` mounts a [virtual filesystem](../vfs) called `svcbin` at `<sysroot>/run/bin` that contains a wrapper for each declared executable. This directory is added to `PATH` on boot. When invoked, wrappers configure the `require` function to look for imports in the `<sysroot>/packages` directory, so that executables can `require` libraries from packages.
+When booting, `svc` mounts a [virtual filesystem](../vfs) called `svcbin` at `<sysroot>/run/bin` that contains a wrapper for each declared executable. This directory is added to `PATH` on boot so that programs can be run without specifying a path. When invoked, the wrappers configure the `require` function to look for imports in the `<sysroot>/packages` directory, so that executables can `require` libraries from packages.
 
-Since this configured is propagated to all modules imported within a program, it means that each `require` is relative to the `packages` directory, rather then the directory of the package:
+Since the `require` configuration is propagated to all modules imported within a program, it means that each `require` is relative to the `packages` directory, rather than the per-package subdirectory, differing from normal ComputerCraft:
 
 ```lua
 -- <sysroot>/packages/foo/init.lua
@@ -105,7 +105,7 @@ sys
 
 `rsh` does not declare a library directly since it doesn't have `init.lua`, so `require "rsh"` won't work. However, since it has `events.lua` and `vt.lua`, using `require "rsh.events"` and `require "rsh.vt"` will load the corresponding files. This allows `rsh` to have private modules shared by multiple executables.
 
-The `bin` contains three files that can be executed from shell by their name without the `.lua` suffix: `rsh-serve-session`, `rsh`, `rshd`. `rsh-serve-session` is an internal binary and is not supposed to be invoked directly, hence an unwieldy name. `rsh` is supposed to be invoked by clients, and `rshd` hosts the server. Each file is loaded directly via `dofile` and is no different from a normal CraftOS application, except for require paths being set up differently.
+The `bin` directory contains three files that can be executed from shell by their name without the `.lua` suffix: `rsh-serve-session`, `rsh`, `rshd`. `rsh-serve-session` is an internal binary and is not supposed to be invoked directly, hence an unwieldy name. `rsh` is supposed to be invoked by clients, and `rshd` hosts the server. Each file is loaded directly via `dofile` and is no different from a normal CraftOS application, except for `require` paths being set up differently.
 
 To avoid having to run `rshd` in a multishell by hand, the `rsh` package also declares the `rshd` service:
 
@@ -142,13 +142,13 @@ return {
 }
 ```
 
-Processes receive all machine events, including events from [external keyboards](https://modrinth.com/mod/ducky-periphs), so user-facing applications, like shells, should typically be run under `getty`, which filters events from a specific seat and redirects the terminal if necessary. For example, take a look at the [`getty-default`](../getty/services/getty-default.lua) service that shows an interactive shell on boot.
+Processes receive all machine events, including events from [external keyboards](https://modrinth.com/mod/ducky-periphs), so user-facing applications, like shells, should typically be run under [`getty`](../getty), which filters events from a specific seat and redirects the terminal if necessary. For example, take a look at the [`getty-default`](../getty/services/getty-default.lua) service that shows an interactive shell on boot.
 
-Finally, let's look at targets. Targets are defined outside of `packages` at [`<sysroot>/targets`](../../targets) by the end user. Much like services, targets are pure Lua files that should return a table literal with the following properties:
+Finally, let's look at targets. Targets are defined outside of `packages` at [`<sysroot>/targets`](../../targets). These are meant to be modified by the end user as necessary. Much like services, targets are pure Lua files that should return a table literal with the following properties:
 
-- `services`: a list of services to start when this target is booted.
+- `services` (optional): a list of services to start when this target is booted.
 - `inherits` (optional): a list of targets to pull services from, in addition to the `services` field in the current target. For example, writing `inherits = { "base" }` will bring up `named` regardless of whether it's present in `services`. Pulling is performed recursively.
-- `inherent_services` (optional): similar to `services`, contains a list of services to start, but this field is not pulled when inheriting other targets. Services listed here will only be started if this target is booted, but not if the booted target inherits from it. For example, `base` lists `getty-default` here, so that inheriting from `base` lets you specify your own foreground service.
+- `inherent_services` (optional): similar to `services`, contains a list of services to start, but this field is not pulled when inheriting other targets. Services listed here will only be started if this target is booted directly, but not if the booted target inherits from it. For example, `base` lists `getty-default` here, so that inheriting from `base` lets you specify your own foreground service.
 
 A hypothetical `kiosk` target might look like this:
 
