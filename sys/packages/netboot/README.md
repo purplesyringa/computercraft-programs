@@ -17,3 +17,5 @@ To persist this across reboots, save the file as `startup.lua`:
 ```shell
 wget https://cc.purplesyringa.moe/netboot.lua startup.lua
 ```
+
+This script waits for the netbootd server to provide an initrd indefinitely. This process can be aborted by pressing the Terminate key.

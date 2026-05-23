@@ -1,5 +1,5 @@
+print("Booting from network...")
 peripheral.find("modem", rednet.open)
 rednet.broadcast(nil, "netboot-request")
-local _, payload, _ = rednet.receive("netboot-response", 5)
-assert(payload, "no netboot server")
+local _, payload, _ = rednet.receive("netboot-response")
 load(payload, "=netboot", nil, _ENV)()
