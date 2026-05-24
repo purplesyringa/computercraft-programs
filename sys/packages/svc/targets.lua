@@ -50,7 +50,7 @@ local function getTargetServiceSet(target)
     end
 
     local target_set = {}
-    local function visitTarget(name, is_main)
+    local function visitTarget(name)
         if target_set[name] then
             return
         end
@@ -63,17 +63,12 @@ local function getTargetServiceSet(target)
         for _, service in pairs(target.config.services or {}) do
             visitService(service)
         end
-        if is_main then
-            for _, service in pairs(target.config.inherent_services or {}) do
-                visitService(service)
-            end
-        end
         for _, target in pairs(target.config.inherits or {}) do
-            visitTarget(target, false)
+            visitTarget(target)
         end
     end
 
-    visitTarget(target, true)
+    visitTarget(target)
     return service_set
 end
 

@@ -1,4 +1,4 @@
 return {
     inherits = { "base" },
-    services = { "storage-client" },
+    services = { "getty-default" },
 }

@@ -21,7 +21,7 @@ print("Booting...")
 
 settings.define("svc.target", {
     description = "Default target to reach",
-    default = "base",
+    default = "shell",
     type = "string",
 })
 local target = settings.get("svc.target")
@@ -86,7 +86,7 @@ term.clear()
 
 proc.start("boot", function()
     if not svc.targetStatus(target) then
-        target = "base"
+        target = "shell"
     end
     local ok, err = pcall(svc.reach, target)
     if not ok then

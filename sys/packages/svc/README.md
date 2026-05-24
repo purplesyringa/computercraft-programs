@@ -49,7 +49,7 @@ Processes are a more low-level mechanism than services, and you typically don't 
 
 ## Targets
 
-Targets specify the sets of services that are started when the system boots. The default target is `base`, which includes services like `msh`, `named`, and `rshd`. You can define custom targets that *inherit* from smaller targets, like `base`, so that you don't need to repeat yourself. For example, in a kiosk-like application, you might define the target `kiosk` that inherits from `base` and adds a `kiosk` service.
+Targets specify the sets of services that are started when the system boots. For example, the target `base` includes services like `msh`, `named`, and `rshd`. Targets can *inherit* from smaller targets, like `base`, so that you don't need to repeat yourself. For example, in a kiosk-like application, you might define the target `kiosk` that inherits from `base` and adds a `kiosk` service.
 
 You can start services according to a target temporarily with `svc reach <name>`, or make it the default boot target with `set svc.target <name>`.
 
@@ -148,13 +148,12 @@ Finally, let's look at targets. Targets are defined outside of `packages` at [`<
 
 - `services` (optional): a list of services to start when this target is booted.
 - `inherits` (optional): a list of targets to pull services from, in addition to the `services` field in the current target. For example, writing `inherits = { "base" }` will bring up `named` regardless of whether it's present in `services`. Pulling is performed recursively.
-- `inherent_services` (optional): similar to `services`, contains a list of services to start, but this field is not pulled when inheriting other targets. Services listed here will only be started if this target is booted directly, but not if the booted target inherits from it. For example, `base` lists `getty-default` here, so that inheriting from `base` lets you specify your own foreground service.
 
 A hypothetical `kiosk` target might look like this:
 
 ```lua
 return {
     inherits = { "base" },
-    inherent_services = { "kiosk" },
+    services = { "kiosk" },
 }
 ```

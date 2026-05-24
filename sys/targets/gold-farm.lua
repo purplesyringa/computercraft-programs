@@ -1,5 +1,4 @@
 return {
-    inherits = { "base" },
+    inherits = { "shell" },
     services = { "gold-farm" },
-    inherent_services = { "getty-default" },
 }
