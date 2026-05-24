@@ -3,9 +3,10 @@ return {
     type = "oneshot",
     start = function()
         local vfs = require "vfs"
+        local startup = require "startup"
         local svc = require "svc"
 
-        local old_startup = svc.getStartupScript()
+        local old_startup = startup.getScript()
         local new_startup = vfs.read(fs.combine(svc.sysroot, "packages", "netboot", "boot.lua"))
         if (
             old_startup
@@ -13,7 +14,7 @@ return {
             and old_startup:match('"=netboot"')
             and old_startup ~= new_startup
         ) then
-            svc.setStartupScript(new_startup)
+            startup.setScript(new_startup)
         end
     end,
 }

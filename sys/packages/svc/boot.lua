@@ -47,7 +47,6 @@ local env = require "svc.env"
 local proc = require "svc.proc"
 local targets = require "svc.targets"
 local services = require "svc.services"
-local startup = require "svc.startup"
 
 function svc.reload()
     services.reload()
@@ -78,9 +77,6 @@ svc.startProcess = proc.start
 svc.stopProcess = proc.stop
 svc.killProcess = proc.kill
 svc.listProcesses = proc.list
-
-svc.getStartupScript = startup.getScript
-svc.setStartupScript = startup.setScript
 
 env.init()
 svc.reload()

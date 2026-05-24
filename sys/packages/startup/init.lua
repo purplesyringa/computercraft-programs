@@ -29,7 +29,8 @@ function startup.setScript(code)
     end
 end
 
--- Retrieves the active startup script, or returns `nil` if none is found.
+-- Retrieves the active startup script, or returns `nil` if none is found. This function takes into
+-- account the race condition avoidance strategies used by `setScript`.
 function startup.getScript()
     local ok, code = pcall(vfs.read, "startup.lua")
     if ok then
