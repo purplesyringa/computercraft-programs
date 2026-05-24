@@ -1,4 +1,4 @@
 return {
-    services = { "named", "rshd" },
+    services = { "named", "rshd", "netbootupd" },
     inherent_services = { "getty-default" },
 }
