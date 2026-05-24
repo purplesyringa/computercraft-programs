@@ -92,7 +92,7 @@ code_template = minify("code_template", """
     end
 
     local s = load(DECOMPRESS1 .. genCode(tree, 0, 0) .. DECOMPRESS2)(compressed)
-    return load(s, "initrd", nil, _ENV)()
+    return load(s, "=initrd", nil, _ENV)()
 """)
 
 code_template = (
