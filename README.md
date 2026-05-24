@@ -40,3 +40,5 @@ At this point, you can either call it a day and just install the OS on each devi
 ```
 
 As with `initrd.lua`, you can either run this script manually to boot temporarily, or rename it to `startup.lua` for persistency.
+
+To receive updates for this OS, you can run the `resys` command. This automatically re-downloads the `initrd` image and saves it to `startup.lua`. If you're using netboot, this command only needs to be run on the file server.
