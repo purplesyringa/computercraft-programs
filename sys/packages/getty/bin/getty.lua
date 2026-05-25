@@ -1,37 +1,29 @@
+local hardware = require "hardware"
 local redirect = require "redirect"
 local svc = require "svc"
 
 local args = { ... }
 if #args < 2 then
-    print("Usage: getty <monitor-id>/<keyboard-id> <command...>")
-    print("Use 'default' as the peripheral name to use the built-in monitor/keyboard.")
+    print("Usage: getty <seat> <command...>")
+    print("Use 'default' as the seat to use the built-in monitor and keyboard.")
     return
 end
-local seat_def = args[1]
+
+local seat = args[1]
 local command = { table.unpack(args, 2) }
 
-if seat_def == "default" then
-    seat_def = "default/default"
-end
-local monitor_id, keyboard_id = seat_def:match("^([^/]+)/([^/]+)$")
-assert(monitor_id, "Invalid seat definition '" .. seat_def .. "'")
-
-local monitor_name
-local monitor
-if monitor_id == "default" then
+local monitor_name, monitor, keyboard_name
+if seat == "default" then
     monitor_name = nil
     monitor = term.native()
-else
-    monitor_name = "monitor_" .. monitor_id
-    monitor = peripheral.wrap(monitor_name)
-    assert(monitor, "No monitor named '" .. monitor_name .. "'")
-end
-
-local keyboard_name
-if keyboard_id == "default" then
     keyboard_name = nil
 else
-    keyboard_name = "keyboard_" .. keyboard_id
+    local names = hardware.resolveGroup(seat)
+    monitor_name = names.monitor
+    assert(monitor_name, seat .. ".monitor is undefined")
+    monitor = peripheral.wrap(monitor_name)
+    keyboard_name = names.keyboard
+    assert(keyboard_name, seat .. ".keyboard is undefined")
 end
 
 local bg_command = redirect.runWithEventSource(redirect.runWithTerm, monitor, function()
