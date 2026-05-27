@@ -8,16 +8,19 @@ This repository contains a number of programs me and my friends made and found u
 
 - [A sound tool](sys/packages/phaseroll) that plays a sound that seemingly originates from somewhere other than the speaker.
 
-Since this requires quite a few computers on a large scale, we made tools to ease maintenance:
+To ease development, deployment, and maintenance on a large scale, we made a few tools:
 
 - [`rsh`](sys/packages/rsh), a remote shell that can connect to any computer that runs a corresponding server.
 - [`nfs`](sys/packages/nfs), a network file system to quickly deploy updates to multiple computers.
 - [`netboot`](sys/packages/netboot), a mechanism to boot computers via network from an `nfs` server, so that core components can be updated remotely.
 - [`svc`](sys/packages/svc), a service manager akin to systemd to automatically start programs on boot, depending on system configuration.
 - [`msh`](sys/packages/msh), an improved (multi)shell with support for non-advanced computers.
-- ...and many more low-level modules.
+- [`initrd`](initrd), which packs all the packages into a single file for easier installation.
+- ...and so on.
 
-This basically amounts to a full-blown operating system, and all the "actually" useful programs here, like the instant storage, assume that they're running under this OS. Don't worry, though -- we tried to make setup as straightforward as possible.
+This amounts to an operating system, if a rudimentary one, compared to typical ComputerCraft kernels: there's no security mechanisms or preemptive multitasking, because our goals don't require either. All the useful programs in this repository (like the instant storage) assume that they're running under this OS, and generally don't try to support pure-CraftOS installs.
+
+We tried to make setup as straightforward as possible, so if you're fine with using a custom OS, go ahead. (Caveat emptor: we don't guarantee stability re: upgrades.) Otherwise, you should be able to port most packages to pure CraftOS by hand: they are not minimized or obfuscated, and mostly just require changing `require` paths and inlining helper functions.
 
 ## Setting up
 
