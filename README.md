@@ -6,6 +6,8 @@ This repository contains a number of programs me and my friends made and found u
 
 - [A smart supersmelter](sys/packages/supersmelter) that can spread items across blast furnaces and normal furnaces, automatically crafting and decrafting storage blocks.
 
+- [A sound tool](sys/packages/phaseroll) that plays a sound that seemingly originates from somewhere other than the speaker.
+
 Since this requires quite a few computers on a large scale, we made tools to ease maintenance:
 
 - [`rsh`](sys/packages/rsh), a remote shell that can connect to any computer that runs a corresponding server.
