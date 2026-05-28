@@ -6,6 +6,8 @@ Minecraft sound is weird: sound volume doesn't only affect its loudness, but als
 
 Under normal circumstances, such a sound is loudest at 16 blocks away from the source, silent at 32 blocks away from the source, and almost silent (barring low-frequency noise) near the source. The noise becomes noticeable at around 4 block distance.
 
+This program assumes that jukebox volume in music settings is turned up to 100%. The effect gets (much) less prominent with smaller volumes.
+
 
 ## Usage
 
