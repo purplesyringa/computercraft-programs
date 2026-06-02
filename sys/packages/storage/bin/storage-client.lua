@@ -63,18 +63,23 @@ local function renderScreen()
     common.renderSearchBar()
 end
 
+-- Returns whether the goal inventory has been modified.
 local function setPreviewGoal(is_synchronous_update)
     selected_item = nil
 
+    local was_modified = false
+
     if not common.hasSearchQuery() then
+        was_modified = next(goal_inventory) ~= nil
         goal_inventory = {}
-        return
+        return was_modified
     end
 
     -- We don't want to rearrange existing items/slots in the inventory on index updates, since that
     -- can race with the user taking out items.
     if is_synchronous_update then
         goal_inventory = {}
+        was_modified = true
     end
 
     local present_in_goal = {}
@@ -93,10 +98,13 @@ local function setPreviewGoal(is_synchronous_update)
             end
             if item then
                 goal_inventory[i] = util.itemWithCount(item, item.maxCount)
+                was_modified = true
                 j = j + 1
             end
         end
     end
+
+    return was_modified
 end
 
 local interaction_timer = nil
@@ -243,12 +251,18 @@ async.spawn(function()
             -- The server sends `fullness` updates after every operation, even if it didn't touch
             -- any items -- make sure this doesn't cause an infinite loop.
             if next(msg.items) then
+                local need_readjustment = false
                 if selected_item == nil then
-                    setPreviewGoal(false)
+                    need_readjustment = setPreviewGoal(false)
                 end
-                -- Force readjustment regardless of whether the goal inventory was changed, since
-                -- the available count might have changed for already existing items.
-                readjust.notifyOne()
+                -- Check if any goal item is involved in the patch. The count of items available for
+                -- preview can change without changing `count`, so we don't check if it's different.
+                for _, item in pairs(goal_inventory) do
+                    need_readjustment = need_readjustment or msg.items[util.getItemKey(item)]
+                end
+                if need_readjustment then
+                    readjust.notifyOne()
+                end
             end
             renderScreen()
         elseif msg.type == "peripherals_changed" then

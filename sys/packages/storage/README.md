@@ -273,15 +273,19 @@ Note that if `turtle_inventory` arrives for the second time due to the server's 
 
 #### Index updates
 
-You may want to trigger readjustment if new items or more items of a given type arrive in the index.
+You may want to trigger readjustment if new items or more items of a requested type arrive in the index.
 
-Note that it is *incorrect* to trigger readjustment on every index change. Specifically, the server sends index updates even if *no item counts are changed* to propagate `fullness` updates. Readjustment should only be triggered if `items` is non-empty:
+Note that it is *incorrect* to trigger readjustment on every index change.
+
+For one example, the server sends index updates even if *no item counts are changed* to propagate `fullness` updates. The bare minimum requirement is to only trigger readjustment if `items` is non-empty, otherwise an infinite loop will occur:
 
 ```lua
 if next(msg.items) then
     readjust.notifyOne()
 end
 ```
+
+Note that while this snippet will work, it may cause issues with multiple storage clients, since a single client depositing items will trigger *all* clients to fetch all items, even if they only need a subset (or none). This will cause lag. Prefer checking that the pushed change involves items the client is interested in before triggering readjustment.
 
 Note also that the server can send an index update for an item even if `count` stays the same, and readjustment *should* often be triggered under this condition. This situation occurs if the server pulls a preview from the client -- this does not affect the count of the items in the storage, since a preview is logically considered part of the storage, but it *does* allow more items to be pulled if you're pulling for preview.
 
