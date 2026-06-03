@@ -1,6 +1,6 @@
 # Programs for ComputerCraft
 
-This repository contains a number of programs me and my friends made and found useful while playing with [CC: Tweaked](https://tweaked.cc). On the functional side, it includes:
+This repo contains applications me and my friends made for [CC: Tweaked](https://tweaked.cc):
 
 - [Instant storage](sys/packages/storage), which can deliver items from a single server to multiple interactive clients. As you write the search query in the client, 1 stack of each matching item is almost instantly pulled into its inventory for preview and quick pulling, producing very nice UX. If you install Turtlematic, UnlimitedPeripheralWorks, and Create, you'll also get wireless clients that you can carry in your inventory to deposit or withdraw items from any point in the world.
 
@@ -8,42 +8,58 @@ This repository contains a number of programs me and my friends made and found u
 
 - [A sound tool](sys/packages/phaseroll) that plays a sound that seemingly originates from somewhere other than the speaker.
 
-To ease development, deployment, and maintenance on a large scale, we made a few tools:
+The applications are built on top of a custom rudimentary OS, but since there is no long-winded installation process, this shouldn't be too confusing.
 
-- [`rsh`](sys/packages/rsh), a remote shell that can connect to any computer that runs a corresponding server.
-- [`nfs`](sys/packages/nfs), a network file system to quickly deploy updates to multiple computers.
-- [`netboot`](sys/packages/netboot), a mechanism to boot computers via network from an `nfs` server, so that core components can be updated remotely.
-- [`svc`](sys/packages/svc), a service manager akin to systemd to automatically start programs on boot, depending on system configuration.
-- [`msh`](sys/packages/msh), an improved (multi)shell with support for non-advanced computers.
-- [`initrd`](initrd), which packs all the packages into a single file for easier installation.
-- ...and so on.
 
-This amounts to an operating system, if a rudimentary one, compared to typical ComputerCraft kernels: there's no security mechanisms or preemptive multitasking, because our goals don't require either. All the useful programs in this repository (like the instant storage) assume that they're running under this OS, and generally don't try to support pure-CraftOS installs.
+## Quick start
 
-We tried to make setup as straightforward as possible, so if you're fine with using a custom OS, go ahead. (Caveat emptor: we don't guarantee stability re: upgrades.) Otherwise, you should be able to port most packages to pure CraftOS by hand: they are not minimized or obfuscated, and mostly just require changing `require` paths and inlining helper functions.
-
-## Setting up
-
-Start by downloading an `initrd` image. It includes all the files in this repo (except pictures) in a compressed format, so you don't need to copy anything manually or use a git client.
+Install the OS and all the applications with a single command:
 
 ```shell
-> wget https://cc.purplesyringa.moe/initrd.lua
+wget https://cc.purplesyringa.moe/initrd.lua startup.lua
 ```
 
-When executed, this script automatically sets up a virtual file system driver, unpacks the files into a temporary filesystem at `sys`, and boots the OS from there. You should be facing a familiar (but improved) shell prompt. (The number shows the computer ID, which you can replace with a human-readable hostname by running `hostname <name>`. `/` is the current directory.) To automatically load the OS when the computer is started, simply rename `initrd.lua` to `startup.lua`.
+Reboot the computer. You should be facing a slightly improved command prompt.
 
-The computer is already running some services in the background, like `rshd`. You can verify that it's working correctly by running `rsh localhost`. You can also run `svc` to show the entire list of active services and their status.
-
-More to the point, say you want to run the server of the instant storage. To do that, you need to run the `storage-server` program. You can run it directly from shell, but that prevents you from typing more commands. Instead, you can start the `storage-server` service in the background with `svc start storage-server`. To make this persistent, you can configure the OS to automatically start a given set of services at startup. We call these sets *targets*, and there is an identically named target `storage-server` that you can use with `svc reach storage-server --persist`.
-
-This might seem like overengineering, but it enables orthogonal configuration. Running `storage-server` directly is useful for debugging, easy log access, and termination. Isolating commands into a service allows multiple targets to include one service, which is how you get `rshd` on each device.
-
-At this point, you can either call it a day and just install the OS on each device (nothing wrong with that if you have just a few computers), or set up an NFS + netboot combination for easier redeployment. The `fileserver` target sets up the server: just run `svc reach fileserver --persist` on a server booted from `initrd` and you're set. You can then fetch this script to boot clients:
+You can now execute programs directly as usual, or tell the OS to run a program on each boot. For example, for the storage server, you want:
 
 ```shell
-> wget https://cc.purplesyringa.moe/netboot.lua
+svc reach storage-server --persist
 ```
 
-As with `initrd.lua`, you can either run this script manually to boot temporarily, or rename it to `startup.lua` for persistency.
+The names and installation procedures are different for all applications. See the documentation for the app for specific information.
 
-To receive updates for this OS, you can run the `resys` command. This automatically re-downloads the `initrd` image and saves it to `startup.lua`. If you're using netboot, this command only needs to be run on the file server.
+
+## Network boot
+
+If your device list grows past 5 computers or so, you may be interested in centralized updates. With network boot, all computers but one fetch the `initrd.lua` file from a single *file server* over ender modems, so updating `startup.lua` on the file server is sufficient to update all computers (after reboot).
+
+To set this up, install the OS on the file server and activate the `fileserver` target:
+
+```shell
+wget https://cc.purplesyringa.moe/initrd.lua startup.lua
+reboot
+svc reach fileserver --persist
+```
+
+On all other computers, fetch `startup.lua` from `netboot.lua` instead of `initrd.lua`:
+
+```shell
+wget https://cc.purplesyringa.moe/netboot.lua startup.lua
+```
+
+
+## Maintenance
+
+If something doesn't behave as expected or you make a mistake, you'll need to learn how to use a few utilities. The important ones are:
+
+- [Remote shell](sys/packages/rsh). You can connect to any computer running this OS with `rsh <hostname>`, where the hostname can be configured with `hostname <hostname>`. If the hostname has not been configured ahead of time, use `rsh <computer-id>`.
+
+- [Service manager](sys/packages/svc). `svc` shows the list of services (programs) running on the computer and their failures. Use `svc status <service-name>` for error logs, `svc stop <service-name>`/`svc start <service-name>` to manipulate services. You can change which services are started on boot with `svc reach <target-name> --persist`; the `base` target is the default "empty" one.
+
+- System updater. The `resys` program fetches the most recent OS image from web and updates `startup.lua` accordingly. Note that we don't guarantee stability, so things might break.
+
+
+## Development
+
+Do you want to know more about how this whole thing works, or maybe even add a new application? Check out [the hacking guide](HACKING.md).
