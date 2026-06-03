@@ -96,7 +96,7 @@ while not bg_command.isDead() do
         -- e.g. hangup
         deliver()
     elseif event[1] == "fg_terminate" then
-        if monitor_name == event[2] then
+        if keyboard_name == event[2] then
             bg_command.pushEvent("terminate")
         end
     else
