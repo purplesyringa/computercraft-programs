@@ -1,4 +1,3 @@
-local named = require "named"
 local pack = require "pack"
 
 local args = { ... }
@@ -18,10 +17,24 @@ local code = pack.packString(([[
     os.run(_ENV, %q, "packages.svc.boot", %q)
 ]]):format(os.computerID(), boot_path, boot_path))
 
--- There might have been devices waiting for their startup (e.g. when minecraft server restarts).
+-- There might already be devices waiting for startup.
 rednet.broadcast(code, "netboot-response")
 
 while true do
-    local computer_id, _ = rednet.receive("netboot-request")
-    rednet.send(computer_id, code, "netboot-response")
+    local computer_id
+
+    parallel.waitForAny(function()
+        computer_id = rednet.receive("netboot-request")
+    end, function()
+        -- Both netbootd and a netboot client can be brought up before a connection between them is
+        -- estabilished.
+        local _, name = os.pullEvent("peripheral")
+        if name:match("^computer_") or name:match("^turtle_") then
+            computer_id = peripheral.call(name, "getID")
+        end
+    end)
+
+    if computer_id then
+        rednet.send(computer_id, code, "netboot-response")
+    end
 end
