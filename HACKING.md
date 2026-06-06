@@ -127,7 +127,7 @@ Finally, don't keep your code to yourself. We don't support out-of-tree modules 
 Some packages you need to be aware of to avoid reinventing the wheel are:
 
 - Userland: [`async`](sys/packages/async) (async runtime).
-- Virtual I/O: [`vfs`](package/vfs) (the underlying API), [`bytesio`](sys/packages/bytesio) (in-memory files), [`wakeywakey`](sys/packages/wakeywakey) (asynchronous monkey-patching).
+- Virtual I/O: [`vfs`](sys/packages/vfs) (the underlying API), [`bytesio`](sys/packages/bytesio) (in-memory files), [`wakeywakey`](sys/packages/wakeywakey) (asynchronous monkey-patching).
 - Terminal I/O: [`redirect`](sys/packages/redirect) (`term` and event source redirection), [`svc` shell APIs used by `rsh`](sys/packages/rsh/bin/rsh-serve-session.lua).
 - System: [`hardware`](sys/packages/hardware) (hardware assignments), [`startup`](sys/packages/startup) (startup script manipulation), [`svc`](sys/packages/svc) (services, targets, processes).
 - Networking: [`named`](sys/packages/named) (hostname management and resolution), [`rsh`](sys/packages/rsh) (remote shell), [`pack`](sys/packages/pack) (webpack for Lua).
