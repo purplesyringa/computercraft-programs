@@ -633,8 +633,8 @@ local function onPeripheralsChanged(name)
         -- synchronizes quickly after rednet comes alive due to pings.
         rednet.broadcast({ type = "peripherals_changed" }, "purple_storage")
     end
-    if peripheral.hasType(name, "modem") and peripheral.call(name, "isWireless") then
-        -- Ender clients might be reachable now (either due to manual modem addition or during chunk
+    if peripheral.hasType(name, "modem") then
+        -- Clients might be reachable now (either due to manual modem addition or during chunk
         -- loading). Since they can't detect connectivity loss on our side, we have to handle it.
         pcall(rednet.open, name)
         broadcast_index.notifyOne()

@@ -50,7 +50,7 @@ async.subscribe("peripheral", function(name)
             reply(computer_id)
         end
     end
-    if peripheral.hasType(name, "modem") and peripheral.call(name, "isWireless") then
+    if peripheral.hasType(name, "modem") then
         pcall(rednet.open, name)
         reply(rednet.CHANNEL_BROADCAST)
     end
