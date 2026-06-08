@@ -88,14 +88,18 @@ function runfs.list(rel_path)
     elseif rel_path == "bin" then
         local added = {}
         local files = {}
-        for _, path in pairs(fs.find(fs.combine(svc.sysroot, "packages", "*", "bin", "*.lua"))) do
-            local name = fs.getName(path):gsub(".lua$", "")
-            if not added[name] then
-                added[name] = true
-                table.insert(files, {
-                    name = name,
-                    attributes = { isDir = false },
-                })
+        -- Include binaries from /impure unconditionally, since we create wrappers for them even if
+        -- the impure environment is off to show human-friendly errors.
+        for _, root_path in pairs({ svc.sysroot, "impure" }) do
+            for _, path in pairs(fs.find(fs.combine(root_path, "packages", "*", "bin", "*.lua"))) do
+                local name = fs.getName(path):gsub(".lua$", "")
+                if not added[name] then
+                    added[name] = true
+                    table.insert(files, {
+                        name = name,
+                        attributes = { isDir = false },
+                    })
+                end
             end
         end
         table.sort(files, function(a, b)
