@@ -27,27 +27,33 @@ code = code .. [[
 local boot_path = "nfs/sys/packages/svc/boot.lua"
 local code = pack.packString(code:format(os.computerID(), boot_path, boot_path))
 
+local function reply(channel)
+    rednet.send(channel, code, "netboot-response")
+    if os._initrd_tree then
+        rednet.send(channel, os._initrd_tree, "netboot-response-initrd")
+    end
+end
+
 -- There might already be devices waiting for startup.
-rednet.broadcast(code, "netboot-response")
+peripheral.find("modem", function(side) pcall(rednet.open, side) end)
+reply(rednet.CHANNEL_BROADCAST)
 
 while true do
-    local computer_id
-
     parallel.waitForAny(function()
-        computer_id = rednet.receive("netboot-request")
+        reply(rednet.receive("netboot-request"))
     end, function()
         -- Both netbootd and a netboot client can be brought up before a connection between them is
         -- estabilished.
         local _, name = os.pullEvent("peripheral")
         if name:match("^computer_") or name:match("^turtle_") then
-            computer_id = peripheral.call(name, "getID")
+            local computer_id = peripheral.call(name, "getID")
+            if computer_id then
+                reply(computer_id)
+            end
+        end
+        if peripheral.hasType(name, "modem") and peripheral.call(name, "isWireless") then
+            pcall(rednet.open, name)
+            reply(rednet.CHANNEL_BROADCAST)
         end
     end)
-
-    if computer_id then
-        rednet.send(computer_id, code, "netboot-response")
-        if os._initrd_tree then
-            rednet.send(computer_id, os._initrd_tree, "netboot-response-initrd")
-        end
-    end
 end
