@@ -27,10 +27,12 @@ The default `startup.lua` file downloaded from https://cc.purplesyringa.moe/init
 
 With `netboot`, the process is slightly different: `startup.lua` requests and `eval`s a boot script from the netboot server, which includes the `vfs` and `nfs` drivers, mounts a network file system at `/nfs`, and boots from `/nfs/sys`.
 
-When developing, you have a choice between rebuilding the `initrd` image after each modification or symlinking the `sys` directory to the CC computer directory:
+When developing the core OS, you have a choice between rebuilding the `initrd` image after each modification or symlinking the `sys` directory to the CC computer directory:
 
 - Rebuilding `initrd` is easier: it can be done with `pypy3 -m initrd path/to/startup.lua`, but requires `pypy` to be installed and is a little slow. You'll need to reboot after each modification.
 - Symlinking `sys` requires you to create a `startup.lua` file in the FS root containing `shell.run("sys/startup")`. You don't need to reboot after modification, unless you modify core parts of the OS. However, you'll need to [enable symlinks in Minecraft configuration](https://help.minecraft.net/hc/en-us/articles/16165590199181). This also allows you to modify the code in-game, though DX might suffer.
+
+If your goal is only to modify or create userland applications or libraries, you have another option: impure environments. If the directory `/impure` exists in the computer FS, it acts as a kind of overlay on `/sys`. For example, packages declared in `impure/packages` exist in addition to or override built-in packages at `sys/packages`, so you can develop software in-game, at the cost of being unable to use an IDE, push commits to Git, or share the programs between computers. This feature is explained in more detail near the end of this guide.
 
 
 ## `PATH` and process environment
@@ -114,17 +116,41 @@ Also note that currently, services are started with `term` pointing to the inter
 
 ## Packages
 
-This covers the core parts of the OS. Assuming you're here to figure out how to create and modify packages, not the core OS, you'll need a bit more knowledge about how packages are designed around this block.
+This covers the "kernel"-adjacent parts of the OS. The "userland" of the OS is composed of packages.
 
-There is some obvious mechanical advice. Create a well-named directory, place the library entry code in `init.lua`, place binaries in `bin/*`, place services in `services/*`. If the application is supposed to run in background, create a service and an identically named target for it. When in doubt, copy the design of the closest existing package.
+A package called `<name>` is represented by the directory `<sysroot>/packages/<name>`. Creating a directory is sufficient to create the package. Each package can include:
 
-The subtle thing that I believe is most useful, especially if you're coming from pure ComputerCraft, is that files are free. In CC, you might be tempted to put all the logic in one file because that's easier to distribute. In this repo, you're expected to build reasonable abstractions and split reused code into multiple files. As a rule of thumb, if you're writing a program with a CLI, the corresponding library should export APIs to perform the same actions programmatically, and the CLI should be a small wrapper around the library (see [`hardware`](sys/packages/hardware) for a short example).
+- An optional library that can be imported from elsewhere via `require "<name>"`. The source code for this library is stored in the `init.lua` file in the package directory. Other Lua files can be imported as `require "<name>.<file>"`, with `.` used as a separator for files nested in subdirectories.
+
+- Zero or more binaries, stored in `bin/<binary>.lua` within the package directory. The binary name doesn't have to be tied to the package name. Binaries have access to all libraries, including the library of the current package, if it's present (via `require "<name>"`).
+
+- Zero or more services, stored in `services/<service>.lua` within the package directory. Again, the name can be arbitrary. Service definitions are explained in more detail in [the `svc` docs](sys/packages/svc).
+
+To create a package or modify an existing one, you would typically clone the Git repo locally, modify the code, and either rebuild the `initrd` as necessary or symlink the `sys` directory. This process is explained in more detail in the "`initrd` and virtual file systems" section of this guide, and it is the preferred way to write code.
+
+
+## Impure environments
+
+If you cannot develop software locally for some reason (e.g. if you cannot run server-side mods or want a more authentic experience), you can use *impure environments* instead. With impure environments, packages are loaded from `/impure/packages` in addition to `<sysroot>/packages`. You can also use this for targets. Packages and targets named identically to built-in packages/targets override the latter completely, so e.g. an empty directory at `/impure/packages/async` effectively deletes the `async` package.
+
+This development workflow is a bit more dangerous than a sysroot-oriented workflow, since overriding a built-in package with a buggy one can break important programs. This is further complicated by the fact that we don't offer API stability, so updating the OS can break out-of-tree packages. For this reason, this feature is hidden behind a flag. Use `impure enable` to enable the impure environment and `impure disable` to disable it. The setting applies to libraries and binaries immediately, while services and targets need to be reloaded with `svc reload`. The setting persists across reboots. If the system is broken so much that it doesn't even show a shell, you can use `set svc.impure false` from CraftOS or manually modify the `/.settings` file to recover control.
+
+The impure environment cannot modify all aspects of the system, since it is only enabled after the core of the OS is loaded. Specifically, `svc` and its dependencies always load from the sysroot.
+
+Impure packages are local to the computer they are installed on. It is technically possible to mount `nfs` over `/impure`, but this is not the intended usage. If you need to share a package across computers, you're likely better off building an `initrd`, possibly after debugging the package on one computer.
+
+
+## Packaging guidelines
+
+There is some obvious mechanical advice. Use descriptive package/binary/service/target names with kebab-case. If the application is supposed to run in background, create a service and an identically named target for it. When in doubt, copy the design of the closest existing package.
+
+The subtle thing that I believe is most useful, especially if you're coming from pure ComputerCraft, is that files are cheap. In CC, you might be tempted to put all the logic in one file because that's easier to distribute. In this repo, you're expected to build reasonable abstractions and split reused code into multiple files, since the OS is distributed as a whole. As a rule of thumb, if you're writing a program with a CLI, the corresponding library should export APIs to perform the same actions programmatically, and the CLI should be a small wrapper around the library (see [`hardware`](sys/packages/hardware) for a short example).
 
 Note also that dependencies are free as well. If there's something that might be useful to other programs, extract it to a separate package. That's why [`async`](sys/packages/async) and [`tableui`](sys/packages/tableui) exist, both purely userland libraries.
 
-Finally, don't keep your code to yourself. We don't support out-of-tree modules and offer no API stability guarantees. This OS is constantly evolving for our needs, and we're likely to break addons outside this repository. There's a reason why it's a monorepo!
+Finally, don't keep your code to yourself. We don't offer API stability, so out-of-tree packages can break at any point. This OS is constantly evolving for our needs, and we're likely to break addons outside this repository. There's a reason why it's a monorepo!
 
-Some packages you need to be aware of to avoid reinventing the wheel are:
+Some libraries you need to be aware of to avoid reinventing the wheel are:
 
 - Userland: [`async`](sys/packages/async) (async runtime).
 - Virtual I/O: [`vfs`](sys/packages/vfs) (the underlying API), [`bytesio`](sys/packages/bytesio) (in-memory files), [`wakeywakey`](sys/packages/wakeywakey) (asynchronous monkey-patching).
