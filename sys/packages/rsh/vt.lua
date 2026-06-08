@@ -62,7 +62,8 @@ local function newTerminalRedirect(handlers)
     redirect.scroll = handling("scroll")
 
     -- Operations that move the cursor.
-    redirect.write = handling("write", function(text) cursor_x = cursor_x + #text end)
+    -- tostring is needed to unbreak `edit` that uses term.write(<integer>) when writing line number
+    redirect.write = handling("write", function(text) cursor_x = cursor_x + #tostring(text) end)
     redirect.blit = handling("blit", function(text) cursor_x = cursor_x + #text end)
 
     return redirect
