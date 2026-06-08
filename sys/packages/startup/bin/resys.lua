@@ -16,9 +16,15 @@ if not cur_startup:match('"=initrd"') then
     return
 end
 
-local initrd = http.get("https://cc.purplesyringa.moe/initrd.lua")
+local response, error = http.get("https://cc.purplesyringa.moe/initrd.lua")
+if not response then
+    printError("Failed to fetch initrd.lua: " .. error)
+    return
+end
+
+local initrd = response.readAll()
 if not initrd:match("=initrd") then
-    printError("Failed to fetch initrd.lua")
+    printError("Corrupted initrd.lua fetched")
     return
 end
 
