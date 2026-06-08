@@ -1,3 +1,4 @@
+local async = require "async"
 local bind = require "bind"
 local pack = require "pack"
 local vfs = require "vfs"
@@ -35,25 +36,30 @@ local function reply(channel)
 end
 
 -- There might already be devices waiting for startup.
-peripheral.find("modem", function(side) pcall(rednet.open, side) end)
+peripheral.find("modem", function(side)
+    pcall(rednet.open, side)
+end)
 reply(rednet.CHANNEL_BROADCAST)
 
-while true do
-    parallel.waitForAny(function()
+-- Both netbootd and a netboot client can be brought up before a connection between them is
+-- estabilished.
+async.subscribe("peripheral", function(name)
+    if name:match("^computer_") or name:match("^turtle_") then
+        local computer_id = peripheral.call(name, "getID")
+        if computer_id then
+            reply(computer_id)
+        end
+    end
+    if peripheral.hasType(name, "modem") and peripheral.call(name, "isWireless") then
+        pcall(rednet.open, name)
+        reply(rednet.CHANNEL_BROADCAST)
+    end
+end)
+
+async.spawn(function()
+    while true do
         reply(rednet.receive("netboot-request"))
-    end, function()
-        -- Both netbootd and a netboot client can be brought up before a connection between them is
-        -- estabilished.
-        local _, name = os.pullEvent("peripheral")
-        if name:match("^computer_") or name:match("^turtle_") then
-            local computer_id = peripheral.call(name, "getID")
-            if computer_id then
-                reply(computer_id)
-            end
-        end
-        if peripheral.hasType(name, "modem") and peripheral.call(name, "isWireless") then
-            pcall(rednet.open, name)
-            reply(rednet.CHANNEL_BROADCAST)
-        end
-    end)
-end
+    end
+end)
+
+async.drive()
