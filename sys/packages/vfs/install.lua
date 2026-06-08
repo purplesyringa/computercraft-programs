@@ -45,7 +45,8 @@ end
 --     -- If missing, simulated with `read` and `write`.
 --     open(rel_path, mode),
 --
---     -- Read the entire file as a string.
+--     -- Read the entire file as a string. If missing, simulated with `open`. At least one method
+--     -- of `open` and `read` must be implemented.
 --     read(rel_path),
 --     -- Overwrite the entire file as a string. If missing, throws the read-only error.
 --     write(rel_path, contents),
@@ -76,12 +77,6 @@ local root_mount = {
             error(err, 0)
         end
         return handle
-    end,
-    read = function(rel_path)
-        local file = ofs.open(rel_path, "r")
-        local contents = file.readAll()
-        file.close()
-        return contents
     end,
     write = function(rel_path, contents)
         local file = ofs.open(rel_path, "w")
@@ -435,6 +430,16 @@ function fs.makeDir(path)
     callWithErr(mount, "makeDir", rel_path)
 end
 
+local function mountRead(mount, rel_path)
+    if mount.read then
+        return callWithErr(mount, "read", rel_path)
+    end
+    local handle = callWithErr(mount, "open", rel_path, "r")
+    local contents = handle.readAll()
+    handle.close()
+    return contents
+end
+
 local function copyRecursive(src, dst_mount, dst_rel_path)
     local src_mount, src_rel_path = resolvePath(ofs.combine(src))
     local attrs = mountAttributes(src_mount, src_rel_path)
@@ -448,7 +453,7 @@ local function copyRecursive(src, dst_mount, dst_rel_path)
             copyRecursive(ofs.combine(src, name), dst_mount, ofs.combine(dst_rel_path, name))
         end
     else
-        local contents = callWithErr(src_mount, "read", src_rel_path)
+        local contents = mountRead(src_mount, src_rel_path)
         callWithErr(dst_mount, "write", dst_rel_path, contents)
     end
 end
@@ -533,7 +538,7 @@ function vfs.open(path, mode)
         assertOrReadOnly(mount.write, path)
     end
 
-    local contents = callWithErr(mount, "read", rel_path)
+    local contents = mountRead(mount, rel_path)
 
     local handle, get_contents = bytesio.open(contents, mode)
 
@@ -582,7 +587,7 @@ end
 
 function vfs.read(path)
     local mount, rel_path = resolvePath(ofs.combine(path))
-    return callWithErr(mount, "read", rel_path)
+    return mountRead(mount, rel_path)
 end
 
 function vfs.write(path, contents)
