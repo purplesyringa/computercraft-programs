@@ -68,5 +68,6 @@ def build_uncompressed_initrd(sys_path: Path) -> bytes:
     vfs.unmount("sys")
     fs.makeDir("sys")
     tmpfs.mount("sys", tree, true)
+    os._initrd_tree = tree
     shell.run("sys/startup")
     """.replace(b"TREE", serialize(tree))

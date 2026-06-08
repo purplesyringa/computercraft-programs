@@ -25,7 +25,7 @@ The base that makes this possible is [the `vfs` driver](sys/packages/vfs), which
 
 The default `startup.lua` file downloaded from https://cc.purplesyringa.moe/initrd.lua includes a [compressed](initrd) dump of the [`sys`](sys) directory from this repo, which contains `vfs` and `tmpfs` drivers, as well as the rest of the OS. The `initrd.lua` script unpacks the dump, activates `vfs`, and exposes the dump as a read-only FS at `/sys`. The rest of the OS then boots as if `/sys` is a real directory, even though it doesn't exist on disk.
 
-With `netboot`, the process is slightly different: `startup.lua` requests and `eval`s a boot script from the netboot server, which includes the `vfs` and `nfs` drivers, mounts a network file system at `/nfs`, and boots from `/nfs/sys`.
+With `netboot`, the process is slightly different: `startup.lua` requests and `eval`s a boot script from the netboot server, which includes `vfs`, some file system drivers, and boots either an `initrd` image sent by the netboot server, or from NFS if the `initrd` image is unavailable.
 
 When developing the core OS, you have a choice between rebuilding the `initrd` image after each modification or symlinking the `sys` directory to the CC computer directory:
 
