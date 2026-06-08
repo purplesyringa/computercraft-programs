@@ -1,3 +1,3 @@
 return {
-    services = { "named", "rshd", "netbootupd" },
+    services = { "rednetd", "named", "rshd", "netbootupd" },
 }

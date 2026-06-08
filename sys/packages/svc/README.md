@@ -133,9 +133,7 @@ return {
             type = "string",
         })
         local hostname = settings.get("named.hostname")
-
         if hostname ~= nil then
-            peripheral.find("modem", rednet.open)
             rednet.host("named", hostname)
         end
     end,

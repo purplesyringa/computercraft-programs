@@ -2,8 +2,6 @@ local async = require "async"
 local common = require "storage.common"
 local util = require "storage.util"
 
-peripheral.find("modem", rednet.open)
-
 local wired_modem = peripheral.find("modem", function(_, modem)
     return not modem.isWireless()
 end)

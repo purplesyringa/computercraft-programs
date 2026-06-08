@@ -14,7 +14,6 @@ return {
     setHostname = function(hostname)
         settings.set("named.hostname", hostname)
         settings.save()
-        peripheral.find("modem", rednet.open)
         rednet.host("named", hostname)
     end,
 

@@ -96,7 +96,6 @@ else
         multishell.setTitle(multishell.getCurrent(), "rsh " .. hostname)
     end
 
-    peripheral.find("modem", rednet.open)
     local server_id = named.lookup(hostname)
     if server_id == nil then
         print("No host named", hostname)

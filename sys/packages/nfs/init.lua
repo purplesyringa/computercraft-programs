@@ -3,7 +3,6 @@ local vfs = require "vfs"
 local wakeywakey = require "wakeywakey"
 
 local PROTOCOL = "sylfn-nfs"
-peripheral.find("modem", rednet.open)
 
 return {
     mount = function(mountpoint, host) -- either hostname or computer id

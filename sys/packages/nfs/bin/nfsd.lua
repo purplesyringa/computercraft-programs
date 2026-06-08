@@ -3,7 +3,6 @@ local named = require "named"
 local vfs = require "vfs"
 
 local PROTOCOL = "sylfn-nfs"
-peripheral.find("modem", rednet.open)
 
 local args = { ... }
 if #args == 0 then
