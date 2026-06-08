@@ -223,6 +223,7 @@ end
 
 async.spawn(function()
     while true do
+        index_updated.wait()
         -- print("A")
         local my_index = incremental_index
         incremental_index = {}
@@ -251,7 +252,6 @@ async.spawn(function()
             end
         end
         waitAdjust({})
-        index_updated.wait()
     end
 end)
 
@@ -274,7 +274,9 @@ async.spawn(function()
                 index[key] = item
                 incremental_index[key] = item
             end
-            index_updated.notifyWaiters()
+            if next(incremental_index) then
+                index_updated.notifyWaiters()
+            end
         end
     end
 end)
