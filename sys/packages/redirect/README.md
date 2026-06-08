@@ -10,7 +10,7 @@ Mostly equivalent to `f(...)`. Each time the coroutine is resumed, the terminal 
 
 ### `redirect.runWithEventSource(f, ...)`
 
-Spawns `f(...)` in a coroutine and waits for the delivery of events. This function automatically keeps track of active filters and just waits for you to push events from outside, resuming the coroutine as necessary. Returns an object with two methods:
+Spawns `f(...)` in a coroutine, runs it until a yield point, and waits for the delivery of events. This function automatically keeps track of active filters and just waits for you to push events from outside, resuming the coroutine as necessary. Returns an object with two methods:
 
 - `pushEvent(name, ...)`: deliver an event. The arguments will be returned directly by calls to [`os.pullEventRaw`](https://tweaked.cc/module/os.html#v:pullEventRaw) performed by `f`. `terminate` is a valid event for the purposes of this function. If the delivered event matches the active filter, this resumes the coroutine.
 - `isDead()`: returns `true` if the coroutine is dead.
@@ -38,3 +38,5 @@ while not redirected.isDead() do
 	end
 end
 ```
+
+If you want to perform an action each time `f` yields, remember to call it both after `pushEvent` and after the initial `runWithEventSource`, otherwise you'll miss the first yield.

@@ -83,6 +83,7 @@ local bg_command = redirect.runWithEventSource(redirect.runWithTerm, virtual_ter
     svc.reloadShellEnv(nested_shell)
     nested_shell.execute(table.unpack(params.command))
 end)
+flushOpQueue()
 
 while not bg_command.isDead() do
     local event = table.pack(pullEventNetworked())
