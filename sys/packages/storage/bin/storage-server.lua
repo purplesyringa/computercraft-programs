@@ -638,6 +638,11 @@ local function onPeripheralsChanged(name)
         -- loading). Since they can't detect connectivity loss on our side, we have to handle it.
         pcall(rednet.open, name)
         broadcast_index.notifyOne()
+        if peripheral.call(name, "isWireless") == false then
+            -- We couldn't supply turtles connected via this modem with peripheral information until
+            -- now, so tell them to rescan now that we can deliver events.
+            rednet.broadcast({ type = "peripherals_changed" }, "purple_storage")
+        end
     end
 end
 async.subscribe("peripheral", onPeripheralsChanged)
