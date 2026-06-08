@@ -8,7 +8,7 @@ local runfs = {
     drive = "runfs",
 }
 
--- Calls `func` with `root_path / rel_path`, removing the `root_path` prefix any occurring errors.
+-- Calls `func` with `root_path / rel_path`, removing the `root_path` prefix from occurring errors.
 local function forward(func, root_path, rel_path, ...)
     local result = table.pack(pcall(func, fs.combine(root_path, rel_path), ...))
     if result[1] == false then
@@ -75,7 +75,7 @@ end
 
 -- Checks if `rel_path` is a file path directly within `targets`.
 local function isTargetPath(rel_path)
-    return rel_path:match("^targets/") and not rel_path:sub(9):match("/")
+    return rel_path:match("^targets/[^/]*$")
 end
 
 function runfs.list(rel_path)
