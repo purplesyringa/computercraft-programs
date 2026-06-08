@@ -1,12 +1,12 @@
+local bind = require "bind"
 local pack = require "pack"
+local vfs = require "vfs"
 
-local args = { ... }
-if #args == 0 then
-    print("Usage: netbootd <sysroot relative to nfs>")
-    return
-end
+vfs.unmount("pub/sys") -- clean up after a previous netbootd process
+fs.makeDir("pub/sys")
+bind.mount("sys", "pub/sys", true)
 
-local boot_path = fs.combine("nfs", args[1], "packages", "svc", "boot.lua")
+local boot_path = "nfs/sys/packages/svc/boot.lua"
 local code = pack.packString(([[
     require "vfs.install"
     local vfs = require "vfs"
