@@ -58,6 +58,14 @@ local function showStatus()
     print()
     showGroupStatus("packages")
     showGroupStatus("targets")
+    if fs.exists(fs.combine(svc.sysroot, ".official")) then
+        term.setTextColor(colors.green)
+        print("Booted from an official release")
+    else
+        term.setTextColor(colors.yellow)
+        print("Booted from a local build")
+    end
+    term.setTextColor(colors.white)
 end
 
 local args = { ... }

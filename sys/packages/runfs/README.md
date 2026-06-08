@@ -19,7 +19,7 @@ The impure environment is disabled by default: even if `/impure` exists, package
 
 From shell:
 
-- `impure` -- show whether the impure environment is enabled, along with its packages and targets.
+- `impure` -- show whether the impure environment is enabled, along with its packages and targets, and the system taint status.
 - `impure enable`/`impure disable` -- enable or disable the impure environment.
 
 From Lua:

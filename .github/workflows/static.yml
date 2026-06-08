@@ -31,6 +31,8 @@ jobs:
         uses: actions/configure-pages@v6
       - name: Install dependencies
         run: npm install -g luamin
+      - name: Mark build as official
+        run: touch sys/.official
       - name: Build
         run: ./build-www.sh
       - name: Upload artifact
