@@ -77,13 +77,13 @@ This simplifies name resolution, but the few directory become cluttered and unco
 
 (You may be familiar with this design from distributions like NixOS. Given that this OS is typically installed from `initrd.lua` and thus has a read-only `sys`, it can be argued to be an immutable store-based distribution.)
 
-To make this work, `svc` implements a virtual file system called `svcbin` that effectively merges all `bin` directories present inside `packages`. This FS is mounted at `<sysroot>/run/bin`, and this directory is added to `PATH`.
+To make this work, `svc` implements a virtual file system called `runfs` that, among other things, merges all `bin` directories present inside `packages`. This FS is mounted at `<sysroot>/run`, and its `bin` subdirectory is added to `PATH`.
 
-However, the files inside `svcbin` are not just copies of the files in `bin`, since that would break `require` paths: we want `require "async"` in a program to load a *library* from `<sysroot>/packages/async/init.lua`, while the default `require` implementation would attempt to load `<sysroot>/run/bin/async.lua`, which is a (non-existent) *program*. Since there is no analogue of `PATH` for `require`, `svcbin` files are wrappers that reconfigure `require` to load libraries from `<sysroot>/packages/*/init.lua`, before passing control to the actual program.
+However, the binary files inside `runfs` are not just copies of the files in `bin`, since that would break `require` paths: we want `require "async"` in a program to load a *library* from `<sysroot>/packages/async/init.lua`, while the default `require` implementation would attempt to load `<sysroot>/run/bin/async.lua`, which is a (non-existent) *program*. Since there is no analogue of `PATH` for `require`, `runfs` binaries are wrappers that reconfigure `require` to load libraries from `<sysroot>/packages/*/init.lua`, before passing control to the actual program.
 
 Overall, this design allows packages to refer to each other, and enables changes to `packages` to be visible immediately. However, it does so at the cost of breaking compatibility with CraftOS: while in CraftOS, `require` is relative to the directory within which the current file is located, in this OS `require` is always relative to `<sysroot>/packages`. So imports from the same library have to repeat the library name.
 
-Note that since `require` is only patched by `svcbin` wrappers, it doesn't apply to programs invoked not through `svcbin`. For example, running `<sysroot>/packages/*/bin/*.lua` directly can break imports. Crucially, this also requires the OS to override the built-in `lua` program, so that `require` works as expected in the REPL.
+Note that since `require` is only patched by `runfs` wrappers, it doesn't apply to programs invoked not through `runfs`. For example, running `<sysroot>/packages/*/bin/*.lua` directly can break imports. Crucially, this also requires the OS to override the built-in `lua` program, so that `require` works as expected in the REPL.
 
 
 ## Services and targets

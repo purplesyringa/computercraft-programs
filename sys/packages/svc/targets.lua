@@ -17,7 +17,7 @@ local current_target = nil
 
 function targets_api.reload()
     targets = {}
-    for _, path in pairs(fs.find(fs.combine(sysroot, "targets", "*.lua"))) do
+    for _, path in pairs(fs.find(fs.combine(sysroot, "run", "targets", "*.lua"))) do
         local name = fs.getName(path):gsub(".lua$", "")
         local ok, config_or_err = pcall(function()
             local module, err = loadfile(path, nil, {})

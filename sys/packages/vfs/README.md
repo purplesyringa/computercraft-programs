@@ -78,7 +78,7 @@ A feature-complete file system can also support the following:
 - Implement `open(rel_path, mode)`. Note that unlike `fs.open`, this function should throw instead of returning nil for failure.
 - Return `created` and `modified` attributes.
 
-Check implementations of existing file systems for inspiration: [bind](../bind), [nfs](../nfs), [tmpfs](../tmpfs), [svcbin](../svc/env.lua).
+Check implementations of existing file systems for inspiration: [bind](../bind), [nfs](../nfs), [tmpfs](../tmpfs), [runfs](../runfs).
 
 ## Other APIs
 

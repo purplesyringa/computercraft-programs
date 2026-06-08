@@ -68,7 +68,7 @@ For example:
 
 Packages are stored in the [`packages`](..) subdirectory of the sysroot. They cannot be installed otherwise or located elsewhere: whatever is in `packages` declares the entire environment.
 
-When booting, `svc` mounts a [virtual filesystem](../vfs) called `svcbin` at `<sysroot>/run/bin` that contains a wrapper for each declared executable. This directory is added to `PATH` on boot so that programs can be run without specifying a path. When invoked, the wrappers configure the `require` function to look for imports in the `<sysroot>/packages` directory, so that executables can `require` libraries from packages.
+When booting, `svc` mounts a [virtual filesystem](../vfs) called `runfs` at `<sysroot>/run` that contains a wrapper for each declared executable in the `bin` subdirectory. This directory is added to `PATH` on boot so that programs can be run without specifying a path. When invoked, the wrappers configure the `require` function to look for imports in the `<sysroot>/packages` directory, so that executables can `require` libraries from packages.
 
 Since the `require` configuration is propagated to all modules imported within a program, it means that each `require` is relative to the `packages` directory, rather than the per-package subdirectory, differing from normal ComputerCraft:
 

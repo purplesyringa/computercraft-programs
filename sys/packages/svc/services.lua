@@ -21,7 +21,8 @@ local services_api = {
 
 function services_api.reload()
     local name_to_paths = {}
-    for _, path in pairs(fs.find(fs.combine(sysroot, "packages", "*", "services", "*.lua"))) do
+    local glob = fs.combine(sysroot, "run", "packages", "*", "services", "*.lua")
+    for _, path in pairs(fs.find(glob)) do
         local name = fs.getName(path):gsub(".lua$", "")
         if not name_to_paths[name] then
             name_to_paths[name] = {}

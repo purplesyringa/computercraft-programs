@@ -6,75 +6,8 @@ local svc_setup_env = fs.combine(sysroot, "run", "bin", "svc-setup-env")
 
 local env = {}
 
-local function findProgram(command)
-    if command == "" or command:find("/") or command:find("*") or command:find("?") then
-        return nil
-    end
-    local paths = fs.find(fs.combine(sysroot, "packages", "*", "bin", command .. ".lua"))
-    if not next(paths) then
-        return nil
-    end
-    return paths
-end
-
-function env.getCombinedBinPath()
-    return fs.combine(sysroot, "run", "bin")
-end
-
-function env.init()
-    local bin_path = env.getCombinedBinPath()
-
-    vfs.mount(bin_path, {
-        description = "dynamic path",
-        drive = "svcbin",
-        list = function(rel_path)
-            if rel_path ~= "" then
-                error("/" .. rel_path .. ": not a directory", 0)
-            end
-            local added = {}
-            local files = {}
-            for _, path in pairs(fs.find(fs.combine(sysroot, "packages", "*", "bin", "*.lua"))) do
-                local name = fs.getName(path):gsub(".lua$", "")
-                if not added[name] then
-                    added[name] = true
-                    table.insert(files, {
-                        name = name,
-                        attributes = { isDir = false },
-                    })
-                end
-            end
-            table.sort(files, function(a, b)
-                return a.name < b.name
-            end)
-            return files
-        end,
-        attributes = function(rel_path)
-            if rel_path == "" then
-                return { isDir = true }
-            elseif findProgram(rel_path) then
-                return { isDir = false }
-            else
-                return nil
-            end
-        end,
-        read = function(rel_path)
-            if rel_path == "" then
-                error("/" .. rel_path .. ": not a file", 0)
-            end
-            local paths = findProgram(rel_path)
-            if not paths then
-                error("/" .. rel_path .. ": not found", 0)
-            end
-            if #paths > 1 then
-                local error = "Multiple binaries named '" .. rel_path .. "': " .. table.concat(paths, ", ")
-                return "error(" .. string.format("%q", error) .. ", 0)\n"
-            end
-            local path = paths[1]
-            return "os._svc._execWrapped(_ENV, " .. string.format("%q", path) .. ", ...)\n"
-        end,
-    })
-
-    shell.setPath("/" .. bin_path .. ":" .. shell.path())
+function env.setShellPath(shell)
+    shell.setPath("/" .. fs.combine(sysroot, "run", "bin") .. ":" .. shell.path())
 end
 
 function env.execWrapped(child_env, program, ...)
@@ -102,8 +35,8 @@ function env.execWrapped(child_env, program, ...)
     -- set up `package`, but that seems consistent with how other package managers work.
     child_env.require, child_env.package = make_package(child_env, "nonexistent")
     local new_path = (
-        "/" .. fs.combine(sysroot, "packages", "?", "init.lua")
-        .. ";/" .. fs.combine(sysroot, "packages", "?.lua")
+        "/" .. fs.combine(sysroot, "run", "packages", "?", "init.lua")
+        .. ";/" .. fs.combine(sysroot, "run", "packages", "?.lua")
     )
     for pattern in child_env.package.path:gmatch("[^;]+") do
         -- Remove relative paths from the search path, since that'd add two require paths for
@@ -219,7 +152,7 @@ function env.reloadShellEnv(shell)
         }, { __index = settings }),
     }, "rom/startup.lua")
     -- Since `startup.lua` overrides path, we have to inject the combined /bin back.
-    shell.setPath("/" .. env.getCombinedBinPath() .. ":" .. shell.path())
+    env.setShellPath(shell)
 end
 
 return env

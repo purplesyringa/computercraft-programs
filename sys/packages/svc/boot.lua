@@ -36,12 +36,16 @@ function os.version()
 end
 
 -- Redefine `require` so that we have access to modules normally. This doesn't behave exactly like
--- normal modules, but it's close enough.
+-- normal modules, but it's close enough. This doesn't include impure modules, but we don't want to
+-- handle that complexity here.
 require = require("cc.require").make(_ENV, fs.combine(svc.sysroot, "packages"))
 
 -- VFS is so critical to running the system that it has to be started manually rather than as
 -- a service, since otherwise we won't even be able to run programs.
 require "vfs.install"
+
+local runfs = require "runfs"
+runfs.mount(fs.combine(svc.sysroot, "run"))
 
 local env = require "svc.env"
 local proc = require "svc.proc"
@@ -70,7 +74,6 @@ svc.targetStatus = targets.status
 
 svc.makeNestedShell = env.makeNestedShell
 svc.reloadShellEnv = env.reloadShellEnv
-svc.getCombinedBinPath = env.getCombinedBinPath
 svc._execWrapped = env.execWrapped
 
 svc.startProcess = proc.start
@@ -78,7 +81,7 @@ svc.stopProcess = proc.stop
 svc.killProcess = proc.kill
 svc.listProcesses = proc.list
 
-env.init()
+env.setShellPath(shell)
 svc.reload()
 
 term.setCursorPos(1, 1)
