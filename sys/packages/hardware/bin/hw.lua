@@ -24,7 +24,14 @@ local function showList(glob)
     })
     for _, name in ipairs(names) do
         if matchesGlob(name, glob) then
-            local type = peripheral.getType(mapping[name])
+            local type
+            if mapping[name] == "default" then
+                -- As a special case in `getty`, monitors and keyboards named `default` refer to the
+                -- built-in devices thatdon't exist as peripherals. Don't error on that.
+                type = "marker"
+            else
+                type = peripheral.getType(mapping[name])
+            end
             if type then
                 term.setTextColor(colors.white)
             else

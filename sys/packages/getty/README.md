@@ -9,4 +9,4 @@ A seat is a pair of a monitor and a keyboard. Running `getty <seat> <command...>
 - Keyboard events from [Ducky Peripherals](https://modrinth.com/mod/ducky-periphs) are limited to a single keyboard (either external or built-in).
 - The OS doesn't deliver presses of the Terminate button in the computer UI to all processes by default, since it'd just bring down the system. `getty` opts the GUI program into this.
 
-The seat can either be `default`, indicating the built-in monitor and keyboard, or a device name. In the latter case, peripherals named `<seat>.monitor` and `<seat>.keyboard` must be configured with [hw](../hardware).
+The seat name `default` indicates the built-in monitor and keyboard. Other seats can be configured with [hw](../hardware), using peripherals named `<seat>.monitor` and `<seat>.keyboard`. `monitor` can be either `default` (denoting the built-in monitor) or a monitor peripheral name. `keyboard` may be absent (denoting no input device), `default` (denoting the built-in keyboard), or a keyboard peripheral name.

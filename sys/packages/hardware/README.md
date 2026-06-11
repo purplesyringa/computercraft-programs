@@ -13,7 +13,7 @@ Names are unique. If an arbitrary number of peripherals may reasonably be part o
 
 Run `hw` or `hw list` to view the list of named peripherals, along with a list of connected but unnamed ones, and their respective status and type. `hw list <glob>` can be used to filter by name, and `hw list unnamed` to list unnamed peripherals only. For example, to check the status of peripherals connected to the first seat, use `hw list seat1.*`.
 
-To provide a name to a peripheral, use `hw add <name>` and then connect the right peripheral. If you make a mistake, use `hw del <name>` to remove the assignment and try again.
+To provide a name to a peripheral, use `hw add <name>` and then connect the right peripheral. If you make a mistake, use `hw del <name>` to remove the assignment and try again. If you already know the network name (or side) of the peripheral, use `hw add <name> <side>`. Note that [`getty`](../getty) interprets the `default` side in a special manner, and the two-argument form of `hw add` is the only way to assign it a name.
 
 After assigning the correct names, you should be able to invoke programs with the corresponding device name. For example, you can run a shell on the first seat with `getty seat1 shell`, or (supposedly, if you have a corresponding program) play music on a stereo system with `play stereo1 <file>`.
 
