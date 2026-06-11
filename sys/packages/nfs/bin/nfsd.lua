@@ -33,7 +33,7 @@ local nfs = {
         return vfs.list(fs.combine(root, path))
     end,
     attributes = function(path)
-        local attrs = vfs.attributes(path)
+        local attrs = vfs.attributes(fs.combine(root, path))
         if attrs then
             attrs.isReadOnly = true
         end
