@@ -1,4 +1,4 @@
 return {
-    inherits = { "shell" },
-    services = { "nfsd", "netbootd" },
+    inherits = { "nfsd" },
+    services = { "netbootd" },
 }
