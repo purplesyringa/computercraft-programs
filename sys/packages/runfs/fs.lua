@@ -59,7 +59,7 @@ local function makeBinaryWrapper(command)
         local error = ("Multiple binaries named '%s': %s"):format(command, table.concat(paths, ", "))
         return ("error(%q, 0)\n"):format(error)
     elseif #paths == 1 then
-        return ("os._svc._execWrapped(_ENV, %q, ...)\n"):format(paths[1])
+        return ("os._svc.execWrapped(_ENV, %q, ...)\n"):format(paths[1])
     elseif overridden_package then
         local s = "Package '%s' providing binary '%s' is overwritten by an impure package"
         local error = s:format(overridden_package, command)

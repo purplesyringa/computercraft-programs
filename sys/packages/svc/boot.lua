@@ -74,7 +74,7 @@ svc.targetStatus = targets.status
 
 svc.makeNestedShell = env.makeNestedShell
 svc.reloadShellEnv = env.reloadShellEnv
-svc._execWrapped = env.execWrapped
+svc.execWrapped = env.execWrapped
 
 svc.startProcess = proc.start
 svc.stopProcess = proc.stop
