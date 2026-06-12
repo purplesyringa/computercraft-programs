@@ -25,7 +25,7 @@ if names.monitor == "default" then
     monitor = term.native()
 else
     monitor = peripheral.wrap(names.monitor)
-    assert(monitor, "monitor " .. monitor .. " is not connected")
+    assert(monitor, "monitor " .. names.monitor .. " is not connected")
 end
 
 local keyboard_event_name = names.keyboard
