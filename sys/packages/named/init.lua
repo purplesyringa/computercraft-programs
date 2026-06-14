@@ -1,3 +1,8 @@
+settings.define("named.hostname", {
+    description = "Unique hostname",
+    type = "string",
+})
+
 return {
     hasHostname = function()
         return settings.get("named.hostname") ~= nil
