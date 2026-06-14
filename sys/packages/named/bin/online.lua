@@ -1,3 +1,5 @@
+local hostname = require "hostname"
+
 local function toPattern(glob)
     -- See https://www.lua.org/manual/5.3/manual.html#6.4.1 for list of magic characters
     local pattern = glob
@@ -15,25 +17,8 @@ local writeRow = tableui.header({
 })
 
 local args = { ... }
-rednet.broadcast(toPattern(args[1] or "*"), "named-request")
-
-local timeout = 5
-local finish = os.clock() + timeout
-
-local seen = {}
-local hosts = {}
-
-while timeout > 0 do
-    local sender, hostname = rednet.receive("named-response", timeout)
-    timeout = finish - os.clock()
-    if not sender then
-        break
-    end
-    if not seen[sender] then
-        seen[sender] = true
-        table.insert(hosts, { id = sender, hostname = hostname })
-    end
-end
+local pattern = toPattern(args[1] or "*")
+local hosts = hostname.collect(pattern)
 
 table.sort(hosts, function(a, b)
     return a.id < b.id
