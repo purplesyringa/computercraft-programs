@@ -121,20 +121,26 @@ A service definition is a normal Lua file. It is run with an empty environment a
 
 - `process` means that a command specified in the `command` field should be run. The first element is the name of the program (automatically resolved according to `PATH`), and the rest are arguments. The service is considered to be up as soon as the command starts executing, and is considered down when it exits or errors.
 
-- `oneshot` services define actions that should be performed to start or stop the service, but do not run any code in the background. `command` is absent, and instead `start` must contain a function that is run when the service is started, and `stop` (optional) is run when it's stopped. `start` can be asynchronous, and the service is only considered to be up when it finishes. `stop`, if present, must be synchronous. Consider [`named`](../named/services/named.lua) for example:
+- `oneshot` services define actions that should be performed to start or stop the service, but do not run any code in the background. `command` is absent, and instead `start` must contain a function that is run when the service is started, and `stop` (optional) is run when it's stopped. `start` can be asynchronous, and the service is only considered to be up when it finishes. `stop`, if present, must be synchronous. Consider [`netbootupd`](../netboot/services/netbootupd.lua) for example:
 
 ```lua
 return {
-    description = "Configures rednet.host",
+    description = "Updates netboot script in startup.lua",
     type = "oneshot",
     start = function()
-        settings.define("named.hostname", {
-            description = "Unique hostname",
-            type = "string",
-        })
-        local hostname = settings.get("named.hostname")
-        if hostname ~= nil then
-            rednet.host("named", hostname)
+        local vfs = require "vfs"
+        local startup = require "startup"
+        local svc = require "svc"
+
+        local old_startup = startup.getScript()
+        local new_startup = vfs.read(fs.combine(svc.sysroot, "packages", "netboot", "boot.lua"))
+        if (
+            old_startup
+            and #old_startup < 4096 -- don't override unpacked initrd
+            and old_startup:match('"=netboot"')
+            and old_startup ~= new_startup
+        ) then
+            startup.setScript(new_startup)
         end
     end,
 }
