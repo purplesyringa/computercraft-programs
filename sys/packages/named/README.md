@@ -15,3 +15,5 @@ local computer_id = named.lookup(hostname)
 ```
 
 The `named` service automatically opens modems and announces the hostname to the network.
+
+`online` program can be used to find out what computers are online and their respective hostnames.
