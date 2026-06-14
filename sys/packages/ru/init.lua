@@ -21,9 +21,9 @@ function ru.text.to_koi(s)
     local n = 0
     for i, ch in ipairs(s) do
         skip = false
-        if raw and ch == 0xBF then
+        if raw and ch == 0x3C then
             raw, skip = false, true
-        elseif not raw and ch == 0x3F then
+        elseif not raw and ch == 0x3E then
             raw, skip = true, true
         end
 
