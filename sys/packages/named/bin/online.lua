@@ -14,6 +14,11 @@ local args = { ... }
 local pattern = toPattern(args[1] or "*")
 local hosts = named.collect(pattern)
 
+if not next(hosts) then
+    printError("Nothing found")
+    return
+end
+
 term.setTextColor(colors.green)
 local writeRow = tableui.header({
     { key = "id", heading = "ID", width = 6 },
