@@ -14,7 +14,7 @@ local command = { table.unpack(args, 2) }
 
 local names
 if seat == "default" then
-    names = { monitor = "default" }
+    names = { monitor = "default", keyboard = "default" }
 else
     names = hardware.resolveGroup(seat)
 end
