@@ -1,3 +1,12 @@
+local function toPattern(glob)
+    -- See https://www.lua.org/manual/5.3/manual.html#6.4.1 for list of magic characters
+    local pattern = glob
+        :gsub("([]%%^$().[+-])", "%%%1")
+        :gsub("%*", ".*") -- any string glob
+        :gsub("%?", ".") -- any character glob
+    return "^" .. pattern .. "$"
+end
+
 local tableui = require "tableui"
 term.setTextColor(colors.green)
 local writeRow = tableui.header({
@@ -5,7 +14,8 @@ local writeRow = tableui.header({
     { key = "hostname", heading = "hostname" },
 })
 
-rednet.broadcast(nil, "named-request")
+local args = { ... }
+rednet.broadcast(toPattern(args[1] or "*"), "named-request")
 
 local timeout = 5
 local finish = os.clock() + timeout
