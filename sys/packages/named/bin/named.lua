@@ -5,10 +5,14 @@ if ok then
 end
 
 while true do
-    local sender = rednet.receive("named-request")
-    ok, own = pcall(named.hostname)
-    if not ok then
-        own = nil
+    local sender, pattern = rednet.receive("named-request")
+    if type(pattern) == "string" then
+        ok, own = pcall(named.hostname)
+        if not ok then
+            own = nil
+        end
+        if (own or ""):match(pattern) then
+            rednet.send(sender, own, "named-response")
+        end
     end
-    rednet.send(sender, own, "named-response")
 end
