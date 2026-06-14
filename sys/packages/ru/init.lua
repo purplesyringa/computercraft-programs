@@ -19,8 +19,8 @@ function ru.text.to_koi(s)
     s = { string.byte(s, 1, #s) }
     local raw = true
     local n = 0
-    for i, ch in ipairs(s) do
-        skip = false
+    for _, ch in ipairs(s) do
+        local skip = false
         if raw and ch == 0x3C then
             raw, skip = false, true
         elseif not raw and ch == 0x3E then
