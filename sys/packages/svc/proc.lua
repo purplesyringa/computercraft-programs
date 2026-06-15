@@ -99,6 +99,7 @@ function proc.registerRebootShutdownHandlers()
             processes[running_process_id].filter = ""
             deliverEventToAll(method .. "_imminent")
             old_method()
+            error("unreachable")
         end
     end
 end
