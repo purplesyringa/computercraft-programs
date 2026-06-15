@@ -43,6 +43,11 @@ local function pullEventNetworked()
         if event[1] == "terminate" then
             sendToClient({ type = "close", reason = "terminate" }, "rsh")
             error("Terminated", 0)
+        elseif event[1] == "reboot_imminent" or event[1] == "shutdown_imminent" then
+            sendToClient({
+                type = "close",
+                reason = event[1]:gsub("_imminent", ""),
+            })
         elseif event[1] == "rednet_message" then
             local client_id, msg, protocol = event[2], event[3], event[4]
             if (

@@ -3,28 +3,6 @@ local svc = require "svc"
 
 local open_sessions = {}
 
-local function closeAll(reason)
-    for id, params in pairs(open_sessions) do
-        rednet.send(params.client, {
-            type = "close",
-            session = params.session,
-            reason = reason,
-        }, "rsh")
-    end
-end
-
-local old_reboot = os.reboot
-os.reboot = function()
-    closeAll("reboot")
-    old_reboot()
-end
-
-local old_shutdown = os.shutdown
-os.shutdown = function()
-    closeAll("shutdown")
-    old_shutdown()
-end
-
 while true do
     local client_id, msg = rednet.receive("rsh")
     if msg.type == "open" then
@@ -40,6 +18,8 @@ while true do
         end)
     elseif msg.type == "event" then
         local id = string.format("%d:%d", client_id, msg.session)
+        -- Reset connection if the server was restarted and the `rsh-serve-session` process is known
+        -- to be non-existent. This reacts to `rshd` restarts as well, probably suboptimal.
         if not open_sessions[id] then
             rednet.send(client_id, {
                 type = "server_reset",
