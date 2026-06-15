@@ -87,6 +87,8 @@ svc.reload()
 term.setCursorPos(1, 1)
 term.clear()
 
+proc.registerRebootShutdownHandlers()
+
 proc.start("boot", function()
     if not svc.targetStatus(target) then
         target = "shell"
