@@ -63,7 +63,7 @@ function named.collect(pattern, timeout)
     end, function()
         while true do
             local sender, hostname = rednet.receive("named-response")
-            if not seen[sender] then
+            if not seen[sender] and (hostname or ""):match(pattern) then
                 seen[sender] = true
                 table.insert(hosts, { id = sender, hostname = hostname })
             end
