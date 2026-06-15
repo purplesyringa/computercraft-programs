@@ -1,4 +1,5 @@
 local bytesio = require "bytesio"
+local globbing = require "globbing"
 
 local old_vfs = fs._vfs
 local ofs = fs
@@ -297,17 +298,6 @@ local function components(path)
     return list
 end
 
-local function globMatches(s, glob)
-    -- Copied from rom/apis/fs.lua verbatim to reproduce semantics.
-    local find_escape = {
-        ["^"] = "%^", ["$"] = "%$", ["("] = "%(", [")"] = "%)", ["%"] = "%%",
-        ["."] = "%.", ["["] = "%[", ["]"] = "%]", ["+"] = "%+", ["-"] = "%-",
-        ["*"] = ".*",
-        ["?"] = ".",
-    }
-    return s:find("^" .. glob:gsub(".", find_escape) .. "$") ~= nil
-end
-
 local function findInMount(mount, rel_path, rel_glob, known_exists, result)
     local i = rel_glob:find("/")
     local component_glob, rest_glob = rel_glob, ""
@@ -368,7 +358,9 @@ function fs.find(glob)
             -- If the glob is empty, we want to return the root as a single result. The root is not
             -- strictly nested within itself, so there's a bit of special-casing.
             and (mount.root == "" or #glob_components > #root_components)
-            and globMatches(mount.root, table.concat(glob_components, "/", 1, #root_components))
+            and mount.root:match(
+                globbing.toPattern(table.concat(glob_components, "/", 1, #root_components))
+            )
         ) then
             local rel_glob = table.concat(glob_components, "/", #root_components + 1)
             findInMount(mount, "", rel_glob, true, result)
