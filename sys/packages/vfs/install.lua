@@ -32,7 +32,7 @@ end
 --     attributes(rel_path),
 --
 --     -- If missing, recursively reimplemented based on `list`.
---     find(rel_pattern),
+--     find(rel_glob),
 --
 --     -- If missing, throws the read-only error.
 --     makeDir(rel_path),
@@ -297,7 +297,7 @@ local function components(path)
     return list
 end
 
-local function globMatches(s, pattern)
+local function globMatches(s, glob)
     -- Copied from rom/apis/fs.lua verbatim to reproduce semantics.
     local find_escape = {
         ["^"] = "%^", ["$"] = "%$", ["("] = "%(", [")"] = "%)", ["%"] = "%%",
@@ -305,20 +305,20 @@ local function globMatches(s, pattern)
         ["*"] = ".*",
         ["?"] = ".",
     }
-    return s:find("^" .. pattern:gsub(".", find_escape) .. "$") ~= nil
+    return s:find("^" .. glob:gsub(".", find_escape) .. "$") ~= nil
 end
 
-local function findInMount(mount, rel_path, rel_pattern, known_exists, result)
-    local i = rel_pattern:find("/")
-    local component_pattern, rest_pattern = rel_pattern, ""
+local function findInMount(mount, rel_path, rel_glob, known_exists, result)
+    local i = rel_glob:find("/")
+    local component_glob, rest_glob = rel_glob, ""
     if i then
-        component_pattern, rest_pattern = rel_pattern:sub(1, i - 1), rel_pattern:sub(i + 1)
+        component_glob, rest_glob = rel_glob:sub(1, i - 1), rel_glob:sub(i + 1)
     end
-    if rel_pattern ~= "" and not component_pattern:find("[*?]") then
+    if rel_glob ~= "" and not component_glob:find("[*?]") then
         return findInMount(
             mount,
-            ofs.combine(rel_path, component_pattern),
-            rest_pattern,
+            ofs.combine(rel_path, component_glob),
+            rest_glob,
             false,
             result
         )
@@ -327,14 +327,14 @@ local function findInMount(mount, rel_path, rel_pattern, known_exists, result)
     if rel_path ~= "" and not isOwnedBy(ofs.combine(mount.root, rel_path), mount) then
         return
     end
-    if rel_pattern == "" then
+    if rel_glob == "" then
         if known_exists or mountAttributes(mount, rel_path) then
             table.insert(result, ofs.combine(mount.root, rel_path))
         end
         return
     end
     if mount.find then
-        for _, rel_found_path in ipairs(mount.find(ofs.combine(rel_path, rel_pattern))) do
+        for _, rel_found_path in ipairs(mount.find(ofs.combine(rel_path, rel_glob))) do
             local found_path = ofs.combine(mount.root, rel_found_path)
             if isOwnedBy(found_path, mount) then
                 table.insert(result, found_path)
@@ -346,32 +346,32 @@ local function findInMount(mount, rel_path, rel_pattern, known_exists, result)
             return
         end
         for _, entry in ipairs(entries) do
-            if entry.attributes.isDir or rest_pattern == "" then
-                findInMount(mount, ofs.combine(rel_path, entry.name), rest_pattern, true, result)
+            if entry.attributes.isDir or rest_glob == "" then
+                findInMount(mount, ofs.combine(rel_path, entry.name), rest_glob, true, result)
             end
         end
     end
 end
 
-function fs.find(pattern)
+function fs.find(glob)
     -- This doesn't make much sense semantically, but mirrors the behavior of the original `find`.
-    pattern = ofs.combine(pattern)
+    glob = ofs.combine(glob)
 
     local result = {}
-    local pattern_components = components(pattern)
+    local glob_components = components(glob)
 
     for _, mount in ipairs(mounts) do
         local root_components = components(mount.root)
         -- Check if matching paths can be nested strictly within this mount.
         if (
             not isShadowed(mount)
-            -- If the pattern is empty, we want to return the root as a single result. The root is
-            -- not strictly nested within itself, so there's a bit of special-casing.
-            and (mount.root == "" or #pattern_components > #root_components)
-            and globMatches(mount.root, table.concat(pattern_components, "/", 1, #root_components))
+            -- If the glob is empty, we want to return the root as a single result. The root is not
+            -- strictly nested within itself, so there's a bit of special-casing.
+            and (mount.root == "" or #glob_components > #root_components)
+            and globMatches(mount.root, table.concat(glob_components, "/", 1, #root_components))
         ) then
-            local rel_pattern = table.concat(pattern_components, "/", #root_components + 1)
-            findInMount(mount, "", rel_pattern, true, result)
+            local rel_glob = table.concat(glob_components, "/", #root_components + 1)
+            findInMount(mount, "", rel_glob, true, result)
         end
     end
 

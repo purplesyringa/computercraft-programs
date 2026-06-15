@@ -67,7 +67,7 @@ A read-write file system would need the following changes:
 A file system can be made more optimal in the number of requests with the following changes (this is useful for e.g. NFS):
 
 - Instead of returning lists of names from `list`, return lists of `{ name = ..., attributes = ... }`.
-- Implement `find(rel_pattern)`.
+- Implement `find(rel_glob)`.
 - Implement `move(src_rel_path, dst_rel_path)`.
 - Implement `copy(src_rel_path, dst_rel_path)`.
 
