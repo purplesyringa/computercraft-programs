@@ -7,12 +7,9 @@ end
 while true do
     local sender, pattern = rednet.receive("named-request")
     if type(pattern) == "string" then
-        ok, own = pcall(named.hostname)
-        if not ok then
-            own = nil
-        end
-        if (own or ""):match(pattern) then
-            rednet.send(sender, own, "named-response")
+        local ok, hostname = named._ownHostnameMatchesPattern(pattern)
+        if ok then
+            rednet.send(sender, hostname, "named-response")
         end
     end
 end

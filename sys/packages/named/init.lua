@@ -31,14 +31,36 @@ function named.lookup(hostname_or_computer_id)
     return rednet.lookup("named", hostname_or_computer_id)
 end
 
+-- Used by the `named` service. Returns `true, hostname` if the current computer's hostname matches
+-- the pattern, `false, nil` otherwise.
+function named._ownHostnameMatchesPattern(pattern)
+    local ok, hostname = pcall(named.hostname)
+    if not ok then
+        hostname = nil
+    end
+    if (hostname or ""):match(pattern) then
+        return true, hostname
+    else
+        return false, nil
+    end
+end
+
 function named.collect(pattern, timeout)
     rednet.broadcast(pattern, "named-request")
 
+    local seen = {}
     local hosts = {}
+
+    local ok, hostname = named._ownHostnameMatchesPattern(pattern)
+    if ok then
+        local id = os.computerID()
+        seen[id] = true
+        table.insert(hosts, { id = id, hostname = hostname })
+    end
+
     parallel.waitForAny(function()
         os.sleep(timeout or 5) -- default
     end, function()
-        local seen = {}
         while true do
             local sender, hostname = rednet.receive("named-response")
             if not seen[sender] then
