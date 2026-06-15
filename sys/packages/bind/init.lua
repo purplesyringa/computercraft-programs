@@ -43,8 +43,8 @@ return {
                 return vfs.attributes(fs.combine(origin, path))
             end),
 
-            find = wrap(function(path)
-                local list = fs.find(fs.combine(origin, path))
+            find = wrap(function(glob)
+                local list = fs.find(fs.combine(origin, glob))
                 if origin ~= "" then
                     for key, _ in pairs(list) do
                         list[key] = string.sub(list[key], #origin + 2)

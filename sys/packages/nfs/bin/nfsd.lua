@@ -20,8 +20,8 @@ local function patchError(err)
 end
 
 local nfs = {
-    find = function(path)
-        local list = fs.find(fs.combine(root, path))
+    find = function(glob)
+        local list = fs.find(fs.combine(root, glob))
         if root ~= "" then
             for key, _ in pairs(list) do
                 list[key] = string.sub(list[key], #root + 2)
