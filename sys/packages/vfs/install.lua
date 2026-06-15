@@ -201,18 +201,18 @@ local function mountList(mount, rel_path)
     return list
 end
 
-function fs.complete(pattern, dir, ...)
-    local pattern_dir, pattern_name = pattern:match("(.*)/(.*)")
-    if pattern_dir == nil then
-        pattern_dir, pattern_name = "", pattern
+function fs.complete(input, dir, ...)
+    local input_dir, input_name = input:match("(.*)/(.*)")
+    if input_dir == nil then
+        input_dir, input_name = "", input
     end
 
-    -- Completing a pattern starting with `/` ignores the base directory, even though `fs.combine`
+    -- Completing an input starting with `/` ignores the base directory, even though `fs.combine`
     -- doesn't behave that way.
-    if startsWith(pattern, "/") then
-        dir = ofs.combine(pattern_dir)
+    if startsWith(input, "/") then
+        dir = ofs.combine(input_dir)
     else
-        dir = ofs.combine(dir, pattern_dir)
+        dir = ofs.combine(dir, input_dir)
     end
 
     local mount, dir_rel_path = resolvePath(dir)
@@ -236,25 +236,25 @@ function fs.complete(pattern, dir, ...)
 
     -- CraftOS makes some questionable decisions here, but we copy its behavior for consistency.
 
-    -- CraftOS completes `.` if the pattern is empty, but does not complete `./`, even though it
-    -- does add both versions with and without slashes for normal directories. This only happens if
+    -- CraftOS completes `.` if the input is empty, but does not complete `./`, even though it does
+    -- add both versions with and without slashes for normal directories. This only happens if
     -- `include_dirs` is set.
-    if pattern == "" and options.include_dirs ~= false then
+    if input == "" and options.include_dirs ~= false then
         table.insert(res, ".")
     end
 
-    -- CraftOS completes `..` if `dir` is not a literal root and the pattern doesn't contain
-    -- slashes. Disabling `include_dirs` replaces the completion with `../`, but does not complete
-    -- the `..` pattern, only `.` and an empty one. Also notably, `dir = "a/.."` is not considered
-    -- a root, only empty `dir` is.
+    -- CraftOS completes `..` if `dir` is not a literal root and the input doesn't contain slashes.
+    -- Disabling `include_dirs` replaces the completion with `../`, but does not complete the `..`
+    -- input, only `.` and an empty one. Also notably, `dir = "a/.."` is not considered a root, only
+    -- empty `dir` is.
     if dir ~= "" then
-        if pattern == "" then
+        if input == "" then
             if options.include_dirs ~= false then
                 table.insert(res, "..")
             else
                 table.insert(res, "../")
             end
-        elseif pattern == "." then
+        elseif input == "." then
             if options.include_dirs ~= false then
                 table.insert(res, ".")
             else
@@ -265,14 +265,14 @@ function fs.complete(pattern, dir, ...)
 
     for _, file in ipairs(files) do
         if (
-            startsWith(file.name, pattern_name)
+            startsWith(file.name, input_name)
             and (
                 not startsWith(file.name, ".")
                 or options.include_hidden
-                or startsWith(pattern_name, ".")
+                or startsWith(input_name, ".")
             )
         ) then
-            local suffix = file.name:sub(#pattern_name + 1)
+            local suffix = file.name:sub(#input_name + 1)
             if file.attributes.isDir then
                 table.insert(res, suffix .. "/")
                 if options.include_dirs ~= false and suffix ~= "" then
