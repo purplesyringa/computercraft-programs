@@ -1,11 +1,9 @@
+local globbing = require "globbing"
 local hardware = require "hardware"
 local tableui = require "tableui"
 
-local function matchesGlob(name, glob)
-    return name:find("^" .. glob:gsub("%.", "%."):gsub("%*", ".*") .. "$") ~= nil
-end
-
 local function showList(glob)
+    local pattern = globbing.toPattern(glob)
     local mapping = hardware.listAll()
 
     local names = {}
@@ -23,7 +21,7 @@ local function showList(glob)
         { key = "type", heading = "Type" },
     })
     for _, name in ipairs(names) do
-        if matchesGlob(name, glob) then
+        if name:match(pattern) then
             local type
             if mapping[name] == "default" then
                 -- As a special case in `getty`, monitors and keyboards named `default` refer to the

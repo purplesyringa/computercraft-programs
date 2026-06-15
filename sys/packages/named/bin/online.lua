@@ -1,17 +1,9 @@
+local globbing = require "globbing"
 local named = require "named"
 local tableui = require "tableui"
 
-local function toPattern(glob)
-    -- See https://www.lua.org/manual/5.3/manual.html#6.4.1 for list of magic characters
-    local pattern = glob
-        :gsub("([]%%^$().[+-])", "%%%1")
-        :gsub("%*", ".*") -- any string glob
-        :gsub("%?", ".") -- any character glob
-    return "^" .. pattern .. "$"
-end
-
 local args = { ... }
-local pattern = toPattern(args[1] or "*")
+local pattern = globbing.toPattern(args[1] or "*")
 local hosts = named.collect(pattern)
 
 if not next(hosts) then
