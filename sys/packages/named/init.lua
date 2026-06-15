@@ -30,10 +30,10 @@ return {
         return rednet.lookup("named", hostname_or_computer_id)
     end,
 
-    collect = function(pattern)
+    collect = function(pattern, timeout)
         rednet.broadcast(pattern, "named-request")
 
-        local timeout = 5
+        timeout = timeout or 5 -- default
         local finish = os.clock() + timeout
 
         local seen = {}
