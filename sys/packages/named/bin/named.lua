@@ -1,7 +1,7 @@
 local named = require "named"
 local ok, own = pcall(named.hostname)
 if ok then
-    rednet.host("named", own)
+    named._hostHostname(own)
 end
 
 while true do

@@ -17,10 +17,14 @@ function named.hostname()
     return hostname
 end
 
+function named._hostHostname(hostname)
+    rednet.host("named", hostname)
+end
+
 function named.setHostname(hostname)
     settings.set("named.hostname", hostname)
     settings.save()
-    rednet.host("named", hostname)
+    named._hostHostname(hostname)
 end
 
 function named.lookup(hostname_or_computer_id)
