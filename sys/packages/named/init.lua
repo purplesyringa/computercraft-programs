@@ -19,7 +19,7 @@ end
 
 function named._hostHostname(hostname)
     rednet.host("named", hostname)
-    rednet.broadcast("named-response", hostname)
+    rednet.broadcast(hostname, "named-response")
 end
 
 function named.setHostname(hostname)
