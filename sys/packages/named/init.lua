@@ -33,24 +33,19 @@ return {
     collect = function(pattern, timeout)
         rednet.broadcast(pattern, "named-request")
 
-        timeout = timeout or 5 -- default
-        local finish = os.clock() + timeout
-
-        local seen = {}
         local hosts = {}
-
-        while timeout > 0 do
-            local sender, hostname = rednet.receive("named-response", timeout)
-            timeout = finish - os.clock()
-            if not sender then
-                break
+        parallel.waitForAny(function()
+            os.sleep(timeout or 5) -- default
+        end, function()
+            local seen = {}
+            while true do
+                local sender, hostname = rednet.receive("named-response")
+                if not seen[sender] then
+                    seen[sender] = true
+                    table.insert(hosts, { id = sender, hostname = hostname })
+                end
             end
-            if not seen[sender] then
-                seen[sender] = true
-                table.insert(hosts, { id = sender, hostname = hostname })
-            end
-        end
-
+        end)
         return hosts
     end,
 }
