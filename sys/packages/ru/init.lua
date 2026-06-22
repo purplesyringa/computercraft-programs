@@ -19,9 +19,9 @@ function ru.text.to_koi_char(ch)
     return ch
 end
 
-function ru.text.to_koi(s)
+function ru.text.to_koi_inner(s, raw_initial)
     s = { string.byte(s, 1, #s) }
-    local raw = true
+    local raw = raw_initial
     local n = 0
     for _, ch in ipairs(s) do
         local skip = false
@@ -41,6 +41,10 @@ function ru.text.to_koi(s)
         end
     end
     return string.char(table.unpack(s, 1, n))
+end
+
+function ru.text.to_koi(s)
+    return ru.text.to_koi_inner(s, true)
 end
 
 local off = { 30, 0, 1, 22, 4, 5, 20, 3, 21, 8, 9, 10, 11, 12, 13, 14, 15, 31, 16, 17, 18, 19, 6, 2, 28, 27, 7, 24, 29, 25, 23, 26 }
