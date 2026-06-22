@@ -55,7 +55,11 @@ while not bg_command.isDead() do
     -- keyboard. Events originating from monitor have different IDs from the default terminal
     -- events, so the confusion doesn't arise and we can deliver both the original event and the
     -- rewritten event.
-    if event[1] == "char" or event[1] == "paste" then
+    if event[1] == "char" then
+        if keyboard_event_name == event[3] then
+            deliver()
+        end
+    elseif event[1] == "paste" then
         if keyboard_event_name == event[3] then
             deliver()
         end
