@@ -1,7 +1,7 @@
 local first_run = true
 
 local nested
-local shift_held = false
+local keys_pressed = {}
 
 local hangup_in_process = 0
 local hangup_saved_focus = nil
@@ -40,8 +40,10 @@ os.run({
             while true do
                 local event = table.pack(os.pullEventRaw())
 
-                if (event[1] == "key" or event[1] == "key_up") and (event[2] == keys.leftShift or event[2] == keys.rightShift) then
-                    shift_held = event[1] == "key"
+                if event[1] == "key" then
+                    keys_pressed[event[2]] = true
+                elseif event[1] == "key_up" then
+                    keys_pressed[event[2]] = nil
                 end
 
                 if event[1] == "terminate" and event[2] == "hangup" then
@@ -57,7 +59,7 @@ os.run({
                 if event[1] == "key" and event[2] == keys.pause then
                     local n = nested.getCount()
                     local i = nested.getFocus()
-                    if shift_held then
+                    if keys_pressed[keys.leftShift] or keys_pressed[keys.rightShift] then
                         if i == 1 then
                             nested.setFocus(n)
                         else

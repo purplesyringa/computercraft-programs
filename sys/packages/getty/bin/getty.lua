@@ -41,7 +41,7 @@ local bg_command = redirect.runWithEventSource(redirect.runWithTerm, monitor, fu
     nested_shell.execute(table.unpack(command))
 end)
 
-local shift_pressed = false
+local keys_pressed = {}
 local event
 
 local function deliver()
@@ -61,16 +61,12 @@ while not bg_command.isDead() do
         end
     elseif event[1] == "key" then
         if keyboard_event_name == event[4] then
-            if event[2] == keys.leftShift or event[2] == keys.rightShift then
-                shift_pressed = true
-            end
+            keys_pressed[event[2]] = true
             deliver()
         end
     elseif event[1] == "key_up" then
         if keyboard_event_name == event[3] then
-            if event[2] == keys.leftShift or event[2] == keys.rightShift then
-                shift_pressed = false
-            end
+            keys_pressed[event[2]] = nil
             deliver()
         end
     elseif event[1] == "monitor_resize" then
@@ -85,7 +81,7 @@ while not bg_command.isDead() do
     elseif event[1] == "monitor_touch" then
         if names.monitor == event[2] then
             local button = 1
-            if shift_pressed then
+            if keys_pressed[keys.leftShift] or keys_pressed[keys.rightShift] then
                 button = 2
             end
             bg_command.pushEvent("mouse_click", button, event[3], event[4])

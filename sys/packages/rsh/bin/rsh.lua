@@ -23,22 +23,19 @@ local function connect(server_id, ...)
         command = { ... },
     }, "rsh")
 
-    local shift_down = false
+    local keys_pressed = {}
 
     while true do
         local event = table.pack(os.pullEventRaw())
 
         -- Track Shift+Terminate.
-        local function isShift(key)
-            return key == keys.leftShift or key == keys.rightShift
-        end
-        if event[1] == "key" and isShift(event[2]) then
-            shift_down = true
-        elseif event[1] == "key_up" and isShift(event[2]) then
-            shift_down = false
+        if event[1] == "key" then
+            keys_pressed[event[2]] = true
+        elseif event[1] == "key_up" then
+            keys_pressed[event[2]] = nil
         end
 
-        if event[1] == "terminate" and shift_down then
+        if event[1] == "terminate" and (keys_pressed[keys.leftShift] or keys_pressed[keys.rightShift]) then
             rednet.send(server_id, { type = "kill", session = session_id }, "rsh")
             printError("Killed")
             break
