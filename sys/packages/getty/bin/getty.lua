@@ -42,14 +42,13 @@ local bg_command = redirect.runWithEventSource(redirect.runWithTerm, monitor, fu
 end)
 
 local keys_pressed = {}
-local event
 
-local function deliver()
+local function deliver(event)
     bg_command.pushEvent(table.unpack(event, 1, event.n))
 end
 
 while not bg_command.isDead() do
-    event = table.pack(os.pullEventRaw())
+    local event = table.pack(os.pullEventRaw())
 
     -- Events originating from keyboard are delivered only when arriving from the expected
     -- keyboard. Events originating from monitor have different IDs from the default terminal
@@ -57,30 +56,30 @@ while not bg_command.isDead() do
     -- rewritten event.
     if event[1] == "char" then
         if keyboard_event_name == event[3] then
-            deliver()
+            deliver(event)
         end
     elseif event[1] == "paste" then
         if keyboard_event_name == event[3] then
-            deliver()
+            deliver(event)
         end
     elseif event[1] == "key" then
         if keyboard_event_name == event[4] then
             keys_pressed[event[2]] = true
-            deliver()
+            deliver(event)
         end
     elseif event[1] == "key_up" then
         if keyboard_event_name == event[3] then
             keys_pressed[event[2]] = nil
-            deliver()
+            deliver(event)
         end
     elseif event[1] == "monitor_resize" then
         if names.monitor == event[2] then
             bg_command.pushEvent("term_resize")
         end
-        deliver()
+        deliver(event)
     elseif event[1] == "term_resize" then
         if names.monitor == "default" then
-            deliver()
+            deliver(event)
         end
     elseif event[1] == "monitor_touch" then
         if names.monitor == event[2] then
@@ -91,7 +90,7 @@ while not bg_command.isDead() do
             bg_command.pushEvent("mouse_click", button, event[3], event[4])
             bg_command.pushEvent("mouse_up", button, event[3], event[4])
         end
-        deliver()
+        deliver(event)
     elseif (
         event[1] == "mouse_click"
         or event[1] == "mouse_drag"
@@ -99,16 +98,16 @@ while not bg_command.isDead() do
         or event[1] == "mouse_up"
     ) then
         if names.monitor == "default" then
-            deliver()
+            deliver(event)
         end
     elseif event[1] == "terminate" then
         -- e.g. hangup
-        deliver()
+        deliver(event)
     elseif event[1] == "fg_terminate" then
         if keyboard_event_name == event[2] then
             bg_command.pushEvent("terminate")
         end
     else
-        deliver()
+    deliver(event)
     end
 end
