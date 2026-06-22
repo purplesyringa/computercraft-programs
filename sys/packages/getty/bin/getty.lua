@@ -1,4 +1,5 @@
 local hardware = require "hardware"
+local keyboard = require "keyboard"
 local redirect = require "redirect"
 local svc = require "svc"
 
@@ -41,11 +42,11 @@ local bg_command = redirect.runWithEventSource(redirect.runWithTerm, monitor, fu
     nested_shell.execute(table.unpack(command))
 end)
 
-local keys_pressed = {}
-
 local function deliver(event)
     bg_command.pushEvent(table.unpack(event, 1, event.n))
 end
+
+local kb = keyboard.new(deliver)
 
 while not bg_command.isDead() do
     local event = table.pack(os.pullEventRaw())
@@ -56,7 +57,7 @@ while not bg_command.isDead() do
     -- rewritten event.
     if event[1] == "char" then
         if keyboard_event_name == event[3] then
-            deliver(event)
+            kb:on_char(event)
         end
     elseif event[1] == "paste" then
         if keyboard_event_name == event[3] then
@@ -64,13 +65,11 @@ while not bg_command.isDead() do
         end
     elseif event[1] == "key" then
         if keyboard_event_name == event[4] then
-            keys_pressed[event[2]] = true
-            deliver(event)
+            kb:on_key(event)
         end
     elseif event[1] == "key_up" then
         if keyboard_event_name == event[3] then
-            keys_pressed[event[2]] = nil
-            deliver(event)
+            kb:on_key_up(event)
         end
     elseif event[1] == "monitor_resize" then
         if names.monitor == event[2] then
@@ -84,7 +83,7 @@ while not bg_command.isDead() do
     elseif event[1] == "monitor_touch" then
         if names.monitor == event[2] then
             local button = 1
-            if keys_pressed[keys.leftShift] or keys_pressed[keys.rightShift] then
+            if kb.keys_pressed[keys.leftShift] or kb.keys_pressed[keys.rightShift] then
                 button = 2
             end
             bg_command.pushEvent("mouse_click", button, event[3], event[4])
