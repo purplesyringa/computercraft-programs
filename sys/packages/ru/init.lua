@@ -11,6 +11,10 @@ function ru.text.to_koi_char(ch)
             ch = ch + 0x20
         end
         ch = ch + 0x80
+    elseif ch == 0x33 then
+        ch = 0xA3
+    elseif ch == 0x23 then
+        ch = 0xB3
     end
     return ch
 end
