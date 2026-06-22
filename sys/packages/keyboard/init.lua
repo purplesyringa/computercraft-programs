@@ -8,7 +8,10 @@ local Handler = {}
 function Handler.new(send_event)
     local kb = setmetatable({
         native_layout = native_layout,
-        layouts = {},
+        layouts = {
+            [keys.f] = require "keyboard.layouts.rulemak",
+            [keys.j] = require "keyboard.layouts.jcuken",
+        },
         keys_pressed = {},
         recent_layout_change = false,
         allow_next_char = false,
