@@ -107,6 +107,6 @@ while not bg_command.isDead() do
             bg_command.pushEvent("terminate")
         end
     else
-    deliver(event)
+        deliver(event)
     end
 end
