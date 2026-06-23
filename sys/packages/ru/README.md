@@ -5,6 +5,8 @@ local ru = require "ru"
 ru.text.to_koi("<Priwet, mir!>") -- "Привет, мир!"
 ```
 
+Note that ComputerCraft uses a modification of ISO 8859-1 and CP437 as its base layout. To display KOI8 text properly, install [this resource pack](./CCT-koi8b-russian-pack.zip). It replaces all characters required by [KOI8-B](https://en.wikipedia.org/wiki/KOI8-B), and keeps pseudographics in place. To find out which characters are lost, inspect characters 0xA3, 0xB3, and 0xC0..=0xFF in [this CC charmap viewer](https://charmap.madefor.cc)
+
 ### Syntax
 
 `ru.text` family of functions replaces characters between `<` and `>` with codes between 0x40 and 0x80 with their KOI counterpart. Note that counterparts are calculated with *flipped* case, so that there is no screaming involved: instead of `<wOPROS>` one would enter `<Wopros>` and will get `Вопрос`.
