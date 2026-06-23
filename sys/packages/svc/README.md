@@ -36,7 +36,7 @@ nfsd            stopped
 rshd            up
 ```
 
-Processes are tasks that are automatically polled by `svc`. Anything that doesn't have a parent or that shouldn't be cancelled when its parent is stopped is a process. This includes all commands configured by servives, e.g. `msh` and `rshd`, as well as detached background tasks, like [`rsh-serve-session`](../rsh/bin/rsh-serve-session.lua). It does not include commands manually run from the shell. The list of running processes can be viewed with `proc`, and processes can be killed with `proc stop <pid>`:
+Processes are tasks that are automatically polled by `svc`. Anything that doesn't have a parent or that shouldn't be cancelled when its parent is stopped is a process. This includes all commands configured by servives, e.g. `msh` and `rshd`, as well as detached background tasks, like [`rsh-serve-session`](../rsh/bin/rsh-serve-session.lua). It does not include commands manually run from the shell. The list of running processes can be viewed with `proc`:
 
 ```shell
 > proc
@@ -45,7 +45,9 @@ PID Name
 6   service msh
 ```
 
-Processes are a more low-level mechanism than services, and you typically don't need to be aware of them. You might mainly be interested in processes to kill hung `rsh` sessions.
+Processes can be killed with `proc stop <pid>` and started with `proc start <program> <args...>`. Note that the process runs in the global environment, so it's `term` may be different from the current seat or `multishell`, and it will receive unprocessed native events.
+
+Processes are a more low-level mechanism than services, and you typically don't need to be aware of them. You might mainly be interested in processes to kill hung [`rsh`](../rsh) sessions or to start temporary [`getty`](../getty) sessions.
 
 ## Targets
 
