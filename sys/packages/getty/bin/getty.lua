@@ -29,6 +29,9 @@ else
     assert(monitor, "monitor " .. names.monitor .. " is not connected")
 end
 
+monitor.setCursorPos(1, 1)
+monitor.clear()
+
 local keyboard_event_name = names.keyboard
 if not names.keyboard then
     keyboard_event_name = "" -- a sentinel name no keyboard can have
