@@ -2,7 +2,9 @@
 
 [libxkbcommon](https://xkbcommon.org) but in Minecraft!
 
-Enables switching keyboard layouts. The API surface is quite versatile, enabling anything from simple key-to-char mapping to IME to keyboard macros.
+Enables switching keyboard layouts. Together with [a custom resource pack](../ru) providing symbol glyphs, this enables multi-language support in ComputerCraft.
+
+The API surface is quite versatile, enabling anything from simple key-to-char mapping to IME to keyboard macros.
 
 ## Usage as a user
 
