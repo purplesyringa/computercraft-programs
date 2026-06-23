@@ -4,6 +4,7 @@ local processes = {} -- { [pid] = { name, coroutine, filter, on_killed } }
 local next_process_id = 1
 local running_process_id = nil
 local processes_to_start = {}
+local processes_to_stop = {}
 
 local function deliverEvent(pid, ...)
     running_process_id = pid
@@ -38,7 +39,7 @@ function proc.start(name, f, on_killed)
 end
 
 function proc.stop(pid)
-    os.queueEvent("stop_process", pid)
+    table.insert(processes_to_stop, pid)
 end
 
 function proc.kill(pid)
@@ -72,24 +73,23 @@ function proc.loop()
         end
         processes_to_start = {}
 
-        local event = table.pack(os.pullEventRaw())
-        if event[1] == "stop_process" then
-            local _, pid = table.unpack(event)
+        for _, pid in ipairs(processes_to_stop) do
             if processes[pid] then
                 -- `hangup` means that the program should assume it's no longer needed and quit
                 -- entirely. This is different for shells, which otherwise typically forward
                 -- `terminate` to running children and don't exit by default.
                 deliverEvent(pid, "terminate", "hangup")
             end
-        else
-            if event[1] == "terminate" then
-                -- Don't terminate all processes, instead treat this as a key press that processes
-                -- can decide how to handle on a best-effort basis. `getty` rewrites this to
-                -- `terminate`.
-                event[1] = "fg_terminate"
-            end
-            deliverEventToAll(table.unpack(event, 1, event.n))
         end
+        processes_to_stop = {}
+
+        local event = table.pack(os.pullEventRaw())
+        if event[1] == "terminate" then
+            -- Don't terminate all processes, instead treat this as a key press that processes can
+            -- decide how to handle on a best-effort basis. `getty` rewrites this to `terminate`.
+            event[1] = "fg_terminate"
+        end
+        deliverEventToAll(table.unpack(event, 1, event.n))
     end
 end
 
