@@ -3,6 +3,7 @@ local proc = {}
 local processes = {} -- { [pid] = { name, coroutine, filter, on_killed } }
 local next_process_id = 1
 local running_process_id = nil
+local processes_to_start = {}
 
 local function deliverEvent(pid, ...)
     running_process_id = pid
@@ -32,7 +33,7 @@ function proc.start(name, f, on_killed)
         filter = nil,
         on_killed = on_killed,
     }
-    deliverEvent(pid)
+    table.insert(processes_to_start, pid)
     return pid
 end
 
@@ -64,6 +65,13 @@ end
 
 function proc.loop()
     while true do
+        for _, pid in ipairs(processes_to_start) do
+            if processes[pid] then
+                deliverEvent(pid)
+            end
+        end
+        processes_to_start = {}
+
         local event = table.pack(os.pullEventRaw())
         if event[1] == "stop_process" then
             local _, pid = table.unpack(event)
