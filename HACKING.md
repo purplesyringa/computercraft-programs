@@ -103,13 +103,17 @@ The specifics of service, target, and process management are covered in [the `sv
 
 Programs running as services receive (almost) all events directed to the computer. Notably, this includes keyboard events from *all* keyboards (from [Ducky Peripherals](https://modrinth.com/mod/ducky-periphs)) connected to the computer. Since you can't use an external keyboard and the internal screen at the same time, you need to add an external monitor, and managing this setup quickly gets messy. Bonus points for QoL features like supporting right-clicking via the monitor.
 
-The [`getty`](sys/packages/getty) program is built to translate events and monitor operations between the computer I/O and interactive programs. All services that start interactive programs should run the program under `getty` with `getty default <program> <args...>`. The `default` option causes `getty` to drop events from external keyboards and set `term` to the internal terminal.
+The [`getty`](sys/packages/getty) program translates events and monitor operations between the computer I/O and interactive programs. This translation includes limiting input to a single keyboard, handling `terminate`, and applying [custom keyboard layouts](sys/packages/keyboard).
+
+All services that start interactive programs should run the program under `getty` with `getty default <program> <args...>`. The `default` option causes `getty` to drop events from external keyboards and set `term` to the internal terminal.
 
 You can also use `getty` to run programs on an external monitor and keyboard by providing a custom *seat name* instead of `default`. The seat name is opaque, but often called `seatN`. You can assign a monitor to a seat with `hw add <seat-name>.monitor <id>` and a keyboard with `hw add <seat-name>.keyboard <id>`. Alternatively, run `hw add <seat-name>.monitor/keyboard` and then plug in the corresponding peripheral. This process is documented in more detail in [the `hardware` docs](sys/packages/hardware).
 
-There is another subtle rewrite `getty` applies. `svc` rewrites all incoming `terminate` events to `fg_terminate` so that pressing the terminate button doesn't bring down all services. `getty`, in turn, rewrites `fg_terminate` back to `terminate` (filtering the event based on the originating keyboard), so that the event is delivered to the foreground service.
+`getty` also applies a subtle rewrite to make `terminate` work as intended. `svc` rewrites all incoming `terminate` events to `fg_terminate` so that pressing the terminate button doesn't bring down all services. `getty`, in turn, rewrites `fg_terminate` back to `terminate` (filtering the event based on the originating keyboard), so that the event is delivered to the foreground service.
 
-Note that running `getty` within `getty` doesn't quite work, since the outer `getty` filters out all keyboard events except for one source, including the source the nested `getty` listens to. Output will still likely work, but this configuration is unsupported.
+Keyboard layouts are implemented by passing the native `key`, `key_up`, and `char` events to [the `keyboard` package](sys/packages/keyboard), which replaces `char` events with custom ones as necessary.
+
+All of this means that running `getty` within `getty` doesn't really work: the outer `getty` filters out all keyboard events except for one source, including the source the nested `getty` listens to, and nested layouts can quickly get broken. Output will still likely work, but this configuration is unsupported.
 
 Also note that currently, services are started with `term` pointing to the internal display, so using `print` from a service works as is, but we plan to change this so that `term` points to a log file. Don't rely on the current behavior.
 
