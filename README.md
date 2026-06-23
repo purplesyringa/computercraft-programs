@@ -6,6 +6,8 @@ This repo contains applications me and my friends made for [CC: Tweaked](https:/
 
 - [A smart supersmelter](sys/packages/supersmelter) that can spread items across blast furnaces and normal furnaces, automatically crafting and decrafting storage blocks.
 
+- [A timetable display](sys/packages/metropanel) for Create trains, compact and more precise.
+
 - [A sound tool](sys/packages/phaseroll) that plays a sound that seemingly originates from somewhere other than the speaker.
 
 The applications are built on top of a custom rudimentary OS, but since there is no long-winded installation process, this shouldn't be too confusing.
