@@ -55,6 +55,10 @@ Targets specify the sets of services that are started when the system boots. For
 
 You can start services according to a target temporarily with `svc reach <name>`, or make it the default boot target with `set svc.target <name>`.
 
+## Recovery shell
+
+When `svc` is running, <kbd>Alt+Terminate</kbd> starts a recovery shell by reaching `base` and then `shell`. This hotkey can be entered only on internal keyboard, as the corresponding [`getty`](../getty) processes will likely die as a consequence of not being included in `shell` target, hence the "recovery" in the name.
+
 ## Packages
 
 Packages are units of applications. A package can define:

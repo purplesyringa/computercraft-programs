@@ -64,7 +64,8 @@ function proc.list()
     return result
 end
 
-function proc.loop()
+function proc.loop(recovery_cb)
+    local alt_held = false
     while true do
         for _, pid in ipairs(processes_to_start) do
             if processes[pid] then
@@ -84,12 +85,21 @@ function proc.loop()
         processes_to_stop = {}
 
         local event = table.pack(os.pullEventRaw())
-        if event[1] == "terminate" then
-            -- Don't terminate all processes, instead treat this as a key press that processes can
-            -- decide how to handle on a best-effort basis. `getty` rewrites this to `terminate`.
-            event[1] = "fg_terminate"
+        if event[1] == "terminate" and not event[2] and alt_held then
+            recovery_cb()
+        else
+            if event[1] == "key" and event[2] == keys.leftAlt and not event[3] then
+                alt_held = true
+            elseif event[1] == "key_up" and event[2] == keys.leftAlt and not event[3] then
+                alt_held = false
+            elseif event[1] == "terminate" then
+                -- Don't terminate all processes, instead treat this as a key press that processes
+                -- can decide how to handle on a best-effort basis. `getty` rewrites this to
+                -- `terminate`.
+                event[1] = "fg_terminate"
+            end
+            deliverEventToAll(table.unpack(event, 1, event.n))
         end
-        deliverEventToAll(table.unpack(event, 1, event.n))
     end
 end
 

@@ -100,4 +100,9 @@ proc.start("boot", function()
     end
 end)
 
-proc.loop()
+proc.loop(function()
+    proc.start("recovery", function()
+        svc.reach("base")
+        svc.reach("shell")
+    end)
+end)
