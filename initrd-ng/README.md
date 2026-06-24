@@ -1,10 +1,10 @@
-# initrd
+# initrd-ng
 
-This directory contains the code to build a bootable `initrd.lua` image from the [`sys`](../sys) directory.
+This directory contains the code to build (and soon, analyze) a bootable `initrd.lua` image from the [`sys`](../sys) directory.
 
 ## Usage
 
-Run `python3 -m initrd <output.lua>` from the root of the repository. If you need to rebuild the image constantly, you can use PyPy for a small speedup, but unless you're debugging initrd itself, you should most likely just symlink or bind-mount `sys` into the computer's filesystem in your local Minecraft instance.
+Run `cargo run --release -- build --sysroot ../sys --output <output.lua>` from this directory. Note that in development, unless you're debugging `initrd` itself, you can often just symlink or bind-mount `sys` into the computer's filesystem in your local Minecraft instance, without rebuilding `initrd`.
 
 ## Design
 

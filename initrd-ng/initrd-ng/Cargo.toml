@@ -1,0 +1,15 @@
+[package]
+name = "initrd-ng"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+argh = { workspace = true }
+cdivsufsort = { workspace = true }
+initrd-core = { version = "0.1.0", path = "../initrd-core" }
+regex = { workspace = true }
+suffix_array = { workspace = true }
+
+[build-dependencies]
+initrd-core = { version = "0.1.0", path = "../initrd-core" }
+regex = { workspace = true }
