@@ -6,4 +6,5 @@ fi
 mkdir www
 
 cp sys/packages/netboot/boot.lua www/netboot.lua
-python3 -m initrd www/initrd.lua
+cd initrd-ng
+cargo run --release -- build --sysroot ../sys --output ../www/initrd.lua

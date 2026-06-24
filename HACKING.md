@@ -23,13 +23,13 @@ Most operating systems have a length installation process that involves download
 
 The base that makes this possible is [the `vfs` driver](sys/packages/vfs), which monkey-patches the built-in `fs` API to support mountpoints for virtual file systems. One example is [the `tmpfs` file system](sys/packages/tmpfs), which creates a file system from a Lua table.
 
-The default `startup.lua` file downloaded from https://cc.purplesyringa.moe/initrd.lua includes a [compressed](initrd) dump of the [`sys`](sys) directory from this repo, which contains `vfs` and `tmpfs` drivers, as well as the rest of the OS. The `initrd.lua` script unpacks the dump, activates `vfs`, and exposes the dump as a read-only FS at `/sys`. The rest of the OS then boots as if `/sys` is a real directory, even though it doesn't exist on disk.
+The default `startup.lua` file downloaded from https://cc.purplesyringa.moe/initrd.lua includes a [compressed](initrd-ng) dump of the [`sys`](sys) directory from this repo, which contains `vfs` and `tmpfs` drivers, as well as the rest of the OS. The `initrd.lua` script unpacks the dump, activates `vfs`, and exposes the dump as a read-only FS at `/sys`. The rest of the OS then boots as if `/sys` is a real directory, even though it doesn't exist on disk.
 
 With `netboot`, the process is slightly different: `startup.lua` requests and `eval`s a boot script from the netboot server, which includes `vfs`, some file system drivers, and boots either an `initrd` image sent by the netboot server, or from NFS if the `initrd` image is unavailable.
 
 When developing the core OS, you have a choice between rebuilding the `initrd` image after each modification or symlinking the `sys` directory to the CC computer directory:
 
-- Rebuilding `initrd` is easier: it can be done with `pypy3 -m initrd path/to/startup.lua`, but requires `pypy` to be installed and is a little slow. You'll need to reboot after each modification.
+- Rebuilding `initrd` is easier: it can be done with `cargo run --release -- build --sysroot ../sys --output path/to/startup.lua` run from the [`initrd-ng`](initrd-ng) directory, but requires `cargo` and `luamin` to be installed. You'll need to reboot after each modification.
 - Symlinking `sys` requires you to create a `startup.lua` file in the FS root containing `shell.run("sys/startup")`. You don't need to reboot after modification, unless you modify core parts of the OS. However, you'll need to [enable symlinks in Minecraft configuration](https://help.minecraft.net/hc/en-us/articles/16165590199181). This also allows you to modify the code in-game, though DX might suffer.
 
 If your goal is only to modify or create userland applications or libraries, you have another option: impure environments. If the directory `/impure` exists in the computer FS, it acts as a kind of overlay on `/sys`. For example, packages declared in `impure/packages` exist in addition to or override built-in packages at `sys/packages`, so you can develop software in-game, at the cost of being unable to use an IDE, push commits to Git, or share the programs between computers. This feature is explained in more detail near the end of this guide.
