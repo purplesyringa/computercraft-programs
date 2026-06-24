@@ -108,8 +108,10 @@ code_template = (
 def generate_sfx(data: bytes, tree: object, total_bit_len: int, shift: int) -> bytes:
     return (
         code_template
-            .replace(b"DATA", serialize(data))
             .replace(b"TREE", serialize(tree))
             .replace(b"LIMIT", str(8 + total_bit_len).encode())
             .replace(b"SHIFT", str(shift + 1).encode())
+            # Substitute DATA last, so that other template strings appearing in the data by chance
+            # aren't replaced.
+            .replace(b"DATA", serialize(data))
     )
