@@ -3,18 +3,8 @@ from .ser import serialize
 
 
 def build_tree(path: Path) -> dict:
-    stat = path.stat()
-    try:
-        created = stat.st_birthtime_ns
-    except AttributeError:
-        created = stat.st_ctime_ns
-    attributes = {
-        "created": int(created / 1e6),
-        "modified": int(stat.st_mtime_ns / 1e6),
-    }
     if path.is_dir():
         return {
-            "attributes": attributes,
             "entries": {
                 child.name: build_tree(child)
                 for child in sorted(path.iterdir(), key = lambda child: child.name)
@@ -23,7 +13,6 @@ def build_tree(path: Path) -> dict:
         }
     elif path.is_file():
         return {
-            "attributes": attributes,
             "contents": path.read_bytes(),
         }
     else:
