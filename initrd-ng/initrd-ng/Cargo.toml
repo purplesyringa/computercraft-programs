@@ -5,10 +5,9 @@ edition = "2024"
 
 [dependencies]
 argh = { workspace = true }
-cdivsufsort = { workspace = true }
 initrd-core = { version = "0.1.0", path = "../initrd-core" }
+libsais = { workspace = true }
 regex = { workspace = true }
-suffix_array = { workspace = true }
 
 [build-dependencies]
 initrd-core = { version = "0.1.0", path = "../initrd-core" }
