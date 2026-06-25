@@ -23,18 +23,18 @@ def serialize(obj) -> bytes:
             char_counts = [0] * 256
             for c in obj:
                 char_counts[c] += 1
-            for c in b'^$()%.[]*+-?"\r\\':
+            for c in b"^$()%.[]*+-?'\r\\":
                 char_counts[c] = math.inf
             escape = min(range(256), key = lambda c: char_counts[c])
             escape_s = bytes([escape])
             if char_counts[escape] == 0:
                 obj = obj.replace(b"\r", escape_s)
                 prefix = b'('
-                suffix = b'):gsub("E","\\r")'.replace(b"E", escape_s)
+                suffix = b"):gsub('E','\\r')".replace(b"E", escape_s)
             else:
                 obj = obj.replace(escape_s, escape_s + b"]").replace(b"\r", escape_s + b"r")
                 prefix = b'('
-                suffix = b'):gsub("Er","\\r"):gsub("E]","E")'.replace(b"E", escape_s)
+                suffix = b"):gsub('Er','\\r'):gsub('E]','E')".replace(b"E", escape_s)
         level = 0
         # Somewhat surprisingly, Lua forbids even opening brackets inside brackets.
         while b"[" + b"=" * level + b"[" in obj or b"]" + b"=" * level + b"]" in obj:
