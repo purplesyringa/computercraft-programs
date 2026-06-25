@@ -1,18 +1,19 @@
+import heapq
+
 def huffman_encode(data: list[int], alphabet: int) -> tuple[bytes, object, int]:
     counts = [0] * alphabet
     for c in data:
         counts[c] += 1
 
-    queue = [(c, count) for c, count in enumerate(counts) if count > 0] # (node, count)
+    queue = [(count, c) for c, count in enumerate(counts) if count > 0] # (node, count)
+    heapq.heapify(queue)
     internal_nodes = []
     while len(queue) > 1:
-        i, (node1, count1) = min(enumerate(queue), key = lambda pair: queue[pair[0]][1])
-        del queue[i]
-        i, (node2, count2) = min(enumerate(queue), key = lambda pair: queue[pair[0]][1])
-        del queue[i]
+        count1, node1 = heapq.heappop(queue)
+        count2, node2 = heapq.heappop(queue)
         internal_nodes.append((node1, node2))
-        queue.append((-len(internal_nodes), count1 + count2))
-    root = queue[0][0]
+        heapq.heappush(queue, (count1 + count2, -len(internal_nodes)))
+    root = queue[0][1]
 
     bit_lengths = [0] * alphabet
     def dfs(node, height):
