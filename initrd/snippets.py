@@ -91,7 +91,7 @@ code_template = minify("code_template", """
         end
     end
 
-    local s = load(DECOMPRESS1 .. genCode(tree, 0, 0) .. DECOMPRESS2)(compressed)
+    local s = load(DECOMPRESS1_ .. genCode(tree, 0, 0) .. DECOMPRESS2)(compressed)
     return load(s, "=initrd", nil, _ENV)()
 """)
 
@@ -101,7 +101,7 @@ code_template = (
         .replace("BIT_POS", bit_pos)
         .replace("BITS", bits)
         .encode()
-        .replace(b"DECOMPRESS1", serialize(decompress1))
+        .replace(b"DECOMPRESS1_", serialize(decompress1))
         .replace(b"DECOMPRESS2", serialize(decompress2))
 )
 
