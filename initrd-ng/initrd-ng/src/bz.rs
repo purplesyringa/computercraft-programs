@@ -1,29 +1,6 @@
 use crate::huffman::{Node, huffman_encode};
 use suffix_array::SuffixArray;
 
-// extern crate cdivsufsort;
-// unsafe extern "C" {
-//     // `output` can be `input`
-//     // `temp` can be NULL
-//     // returns -1 or -2 on error, primary index otherwise
-//     fn divbwt(input: *const u8, output: *mut u8, temp: *mut u8, len: i32) -> i32;
-// }
-// fn bwt_encode_broken(mut s: Vec<u8>) -> (Vec<u8>, usize) {
-//     if s.is_empty() {
-//         return (s, 0);
-//     }
-//     let len = s.len().try_into().unwrap();
-//     // SAFETY: arguments are correct
-//     let index = unsafe { divbwt(s.as_ptr(), s.as_mut_ptr(), core::ptr::null_mut(), len) };
-//     assert!(index != -1, "divbwt error: Wrong arguments");
-//     assert!(index != -2, "divbwt error: Allocation failed");
-//     assert!(index >= 1, "divbwt returned non-positive index");
-//     let index = index as usize;
-//     // s[..(index as usize)].rotate_left(1);
-//     // (s, index - 1)
-//     (s, index)
-// }
-
 fn bwt_encode(s: &[u8]) -> (Vec<u8>, usize) {
     let n = s.len();
     let mut dup: Vec<u8> = vec![];
