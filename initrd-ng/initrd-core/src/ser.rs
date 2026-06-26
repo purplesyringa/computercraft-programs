@@ -41,7 +41,16 @@ fn serialize_key(out: &mut Vec<u8>, k: &LuaString) {
     }
 }
 
-static RAW_STRING_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\[=*\[|\]=*\]").unwrap());
+static RAW_STRING_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[\[\]]=*").unwrap());
+
+fn find_level(s: &[u8]) -> usize {
+    RAW_STRING_REGEX
+        .find_iter(&s)
+        .filter(|m| s.get(m.end()) == Some(&s[m.start()]))
+        .map(|m| m.len())
+        .max()
+        .unwrap_or(0)
+}
 
 fn serialize_string(out: &mut Vec<u8>, s: &LuaString, in_key: bool) {
     if !s.iter().any(|&c| c == b'\\' || c == b'\n' || c == b'\r') {
@@ -111,11 +120,7 @@ fn serialize_string(out: &mut Vec<u8>, s: &LuaString, in_key: bool) {
     };
 
     // Somewhat surprisingly, Lua forbids even opening brackets inside brackets.
-    let level = RAW_STRING_REGEX
-        .find_iter(&s)
-        .map(|m| m.len() - 1)
-        .max()
-        .unwrap_or(0);
+    let level = find_level(&s);
 
     out.extend(prefix);
     out.push(b'[');
