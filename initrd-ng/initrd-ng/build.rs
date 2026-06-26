@@ -1,6 +1,6 @@
 use initrd_core::prelude::*;
 use regex::bytes::Regex;
-use std::path::Path;
+use std::{path::Path, sync::LazyLock};
 
 fn minify(code: &str) -> Vec<u8> {
     std::process::Command::new("luamin")
@@ -13,13 +13,15 @@ fn minify(code: &str) -> Vec<u8> {
         .into()
 }
 
+static DECODE_SYMBOL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"DECODE_SYMBOL\((?<bits>[^,]+),(?<symbol>[^,]+),(?<bit_pos>[^)]+)\)").unwrap()
+});
+
 fn code_template() -> Vec<u8> {
     let decompress = minify(&std::fs::read_to_string("src/decode-stage2.lua").unwrap());
     println!("cargo::rerun-if-changed=src/decode-stage2.lua");
 
-    let decompress_regex =
-        Regex::new(r"DECODE_SYMBOL\((?<bits>[^,]+),(?<symbol>[^,]+),(?<bit_pos>[^)]+)\)").unwrap();
-    let captures = decompress_regex.captures(&decompress).unwrap();
+    let captures = DECODE_SYMBOL_REGEX.captures(&decompress).unwrap();
     let bits = captures.name("bits").unwrap().as_bytes();
     let symbol = captures.name("symbol").unwrap().as_bytes();
     let bit_pos = captures.name("bit_pos").unwrap().as_bytes();

@@ -1,9 +1,10 @@
 use regex::bytes::{Captures, Regex};
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::LazyLock};
+
+static TEMPLATE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"__[A-Z0-9_]+__").unwrap());
 
 pub fn substitute_template(template: &[u8], subst: HashMap<&str, &[u8]>) -> Vec<u8> {
-    Regex::new(r"__[A-Z0-9_]+__")
-        .unwrap()
+    TEMPLATE_REGEX
         .replace_all(template, |captures: &Captures<'_>| {
             let capture = &template[captures.get(0).unwrap().range()];
             // We can't use `subst[capture]`, as regex matches all __WORDS__,

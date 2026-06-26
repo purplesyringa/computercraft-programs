@@ -1,6 +1,6 @@
 use crate::lua::*;
 use regex::bytes::Regex;
-use std::{borrow::Cow, io::Write};
+use std::{borrow::Cow, io::Write, sync::LazyLock};
 
 fn serialize_key(out: &mut Vec<u8>, k: &LuaString) {
     if !k.is_empty()
@@ -40,6 +40,8 @@ fn serialize_key(out: &mut Vec<u8>, k: &LuaString) {
         out.push(b']');
     }
 }
+
+static RAW_STRING_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\[=*\[|\]=*\]").unwrap());
 
 fn serialize_string(out: &mut Vec<u8>, s: &LuaString, in_key: bool) {
     if !s.iter().any(|&c| c == b'\\' || c == b'\n' || c == b'\r') {
@@ -109,8 +111,7 @@ fn serialize_string(out: &mut Vec<u8>, s: &LuaString, in_key: bool) {
     };
 
     // Somewhat surprisingly, Lua forbids even opening brackets inside brackets.
-    let level = Regex::new(r"\[=*\[|\]=*\]")
-        .unwrap()
+    let level = RAW_STRING_REGEX
         .find_iter(&s)
         .map(|m| m.len() - 1)
         .max()
