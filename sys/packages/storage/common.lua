@@ -470,6 +470,7 @@ function common.onKey(key_code, page_height)
     local old_search_query = search_field.value
     if search_field:onKey(key_code) then
         if search_field.value ~= old_search_query then
+            scroll_pos = 1
             updateFilteredIndex()
             return "search"
         end
@@ -492,6 +493,7 @@ end
 
 function common.onChar(ch)
     if search_field:onChar(ch) then
+        scroll_pos = 1
         updateFilteredIndex()
         return "search"
     end
