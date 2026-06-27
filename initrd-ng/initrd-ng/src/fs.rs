@@ -6,6 +6,70 @@ pub enum Entry {
     Dir(HashMap<String, Entry>),
 }
 
+impl Entry {
+    #[expect(unused)]
+    pub fn is_file(&self) -> bool {
+        matches!(self, Entry::File(_))
+    }
+
+    #[expect(unused)]
+    pub fn file(&self) -> Option<&[u8]> {
+        match self {
+            Entry::File(f) => Some(f),
+            Entry::Dir(_) => None,
+        }
+    }
+
+    #[expect(unused)]
+    pub fn file_mut(&mut self) -> Option<&mut Vec<u8>> {
+        match self {
+            Entry::File(f) => Some(f),
+            Entry::Dir(_) => None,
+        }
+    }
+
+    #[expect(unused)]
+    pub fn is_dir(&self) -> bool {
+        matches!(self, Entry::Dir(_))
+    }
+
+    #[expect(unused)]
+    pub fn dir(&self) -> Option<&HashMap<String, Entry>> {
+        match self {
+            Entry::File(_) => None,
+            Entry::Dir(d) => Some(d),
+        }
+    }
+
+    #[expect(unused)]
+    pub fn dir_mut(&mut self) -> Option<&mut HashMap<String, Entry>> {
+        match self {
+            Entry::File(_) => None,
+            Entry::Dir(d) => Some(d),
+        }
+    }
+
+    #[expect(unused)]
+    pub fn walk_to(&mut self, dir: &Path) -> Option<&HashMap<String, Entry>> {
+        let mut node = self.dir()?;
+        for component in dir.components() {
+            let name = component.as_os_str().to_str().unwrap();
+            node = node.get(name)?.dir()?;
+        }
+        Some(node)
+    }
+
+    #[expect(unused)]
+    pub fn walk_to_mut(&mut self, dir: &Path) -> Option<&mut HashMap<String, Entry>> {
+        let mut node = self.dir_mut()?;
+        for component in dir.components() {
+            let name = component.as_os_str().to_str().unwrap();
+            node = node.get_mut(name)?.dir_mut()?;
+        }
+        Some(node)
+    }
+}
+
 pub fn build_tree(path: &Path) -> Result<Entry> {
     let meta = path.metadata()?;
     if meta.is_dir() {
