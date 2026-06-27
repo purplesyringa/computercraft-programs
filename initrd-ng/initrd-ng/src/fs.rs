@@ -1,5 +1,6 @@
+use ignore::WalkBuilder;
 use initrd_core::prelude::*;
-use std::{collections::HashMap, io::Result, path::Path};
+use std::{collections::HashMap, path::Path};
 
 pub enum Entry {
     File(Vec<u8>),
@@ -41,7 +42,6 @@ impl Entry {
         }
     }
 
-    #[expect(unused)]
     pub fn dir_mut(&mut self) -> Option<&mut HashMap<String, Entry>> {
         match self {
             Entry::File(_) => None,
@@ -59,7 +59,6 @@ impl Entry {
         Some(node)
     }
 
-    #[expect(unused)]
     pub fn walk_to_mut(&mut self, dir: &Path) -> Option<&mut HashMap<String, Entry>> {
         let mut node = self.dir_mut()?;
         for component in dir.components() {
@@ -70,29 +69,41 @@ impl Entry {
     }
 }
 
-pub fn build_tree(path: &Path) -> Result<Entry> {
-    let meta = path.metadata()?;
-    if meta.is_dir() {
-        let mut entries = HashMap::new();
-        for dir_entry in std::fs::read_dir(path)? {
-            let dir_entry = dir_entry?;
-            if dir_entry.metadata()?.is_dir() && dir_entry.path().join(".rdignore").try_exists()? {
-                continue;
-            }
-            assert!(
-                dir_entry.file_name().is_ascii(),
-                "Non-ASCII filenames are unsupported: {:?}",
-                dir_entry.file_name()
-            );
-            let file_name = dir_entry.file_name().to_str().unwrap().to_owned();
-            entries.insert(file_name, build_tree(&dir_entry.path())?);
+pub fn build_tree(root: &Path) -> Result<Entry, ignore::Error> {
+    let mut tree = Entry::Dir(HashMap::new());
+    for result in WalkBuilder::new(root)
+        .add_custom_ignore_filename(".rdignore")
+        .hidden(true)
+        .build()
+    {
+        let entry = result?;
+        if let Some(error) = entry.error() {
+            return Err(error.clone());
         }
-        Ok(Entry::Dir(entries))
-    } else if meta.is_file() {
-        Ok(Entry::File(std::fs::read(path)?))
-    } else {
-        panic!("Unknown file type {:?} at {path:?}", meta.file_type());
+
+        let file_type = entry.file_type().unwrap();
+        let full_path = entry.into_path();
+        let path = full_path.strip_prefix(root).unwrap();
+        if path.is_empty() {
+            continue;
+        }
+        assert!(path.as_os_str().is_ascii(), "non-ascii filename: {path:?}");
+
+        let new_entry = if file_type.is_dir() {
+            Entry::Dir(HashMap::new())
+        } else if file_type.is_file() {
+            Entry::File(std::fs::read(&full_path)?)
+        } else {
+            panic!("Unknown file type {:?} at {path:?}", file_type);
+        };
+
+        // This walk could have been an e-mail, if only `ignore` provided the events
+        let entries = tree.walk_to_mut(path.parent().unwrap()).unwrap();
+        let name = path.file_name().unwrap().to_str().unwrap();
+        let prev = entries.insert(name.into(), new_entry);
+        assert!(prev.is_none());
     }
+    Ok(tree)
 }
 
 fn to_lua_tree(tree: &Entry) -> LuaValue<'_> {
