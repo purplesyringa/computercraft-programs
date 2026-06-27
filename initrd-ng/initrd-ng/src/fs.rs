@@ -1,12 +1,12 @@
 use initrd_core::prelude::*;
 use std::{collections::HashMap, io::Result, path::Path};
 
-enum Entry {
+pub enum Entry {
     File(Vec<u8>),
     Dir(HashMap<String, Entry>),
 }
 
-fn build_tree(path: &Path) -> Result<Entry> {
+pub fn build_tree(path: &Path) -> Result<Entry> {
     let meta = path.metadata()?;
     if meta.is_dir() {
         let mut entries = HashMap::new();
@@ -48,9 +48,8 @@ fn to_lua_tree(tree: &Entry) -> LuaValue<'_> {
     node.into()
 }
 
-pub fn build_uncompressed_initrd(sysroot: &Path) -> Vec<u8> {
-    let sysroot_tree = build_tree(sysroot).unwrap();
-    let tree = to_lua_tree(&sysroot_tree);
+pub fn build_uncompressed_initrd(sysroot_tree: &Entry) -> Vec<u8> {
+    let tree = to_lua_tree(sysroot_tree);
     initrd_core::templates::substitute_template(
         include_bytes!("initrd-template.lua"),
         [("__TREE__", &serialize_to_vec(&tree)[..])].into(),

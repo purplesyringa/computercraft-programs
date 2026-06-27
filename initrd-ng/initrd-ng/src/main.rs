@@ -39,7 +39,8 @@ fn main() {
 
     match args.command {
         Command::Build(ba) => {
-            let initrd = fs::build_uncompressed_initrd(&ba.sysroot);
+            let tree = fs::build_tree(&ba.sysroot).unwrap();
+            let initrd = fs::build_uncompressed_initrd(&tree);
             let output = if ba.uncompressed {
                 initrd
             } else {
