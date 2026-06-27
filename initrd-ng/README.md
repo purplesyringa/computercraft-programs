@@ -1,10 +1,12 @@
 # initrd-ng
 
-This directory contains the code to build (and soon, analyze) a bootable `initrd.lua` image from the [`sys`](../sys) directory.
+This directory contains the code to build and analyze a bootable `initrd.lua` image from the [`sys`](../sys) directory.
 
 ## Usage
 
 Run `cargo run --release -- build --sysroot ../sys --output <output.lua>` from this directory. Note that in development, unless you're debugging `initrd` itself, you can often just symlink or bind-mount `sys` into the computer's filesystem in your local Minecraft instance, without rebuilding `initrd`.
+
+Run `cargo run --release -- analyze --sysroot ../sys --dir <path/to/subdir>` from this directory to see how much bytes you will gain if you drop `<path/to/subdir>` from sysroot.
 
 ## Design
 

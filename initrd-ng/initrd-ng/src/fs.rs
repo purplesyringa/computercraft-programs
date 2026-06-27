@@ -34,7 +34,6 @@ impl Entry {
         matches!(self, Entry::Dir(_))
     }
 
-    #[expect(unused)]
     pub fn dir(&self) -> Option<&HashMap<String, Entry>> {
         match self {
             Entry::File(_) => None,
@@ -49,7 +48,6 @@ impl Entry {
         }
     }
 
-    #[expect(unused)]
     pub fn walk_to(&mut self, dir: &Path) -> Option<&HashMap<String, Entry>> {
         let mut node = self.dir()?;
         for component in dir.components() {
