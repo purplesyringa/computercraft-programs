@@ -325,7 +325,7 @@ local function renderItemUi()
 
     term.setTextColor(colors.white)
     term.setCursorPos(8, 3)
-    term.write(common.formatItemName(edited_item))
+    common.writeFormattedText(common.formatItemName(edited_item), colors.white)
 
     term.setTextColor(colors.lightGray)
     term.setCursorPos(8, 5)

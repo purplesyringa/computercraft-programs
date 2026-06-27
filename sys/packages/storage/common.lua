@@ -51,7 +51,7 @@ end
 
 local SECTION_SIGN = "\xa7"
 
-local function stripFormatting(text)
+function common.stripFormatting(text)
     return text:gsub(SECTION_SIGN .. ".", "")
 end
 
@@ -81,7 +81,7 @@ function common.formatItemName(item)
         and next(item.potionEffects or {})
         -- Filter out Spectrum's potions, since they can combine multiple effects with different
         -- durations.
-        and stripFormatting(item.displayName) ~= ({
+        and common.stripFormatting(item.displayName) ~= ({
             ["minecraft:potion"] = "Pigment Potion",
             ["minecraft:splash_potion"] = "Splash Pigment Potion",
             ["minecraft:lingering_potion"] = "Lingering Pigment Potion",
@@ -353,7 +353,7 @@ local function itemMatchesQuery(item, query)
     local function checkNameOrDisplayName(obj)
         return (
             util.stringContainsCaseInsensitive(obj.name, query)
-            or util.stringContainsCaseInsensitive(stripFormatting(obj.displayName), query)
+            or util.stringContainsCaseInsensitive(common.stripFormatting(obj.displayName), query)
         )
     end
 
@@ -363,13 +363,13 @@ local function itemMatchesQuery(item, query)
     -- Some items, like smithing templates and music discs, are formatted into a name that is not
     -- present as a substring in data. Recognize that.
     if util.stringContainsCaseInsensitive(
-        stripFormatting(common.formatItemName(item)),
+        common.stripFormatting(common.formatItemName(item)),
         query
     ) then
         return true
     end
     for _, lore in pairs(item.lore or {}) do
-        if util.stringContainsCaseInsensitive(stripFormatting(lore), query) then
+        if util.stringContainsCaseInsensitive(common.stripFormatting(lore), query) then
             return true
         end
     end

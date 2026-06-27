@@ -48,7 +48,11 @@ local function renderScreen()
         term.setTextColor(colors.white)
         term.setBackgroundColor(colors.green)
         term.clearLine()
-        term.write(string.format("Pulling %s", common.formatItemName(selected_item)))
+        -- Strip formatting, since this is shown on green background and we don't want green names
+        -- to be invisible. We could specifically black-list green characters, but that'd look ugly
+        -- on rainbows.
+        local name = common.formatItemName(selected_item)
+        term.write(string.format("Pulling %s", common.stripFormatting(name)))
         term.setCursorPos(1, term_height)
         term.setBackgroundColor(colors.red)
         term.write("Cancel")
