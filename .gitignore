@@ -3,3 +3,4 @@ __pycache__/
 initrd.lua
 perf.data
 perf.data.old
+.direnv/
