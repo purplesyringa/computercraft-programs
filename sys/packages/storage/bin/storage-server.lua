@@ -594,6 +594,11 @@ function Index:formatIndex()
 end
 
 function Index:getFullness()
+    if self.total_cells == 0 then
+        -- Rare, but we've had clients crash due to this when the server was accidentally
+        -- disconnected from all chests.
+        return 0
+    end
     return math.ceil((self.total_cells - #self.empty_cells) / self.total_cells * 100)
 end
 
