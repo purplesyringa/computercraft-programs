@@ -34,20 +34,23 @@ struct BuildArgs {
     uncompressed: bool,
 }
 
+fn make_initrd(tree: &fs::Entry, uncompressed: bool) -> Vec<u8> {
+    let initrd = fs::build_uncompressed_initrd(tree);
+    if uncompressed {
+        initrd
+    } else {
+        let (data, tree, total_bit_len, shift) = bz::compress(&initrd);
+        snippets::generate_sfx(&data, tree, total_bit_len, shift)
+    }
+}
+
 fn main() {
     let args: Args = argh::from_env();
 
     match args.command {
         Command::Build(ba) => {
             let tree = fs::build_tree(&ba.sysroot).unwrap();
-            let initrd = fs::build_uncompressed_initrd(&tree);
-            let output = if ba.uncompressed {
-                initrd
-            } else {
-                let (data, tree, total_bit_len, shift) = bz::compress(&initrd);
-                snippets::generate_sfx(&data, tree, total_bit_len, shift)
-            };
-            std::fs::write(ba.output, output).unwrap();
+            std::fs::write(ba.output, make_initrd(&tree, ba.uncompressed)).unwrap();
         }
     }
 }
