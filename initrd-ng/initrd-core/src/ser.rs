@@ -45,7 +45,7 @@ static RAW_STRING_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[\[\]]=
 
 fn find_level(s: &[u8]) -> usize {
     RAW_STRING_REGEX
-        .find_iter(&s)
+        .find_iter(s)
         .filter(|m| s.get(m.end()) == Some(&s[m.start()]))
         .map(|m| m.len())
         .max()
