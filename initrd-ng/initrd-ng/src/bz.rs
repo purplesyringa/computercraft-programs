@@ -106,6 +106,14 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_min_cyclic_shift() {
+        assert_eq!(min_cyclic_shift(b"abacabaabacaba", 7), 6);
+        assert_eq!(min_cyclic_shift(b"transformtransform", 9), 2);
+        assert_eq!(min_cyclic_shift(b"ssdfgsfgsfssdfgsfgsf", 10), 2);
+        assert_eq!(min_cyclic_shift(b"abababab", 4), 0);
+    }
+
+    #[test]
     fn test_bwt() {
         // let (s, i) = bwt_encode_broken(b"abacaba".into());
         let (s, i) = bwt_encode(b"abacaba");
