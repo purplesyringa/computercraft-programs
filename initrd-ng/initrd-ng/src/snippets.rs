@@ -2,7 +2,7 @@ use crate::huffman::Node;
 use initrd_core::prelude::*;
 
 #[expect(clippy::boxed_local, reason = "Box<Node> is a recursive type")]
-fn to_lua_tree(node: Box<Node>) -> LuaValue {
+fn to_lua_tree(node: Box<Node>) -> LuaValue<'static> {
     match *node {
         Node::Leaf(v) => LuaValue::Float(v as f64),
         Node::Branch(l, r) => LuaValue::List(vec![to_lua_tree(l), to_lua_tree(r)]),

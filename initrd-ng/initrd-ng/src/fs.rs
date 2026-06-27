@@ -31,7 +31,7 @@ fn build_tree(path: &Path) -> Result<Entry> {
     }
 }
 
-fn to_lua_tree(tree: Entry) -> LuaValue {
+fn to_lua_tree(tree: Entry) -> LuaValue<'static> {
     let mut node = LuaTable::new();
     match tree {
         Entry::File(contents) => {
