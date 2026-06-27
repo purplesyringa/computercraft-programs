@@ -31,16 +31,16 @@ fn build_tree(path: &Path) -> Result<Entry> {
     }
 }
 
-fn to_lua_tree(tree: Entry) -> LuaValue<'static> {
+fn to_lua_tree(tree: &Entry) -> LuaValue<'_> {
     let mut node = LuaTable::new();
     match tree {
         Entry::File(contents) => {
-            node.insert(b"contents".into(), LuaString::from(contents).into());
+            node.insert(b"contents".into(), LuaString::Borrowed(contents).into());
         }
         Entry::Dir(entries) => {
             let lua_entries = entries
-                .into_iter()
-                .map(|(name, entry)| (name.into_bytes().into(), to_lua_tree(entry)))
+                .iter()
+                .map(|(name, entry)| (name.as_bytes().into(), to_lua_tree(entry)))
                 .collect::<LuaTable>();
             node.insert(b"entries".into(), lua_entries.into());
         }
@@ -49,7 +49,8 @@ fn to_lua_tree(tree: Entry) -> LuaValue<'static> {
 }
 
 pub fn build_uncompressed_initrd(sysroot: &Path) -> Vec<u8> {
-    let tree = to_lua_tree(build_tree(sysroot).unwrap());
+    let sysroot_tree = build_tree(sysroot).unwrap();
+    let tree = to_lua_tree(&sysroot_tree);
     initrd_core::templates::substitute_template(
         include_bytes!("initrd-template.lua"),
         [("__TREE__", &serialize_to_vec(&tree)[..])].into(),
