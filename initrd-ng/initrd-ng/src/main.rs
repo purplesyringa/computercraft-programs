@@ -90,6 +90,10 @@ fn main() {
                 tree.walk_to_mut(&aa.dir).unwrap().insert(name, entry);
             }
 
+            tree.walk_to_mut(&aa.dir).unwrap().clear();
+            let size = make_initrd(&tree, false).len().cast_signed();
+            sizes.push((size, "<self>".into()));
+
             sizes.sort();
             for (size, name) in sizes {
                 let impact = total - size;
