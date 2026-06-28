@@ -82,7 +82,8 @@ pub fn build_tree(root: &Path) -> Result<Entry, ignore::Error> {
         let file_type = entry.file_type().unwrap();
         let full_path = entry.into_path();
         let path = full_path.strip_prefix(root).unwrap();
-        if path.is_empty() {
+        // XXX: replace with `path.is_empty()` on Rust 1.98
+        if path.as_os_str().is_empty() {
             continue;
         }
         assert!(path.as_os_str().is_ascii(), "non-ascii filename: {path:?}");
