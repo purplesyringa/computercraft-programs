@@ -1,4 +1,4 @@
-local compressed = ...
+local compressed, trees = ...
 
 local byte_cache = {}
 for c = 0, 255 do
@@ -17,15 +17,22 @@ local pos_in_char = {}
 
 local bit_pos = 8
 local symbol
+local bit_len
+local tree = trees[1]
 
 while bit_pos < __LIMIT__ do
     local bits = bit32.lshift(
         string.unpack(">I", compressed, bit32.rshift(bit_pos, 3)),
         bit_pos % 8
     )
-    DECODE_SYMBOL(bits,symbol,bit_pos)
+
+    symbol, bit_len = tree(bits)
+    bit_pos = bit_pos + bit_len
+
     if symbol < 2 then
         rle = rle * 2 + symbol
+    elseif symbol > 256 then
+        tree = trees[symbol - 256]
     else
         if rle > 1 then
             local byte = byte_cache[1]

@@ -14,7 +14,7 @@ pub fn generate_sfx(
         include_bytes!(concat!(env!("OUT_DIR"), "/decompress-template.lua")),
         [
             ("__DATA__", &serialize_to_vec(&data)[..]),
-            ("__TREE__", &serialize_to_vec(&bit_lengths)[..]),
+            ("__TREES__", &serialize_to_vec(&bit_lengths)[..]),
             ("__LIMIT__", limit.as_bytes()),
             ("__SHIFT__", shift.as_bytes()),
         ]

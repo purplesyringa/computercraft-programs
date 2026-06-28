@@ -30,7 +30,7 @@ impl<K: Ord, V> Ord for CompareBy<K, V> {
     }
 }
 
-fn build_huffman_tree(counts: &[usize]) -> Box<Node> {
+pub fn build_huffman_tree(counts: &[usize]) -> Box<Node> {
     let mut queue = counts
         .iter()
         .enumerate()
@@ -56,7 +56,7 @@ fn build_huffman_tree(counts: &[usize]) -> Box<Node> {
 }
 
 #[expect(clippy::boxed_local, reason = "Box<Node> is a recursive type")]
-fn dfs(node: Box<Node>, height: usize, bit_lengths: &mut [usize]) {
+pub fn dfs(node: Box<Node>, height: usize, bit_lengths: &mut [usize]) {
     match *node {
         Node::Leaf(c) => bit_lengths[c as usize] = height,
         Node::Branch(l, r) => {
@@ -68,7 +68,7 @@ fn dfs(node: Box<Node>, height: usize, bit_lengths: &mut [usize]) {
 
 // Heuristic code length limitation algorithm from
 // https://cbloomrants.blogspot.com/2010/07/07-03-10-length-limitted-huffman-codes.html
-fn limit_lengths(counts: &[usize], bit_lengths: &mut [usize], length_limit: usize) {
+pub fn limit_lengths(counts: &[usize], bit_lengths: &mut [usize], length_limit: usize) {
     if *bit_lengths.iter().max().unwrap() < length_limit {
         return;
     }
@@ -106,7 +106,7 @@ fn limit_lengths(counts: &[usize], bit_lengths: &mut [usize], length_limit: usiz
     assert!(*bit_lengths.iter().max().unwrap() <= length_limit);
 }
 
-fn build_canonical_code(bit_lengths: &[usize]) -> Vec<u32> {
+pub fn build_canonical_code(bit_lengths: &[usize]) -> Vec<u32> {
     let alphabet = bit_lengths.len();
     let mut symbols = (0..alphabet)
         .filter(|&c| bit_lengths[c] > 0)
@@ -161,16 +161,33 @@ impl BitWriter {
     }
 }
 
-fn encode_stream(data: &[u16], bit_lengths: &[usize], encoding: &[u32]) -> (Vec<u8>, usize) {
+pub fn encode_stream(
+    data: &[u16],
+    tree_indices: &[usize],
+    bit_lengths: &[Vec<usize>],
+    encoding: &[Vec<u32>],
+    alphabet: usize,
+    n_trees: usize,
+) -> (Vec<u8>, usize) {
     let mut out = BitWriter::new();
-    for &c in data {
-        out.extend(encoding[c as usize], bit_lengths[c as usize]);
+    let mut push_char = |c: usize, tree_idx: usize| {
+        out.extend(encoding[tree_idx][c], bit_lengths[tree_idx][c]);
+    };
+
+    let mut cur_tree_idx = 0;
+    for (&c, &tree_idx) in data.iter().zip(tree_indices) {
+        if tree_idx != cur_tree_idx {
+            push_char(alphabet - n_trees + tree_idx, cur_tree_idx);
+            cur_tree_idx = tree_idx;
+        }
+        push_char(c as usize, tree_idx);
     }
+
     let total_bit_len = out.len();
     (out.into_vec(), total_bit_len)
 }
 
-fn encode_bit_lengths(bit_lengths: &[usize]) -> Vec<u8> {
+pub fn encode_bit_lengths(bit_lengths: &[usize]) -> Vec<u8> {
     let mut stream: Vec<u8> = vec![];
     let mut i = 0;
     while i < bit_lengths.len() {
@@ -186,25 +203,5 @@ fn encode_bit_lengths(bit_lengths: &[usize]) -> Vec<u8> {
 }
 
 pub fn huffman_encode(data: &[u16], alphabet: usize) -> (Vec<u8>, Vec<u8>, usize) {
-    let mut counts = vec![0; alphabet];
-    for &c in data {
-        counts[c as usize] += 1;
-    }
-
-    let root = build_huffman_tree(&counts);
-
-    let mut bit_lengths = vec![0; alphabet];
-    dfs(root, 0, &mut bit_lengths);
-
-    limit_lengths(&counts, &mut bit_lengths, 25);
-
-    let encoding = build_canonical_code(&bit_lengths);
-
-    let (out, total_bit_len) = encode_stream(data, &bit_lengths, &encoding);
-
-    while let Some(0) = bit_lengths.last() {
-        bit_lengths.pop();
-    }
-
-    (out, encode_bit_lengths(&bit_lengths), total_bit_len)
+    crate::multitree::test(data, alphabet)
 }
