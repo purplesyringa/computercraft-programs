@@ -28,17 +28,17 @@ With that out of the way, let's quickly go over the format itself. I recommend r
 
 1. We always produce a single block and don't emit headers or footers.
 2. Our pipeline is BWT + MTF + RLE0 + HUFF, omitting the first RLE step from bzip2, since it's unnecessary on our data.
-3. The BWT origin pointer stores `perm[ptr]` as opposed to `ptr`. The encoder uses the standard O(n log n) SACA algorithm since it's easy to write and runs fast enough.
+3. The BWT origin pointer stores `perm[ptr]` as opposed to `ptr`.
 4. RUNA and RUNB are encoded as 0 and 1 respectively, meaning that MTF offsets start at 2: this agrees with Lua's 1-based indexing.
 5. The Huffman alphabet excludes EOB, we directly substitute the block length into the decoder code instead.
 6. Since the Huffman tree is very asymmetric post-MTF, we JIT it to decode symbols bit-by-bit, which turns out to be faster than using a precomputed table.
 7. The bitmap of symbols present in data is not stored explicitly, instead it's stored as part of the Huffman tree.
 8. We only use a single Huffman tree without selectors. The tree is substituted into the decoder code instead of being parsed in runtime.
 
-We're currently not matching `bzip2`'s or `bzip3`'s compression ratio, but we're still smaller than every popular format except zstd, but only by ~500 bytes, which is certainly not enough to fit a zstd decoder. The possible incremental improvements are:
+We're currently not matching `bzip2`'s or `bzip3`'s compression ratio, but we're still smaller than every popular format except zstd (by ~5000 bytes). The possible incremental improvements are:
 
-1. Apply [LZP](https://hugi.scene.org/online/coding/hugi%2012%20-%20colzp.htm) before BWT like bzip3 does. This would save us about 1% of space, and wouldn't require too much code.
-2. Reverse the input. This makes sense because BWT effectively predicts characters backwards, while code is usually easier to predict forwards. This would save us about 0.5%.
+1. Apply [LZP](https://hugi.scene.org/online/coding/hugi%2012%20-%20colzp.htm) before BWT like bzip3 does. This would save us about 1% [outdated] of space, and wouldn't require too much code.
+2. Reverse the input. This makes sense because BWT effectively predicts characters backwards, while code is usually easier to predict forwards. This would save us about 0.3%.
 3. Replace Huffman with [tANS](https://en.wikipedia.org/wiki/Asymmetric_numeral_systems#Tabled_variant_(tANS)). This would save us about 1% in compressed data, at the cost of embedding more metadata and losing out on JIT.
-4. Use multiple Huffman trees. This would save us about 4%, but we'd need to encode trees more optimally instead of just using table literals.
-5. Alternatively, use a context-adaptive predictive model. bzip3 saves 4% on bzip2 with this method, but requires decoding data bit-by-bit, significantly slowing down decompression. Adjusting the frequencies only every 50 bytes and using [rANS](https://en.wikipedia.org/wiki/Asymmetric_numeral_systems#Range_variants_(rANS)_and_streaming) might help here, but requires experimentation and may fail to work well due to the 50-byte lag.
+4. Use multiple Huffman trees. This would save us about 4% [outdated], but we'd need to encode trees more optimally instead of just using table literals.
+5. Alternatively, use a context-adaptive predictive model. bzip3 saves 6% on bzip2 with this method, but requires decoding data bit-by-bit, significantly slowing down decompression. Adjusting the frequencies only every 50 bytes and using [rANS](https://en.wikipedia.org/wiki/Asymmetric_numeral_systems#Range_variants_(rANS)_and_streaming) might help here, but requires experimentation and may fail to work well due to the 50-byte lag.
