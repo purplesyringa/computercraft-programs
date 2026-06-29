@@ -109,7 +109,7 @@ fn limit_lengths(
     assert!(*bit_lengths.iter().max().unwrap() <= length_limit);
 }
 
-fn build_canonical_code(alphabet: usize, bit_lengths: &[usize]) -> Vec<usize> {
+fn build_canonical_code(alphabet: usize, bit_lengths: &[usize]) -> Vec<u32> {
     let mut symbols = (0..alphabet)
         .filter(|&c| bit_lengths[c] > 0)
         .collect::<Vec<_>>();
@@ -125,15 +125,15 @@ fn build_canonical_code(alphabet: usize, bit_lengths: &[usize]) -> Vec<usize> {
     encoding
 }
 
-fn encode(data: &[u16], bit_lengths: &[usize], encoding: &[usize]) -> (Vec<u8>, usize) {
+fn encode(data: &[u16], bit_lengths: &[usize], encoding: &[u32]) -> (Vec<u8>, usize) {
     let mut out = vec![];
-    let mut bits = 0;
+    let mut bits = 0u64;
     let mut bit_len = 0;
     let mut total_bit_len = 0;
 
     for &c in data {
         let c = c as usize;
-        bits = (bits << bit_lengths[c]) | encoding[c];
+        bits = (bits << bit_lengths[c]) | encoding[c] as u64;
         bit_len += bit_lengths[c];
         total_bit_len += bit_lengths[c];
         while bit_len >= 8 {
@@ -150,7 +150,7 @@ fn encode(data: &[u16], bit_lengths: &[usize], encoding: &[usize]) -> (Vec<u8>, 
     (out, total_bit_len)
 }
 
-fn build_canonical_tree(bit_lengths: &[usize], encoding: &[usize]) -> Box<Node> {
+fn build_canonical_tree(bit_lengths: &[usize], encoding: &[u32]) -> Box<Node> {
     let mut root = Box::new(Node::Leaf(u16::MAX));
     for (c, (&bit_len, &enc)) in bit_lengths.iter().zip(encoding).enumerate() {
         if bit_len == 0 {
