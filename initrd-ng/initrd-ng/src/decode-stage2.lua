@@ -56,9 +56,9 @@ for c = 1, 255 do
     counts[c] = counts[c] + counts[c - 1]
 end
 table.move(counts, -1, 254, 0)
-local s = { [#bwt] = 0 }
+local s = {}
 local pos = __SHIFT__
-for i = 1, #bwt do
+for i = #bwt, 1, -1 do
     local c = bwt[pos]
     s[i] = c
     pos = pos_in_char[pos] + counts[c]

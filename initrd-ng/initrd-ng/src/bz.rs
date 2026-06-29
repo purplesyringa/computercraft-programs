@@ -184,8 +184,7 @@ fn rle0_encode(s: &[u8]) -> Vec<u16> {
 }
 
 pub fn compress(data: &[u8]) -> (Vec<u8>, Box<Node>, usize, usize) {
-    let data = data.iter().rev().copied().collect::<Vec<_>>();
-    let (data, shift) = bwt_encode(&data);
+    let (data, shift) = bwt_encode(data);
     let (mut data, tree, total_bit_len) = huffman_encode(&rle0_encode(&mtf_encode(&data)), 257);
     data.extend(b"\0\0\0");
     (data, tree, total_bit_len, shift)
