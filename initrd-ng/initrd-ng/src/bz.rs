@@ -1,4 +1,4 @@
-use crate::huffman::{Node, huffman_encode};
+use crate::huffman::huffman_encode;
 use libsais::BwtConstruction;
 
 // https://web.archive.org/web/20251112195119/http://e-maxx.ru/algo/duval_algorithm
@@ -183,11 +183,12 @@ fn rle0_encode(s: &[u8]) -> Vec<u16> {
     out
 }
 
-pub fn compress(data: &[u8]) -> (Vec<u8>, Box<Node>, usize, usize) {
+pub fn compress(data: &[u8]) -> (Vec<u8>, Vec<usize>, usize, usize) {
     let (data, shift) = bwt_encode(data);
-    let (mut data, tree, total_bit_len) = huffman_encode(&rle0_encode(&mtf_encode(&data)), 257);
+    let (mut data, bit_lengths, total_bit_len) =
+        huffman_encode(&rle0_encode(&mtf_encode(&data)), 257);
     data.extend(b"\0\0\0");
-    (data, tree, total_bit_len, shift)
+    (data, bit_lengths, total_bit_len, shift)
 }
 
 #[cfg(test)]

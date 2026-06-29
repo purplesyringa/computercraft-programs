@@ -113,14 +113,13 @@ fn build_canonical_code(alphabet: usize, bit_lengths: &[usize]) -> Vec<u32> {
     let mut symbols = (0..alphabet)
         .filter(|&c| bit_lengths[c] > 0)
         .collect::<Vec<_>>();
-    symbols.sort_by_key(|&c| bit_lengths[c]);
+    symbols.sort_by_key(|&c| Reverse(bit_lengths[c]));
 
     let mut encoding = vec![0; alphabet];
-    encoding[symbols[0]] = 0;
-    let mut counter = 0;
-    for (&prev, &cur) in symbols.iter().zip(symbols.iter().skip(1)) {
-        counter = (counter + 1) << (bit_lengths[cur] - bit_lengths[prev]);
-        encoding[cur] = counter;
+    let mut counter = 0u32;
+    for c in symbols {
+        encoding[c] = counter >> (32 - bit_lengths[c]);
+        counter = counter.wrapping_add(1 << (32 - bit_lengths[c]));
     }
     encoding
 }
@@ -150,31 +149,7 @@ fn encode(data: &[u16], bit_lengths: &[usize], encoding: &[u32]) -> (Vec<u8>, us
     (out, total_bit_len)
 }
 
-fn build_canonical_tree(bit_lengths: &[usize], encoding: &[u32]) -> Box<Node> {
-    let mut root = Box::new(Node::Leaf(u16::MAX));
-    for (c, (&bit_len, &enc)) in bit_lengths.iter().zip(encoding).enumerate() {
-        if bit_len == 0 {
-            continue;
-        }
-        let mut ptr = &mut root;
-        for i in (0..bit_len).rev() {
-            if let Node::Leaf(u16::MAX) = **ptr {
-                **ptr = Node::Branch(
-                    Box::new(Node::Leaf(u16::MAX)),
-                    Box::new(Node::Leaf(u16::MAX)),
-                );
-            }
-            let Node::Branch(left, right) = &mut **ptr else {
-                unreachable!()
-            };
-            ptr = if (enc >> i) & 1 == 0 { left } else { right };
-        }
-        **ptr = Node::Leaf(c as u16);
-    }
-    root
-}
-
-pub fn huffman_encode(data: &[u16], alphabet: usize) -> (Vec<u8>, Box<Node>, usize) {
+pub fn huffman_encode(data: &[u16], alphabet: usize) -> (Vec<u8>, Vec<usize>, usize) {
     let mut counts = vec![0; alphabet];
     for &c in data {
         counts[c as usize] += 1;
@@ -191,7 +166,9 @@ pub fn huffman_encode(data: &[u16], alphabet: usize) -> (Vec<u8>, Box<Node>, usi
 
     let (out, total_bit_len) = encode(data, &bit_lengths, &encoding);
 
-    let tree = build_canonical_tree(&bit_lengths, &encoding);
+    while let Some(0) = bit_lengths.last() {
+        bit_lengths.pop();
+    }
 
-    (out, tree, total_bit_len)
+    (out, bit_lengths, total_bit_len)
 }

@@ -1,15 +1,33 @@
 local compressed = __DATA__
-local tree = __TREE__
+local bit_lengths = __TREE__
 
-local function genCode(node, known, known_len)
-    if type(node) == "number" then
-        return ("__SYMBOL__=%d __BIT_POS__=__BIT_POS__+%d"):format(node, known_len)
-    else
-        local l, r = node[1], node[2]
-        local boundary = known + bit32.lshift(1, 31 - known_len)
-        return ("if __BITS__<%d then %s else %s end"):format(boundary, genCode(l, known, known_len + 1), genCode(r, boundary, known_len + 1))
+local len_buckets = {}
+for i = 1, #bit_lengths do
+    local bit_len = bit_lengths:byte(i)
+    if not len_buckets[bit_len] then
+        len_buckets[bit_len] = {}
     end
+    table.insert(len_buckets[bit_len], i - 1)
 end
 
-local s = load(__DECOMPRESS1__ .. genCode(tree, 0, 0) .. __DECOMPRESS2__)(compressed)
+local parsers = {}
+for bit_len = 25, 1, -1 do
+    for _, c in ipairs(len_buckets[bit_len] or {}) do
+        table.insert(parsers, ("__SYMBOL__=%d __BIT_POS__=__BIT_POS__+%d"):format(c, bit_len))
+    end
+    local new_parsers = {}
+    for i = 1, #parsers, 2 do
+        table.insert(
+            new_parsers,
+            ("if __BITS__<%d then %s else %s end"):format(
+                i * 2 ^ (32 - bit_len),
+                parsers[i],
+                parsers[i + 1]
+            )
+        )
+    end
+    parsers = new_parsers
+end
+
+local s = load(__DECOMPRESS1__ .. parsers[1] .. __DECOMPRESS2__)(compressed)
 return load(s, "=initrd", nil, _ENV)()

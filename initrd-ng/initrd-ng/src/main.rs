@@ -52,8 +52,8 @@ fn make_initrd(tree: &fs::Entry, uncompressed: bool) -> Vec<u8> {
     if uncompressed {
         initrd
     } else {
-        let (data, tree, total_bit_len, shift) = bz::compress(&initrd);
-        snippets::generate_sfx(&data, tree, total_bit_len, shift)
+        let (data, bit_lengths, total_bit_len, shift) = bz::compress(&initrd);
+        snippets::generate_sfx(&data, bit_lengths, total_bit_len, shift)
     }
 }
 
