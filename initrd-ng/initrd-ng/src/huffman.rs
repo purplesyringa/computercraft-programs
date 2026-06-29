@@ -149,7 +149,22 @@ fn encode(data: &[u16], bit_lengths: &[usize], encoding: &[u32]) -> (Vec<u8>, us
     (out, total_bit_len)
 }
 
-pub fn huffman_encode(data: &[u16], alphabet: usize) -> (Vec<u8>, Vec<usize>, usize) {
+fn encode_bit_lengths(bit_lengths: &[usize]) -> Vec<u8> {
+    let mut stream: Vec<u8> = vec![];
+    let mut i = 0;
+    while i < bit_lengths.len() {
+        let mut j = i + 1;
+        while bit_lengths.get(j) == bit_lengths.get(i) && j - i < 8 {
+            j += 1;
+        }
+        stream.push((((j - i - 1) << 5) | bit_lengths[i]) as u8);
+        i = j;
+    }
+
+    stream
+}
+
+pub fn huffman_encode(data: &[u16], alphabet: usize) -> (Vec<u8>, Vec<u8>, usize) {
     let mut counts = vec![0; alphabet];
     for &c in data {
         counts[c as usize] += 1;
@@ -170,5 +185,5 @@ pub fn huffman_encode(data: &[u16], alphabet: usize) -> (Vec<u8>, Vec<usize>, us
         bit_lengths.pop();
     }
 
-    (out, bit_lengths, total_bit_len)
+    (out, encode_bit_lengths(&bit_lengths), total_bit_len)
 }

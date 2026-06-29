@@ -2,18 +2,12 @@ use initrd_core::prelude::*;
 
 pub fn generate_sfx(
     data: &[u8],
-    bit_lengths: Vec<usize>,
+    bit_lengths: Vec<u8>,
     total_bit_len: usize,
     shift: usize,
 ) -> Vec<u8> {
     let data = LuaString::from(data.to_owned()).into();
-    let bit_lengths = LuaString::from(
-        bit_lengths
-            .into_iter()
-            .map(|len| len as u8)
-            .collect::<Vec<_>>(),
-    )
-    .into();
+    let bit_lengths = LuaString::from(bit_lengths).into();
     let limit = (8 + total_bit_len).to_string();
     let shift = (shift + 1).to_string();
     initrd_core::templates::substitute_template(

@@ -1,13 +1,15 @@
 local compressed = __DATA__
-local bit_lengths = __TREE__
+local tree = __TREE__
 
 local len_buckets = {}
-for i = 1, #bit_lengths do
-    local bit_len = bit_lengths:byte(i)
-    if not len_buckets[bit_len] then
-        len_buckets[bit_len] = {}
+local c = 0
+for i = 1, #tree do
+    local byte = tree:byte(i)
+    len_buckets[byte % 32] = len_buckets[byte % 32] or {}
+    for i = -1, byte, 32 do
+        table.insert(len_buckets[byte % 32], c)
+        c = c + 1
     end
-    table.insert(len_buckets[bit_len], i - 1)
 end
 
 local parsers = {}

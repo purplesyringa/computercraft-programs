@@ -183,7 +183,7 @@ fn rle0_encode(s: &[u8]) -> Vec<u16> {
     out
 }
 
-pub fn compress(data: &[u8]) -> (Vec<u8>, Vec<usize>, usize, usize) {
+pub fn compress(data: &[u8]) -> (Vec<u8>, Vec<u8>, usize, usize) {
     let (data, shift) = bwt_encode(data);
     let (mut data, bit_lengths, total_bit_len) =
         huffman_encode(&rle0_encode(&mtf_encode(&data)), 257);
