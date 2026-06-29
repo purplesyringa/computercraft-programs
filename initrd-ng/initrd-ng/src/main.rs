@@ -4,7 +4,6 @@ use std::path::PathBuf;
 mod bz;
 mod fs;
 mod huffman;
-mod multitree;
 mod snippets;
 
 #[derive(FromArgs)]
