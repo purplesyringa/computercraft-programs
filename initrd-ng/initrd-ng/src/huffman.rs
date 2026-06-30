@@ -159,23 +159,21 @@ fn calculate_tree_counts(
     data: &[u16],
     tree_indices: &mut Vec<usize>,
     dp: &[[(usize, usize); N_TREES]],
-) -> ([Vec<usize>; N_TREES], Vec<(usize, usize)>) {
+) -> [Vec<usize>; N_TREES] {
     let mut tree_counts = core::array::from_fn(|_| vec![0; alphabet]);
     let mut tree_idx = 0;
-    let mut switches = vec![];
     tree_indices.clear();
     for (pos, &c) in data.iter().enumerate() {
         let next_tree_idx = dp[pos][tree_idx].1;
         if next_tree_idx != tree_idx {
             // Switch tree.
             tree_counts[tree_idx][alphabet - N_TREES + next_tree_idx] += 1;
-            switches.push((tree_idx, next_tree_idx));
             tree_idx = next_tree_idx;
         }
         tree_counts[tree_idx][c as usize] += 1;
         tree_indices.push(tree_idx);
     }
-    (tree_counts, switches)
+    tree_counts
 }
 
 fn recompute_tree_lens(
@@ -211,29 +209,8 @@ fn refine_approximation(
     // Insert optimal tree switches. `dp[pos][tree_idx]` is the cost to encode the suffix
     // `data[pos..]` starting with active tree `tree_idx`.
     let dp = calculate_suffix_cost(data, tree_lens);
-
-    // Compute actual counts.
-    let (mut tree_counts, switches) = calculate_tree_counts(alphabet, data, tree_indices, &dp);
-
+    let mut tree_counts = calculate_tree_counts(alphabet, data, tree_indices, &dp);
     recompute_tree_lens(counts, tree_lens, &mut tree_counts, is_last_stage);
-
-    // Compute bit length for logging.
-    let raw_bit_length: usize = data
-        .iter()
-        .zip(tree_indices.iter())
-        .map(|(&c, &tree_idx)| tree_lens[tree_idx][c as usize])
-        .sum();
-    let total_switch_cost: usize = switches
-        .iter()
-        .map(|&(from, to)| tree_lens[from][alphabet - N_TREES + to])
-        .sum();
-
-    println!(
-        "{} ({} switches, {} bits/switch)",
-        (raw_bit_length + total_switch_cost) / 8,
-        switches.len(),
-        total_switch_cost as f32 / switches.len() as f32
-    );
 }
 
 fn build_canonical_code(bit_lengths: &[usize]) -> Vec<u32> {
