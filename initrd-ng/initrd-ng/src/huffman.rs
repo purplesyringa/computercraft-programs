@@ -124,51 +124,56 @@ fn build_tree_lens(alphabet: usize, counts: &[usize], data: &[u16]) -> [Vec<usiz
     tree_lens
 }
 
-fn calculate_base_cost(
+fn calculate_suffix_cost(
+    data: &[u16],
     tree_lens: &[Vec<usize>; N_TREES],
-    c: u16,
-    dp: &[[usize; 6]],
-    pos: usize,
-) -> [usize; N_TREES] {
-    core::array::from_fn(|tree_idx| tree_lens[tree_idx][c as usize] + dp[pos + 1][tree_idx])
-}
+) -> Vec<[(usize, usize); N_TREES]> {
+    let mut dp = vec![[(0, 0); N_TREES]; data.len() + 1];
 
-fn calculate_suffix_cost(data: &[u16], tree_lens: &[Vec<usize>; N_TREES]) -> Vec<[usize; N_TREES]> {
-    let mut dp = vec![[0; N_TREES]; data.len() + 1];
     for (pos, &c) in data.iter().enumerate().rev() {
-        let base_cost = calculate_base_cost(tree_lens, c, &dp, pos);
-        let min_base_cost = base_cost.iter().min().unwrap();
+        let base_cost: [_; N_TREES] = core::array::from_fn(|tree_idx| {
+            tree_lens[tree_idx][c as usize] + dp[pos + 1][tree_idx].0
+        });
+        let (best_tree_idx, min_base_cost) = base_cost
+            .iter()
+            .enumerate()
+            .min_by_key(|&(_, &cost)| cost)
+            .unwrap();
+
         for tree_idx in 0..N_TREES {
-            dp[pos][tree_idx] = base_cost[tree_idx].min(min_base_cost + SWITCH_COST);
+            let same_cost = base_cost[tree_idx];
+            let switched_cost = min_base_cost + SWITCH_COST;
+            dp[pos][tree_idx] = if switched_cost < same_cost {
+                (switched_cost, best_tree_idx)
+            } else {
+                (same_cost, tree_idx)
+            };
         }
     }
+
     dp
 }
 
 fn calculate_tree_counts(
     alphabet: usize,
     data: &[u16],
-    tree_lens: &[Vec<usize>; N_TREES],
     tree_indices: &mut Vec<usize>,
-    dp: &[[usize; N_TREES]],
+    dp: &[[(usize, usize); N_TREES]],
 ) -> ([Vec<usize>; N_TREES], Vec<(usize, usize)>) {
     let mut tree_counts = core::array::from_fn(|_| vec![0; alphabet]);
-    let mut cur_tree_idx = 0;
+    let mut tree_idx = 0;
     let mut switches = vec![];
     tree_indices.clear();
     for (pos, &c) in data.iter().enumerate() {
-        let base_cost = calculate_base_cost(tree_lens, c, dp, pos);
-        if dp[pos][cur_tree_idx] != base_cost[cur_tree_idx] {
+        let next_tree_idx = dp[pos][tree_idx].1;
+        if next_tree_idx != tree_idx {
             // Switch tree.
-            let next_tree_idx = (0..N_TREES)
-                .min_by_key(|&tree_idx| base_cost[tree_idx])
-                .unwrap();
-            tree_counts[cur_tree_idx][alphabet - N_TREES + next_tree_idx] += 1;
-            switches.push((cur_tree_idx, next_tree_idx));
-            cur_tree_idx = next_tree_idx;
+            tree_counts[tree_idx][alphabet - N_TREES + next_tree_idx] += 1;
+            switches.push((tree_idx, next_tree_idx));
+            tree_idx = next_tree_idx;
         }
-        tree_counts[cur_tree_idx][c as usize] += 1;
-        tree_indices.push(cur_tree_idx);
+        tree_counts[tree_idx][c as usize] += 1;
+        tree_indices.push(tree_idx);
     }
     (tree_counts, switches)
 }
@@ -208,8 +213,7 @@ fn refine_approximation(
     let dp = calculate_suffix_cost(data, tree_lens);
 
     // Compute actual counts.
-    let (mut tree_counts, switches) =
-        calculate_tree_counts(alphabet, data, tree_lens, tree_indices, &dp);
+    let (mut tree_counts, switches) = calculate_tree_counts(alphabet, data, tree_indices, &dp);
 
     recompute_tree_lens(counts, tree_lens, &mut tree_counts, is_last_stage);
 
