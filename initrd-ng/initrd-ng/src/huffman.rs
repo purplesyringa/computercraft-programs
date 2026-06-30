@@ -68,12 +68,7 @@ fn dfs(node: Box<Node>, height: usize, bit_lengths: &mut [usize]) {
 
 // Heuristic code length limitation algorithm from
 // https://cbloomrants.blogspot.com/2010/07/07-03-10-length-limitted-huffman-codes.html
-fn limit_lengths(
-    alphabet: usize,
-    counts: &[usize],
-    bit_lengths: &mut [usize],
-    length_limit: usize,
-) {
+fn limit_lengths(counts: &[usize], bit_lengths: &mut [usize], length_limit: usize) {
     if *bit_lengths.iter().max().unwrap() < length_limit {
         return;
     }
@@ -88,7 +83,9 @@ fn limit_lengths(
         .map(|&len| 1u64 << (length_limit - len))
         .sum::<u64>();
 
-    let mut symbols = (0..alphabet).filter(|&c| counts[c] > 0).collect::<Vec<_>>();
+    let mut symbols = (0..counts.len())
+        .filter(|&c| counts[c] > 0)
+        .collect::<Vec<_>>();
     symbols.sort_by_key(|&c| counts[c]);
 
     for &c in symbols.iter() {
@@ -109,7 +106,8 @@ fn limit_lengths(
     assert!(*bit_lengths.iter().max().unwrap() <= length_limit);
 }
 
-fn build_canonical_code(alphabet: usize, bit_lengths: &[usize]) -> Vec<u32> {
+fn build_canonical_code(bit_lengths: &[usize]) -> Vec<u32> {
+    let alphabet = bit_lengths.len();
     let mut symbols = (0..alphabet)
         .filter(|&c| bit_lengths[c] > 0)
         .collect::<Vec<_>>();
@@ -119,6 +117,7 @@ fn build_canonical_code(alphabet: usize, bit_lengths: &[usize]) -> Vec<u32> {
     let mut counter = 0u32;
     for c in symbols {
         encoding[c] = counter >> (32 - bit_lengths[c]);
+        // Wraps around to zero on the last iteration.
         counter = counter.wrapping_add(1 << (32 - bit_lengths[c]));
     }
     encoding
@@ -162,7 +161,7 @@ impl BitWriter {
     }
 }
 
-fn encode(data: &[u16], bit_lengths: &[usize], encoding: &[u32]) -> (Vec<u8>, usize) {
+fn encode_stream(data: &[u16], bit_lengths: &[usize], encoding: &[u32]) -> (Vec<u8>, usize) {
     let mut out = BitWriter::new();
     for &c in data {
         out.extend(encoding[c as usize], bit_lengths[c as usize]);
@@ -175,6 +174,7 @@ fn encode_bit_lengths(bit_lengths: &[usize]) -> Vec<u8> {
     let mut stream: Vec<u8> = vec![];
     let mut i = 0;
     while i < bit_lengths.len() {
+        // RLE: bottom 5 bits of each byte form the bit length, top 3 bits contain a 1-biased count.
         let mut j = i + 1;
         while bit_lengths.get(j) == bit_lengths.get(i) && j - i < 8 {
             j += 1;
@@ -182,7 +182,6 @@ fn encode_bit_lengths(bit_lengths: &[usize]) -> Vec<u8> {
         stream.push((((j - i - 1) << 5) | bit_lengths[i]) as u8);
         i = j;
     }
-
     stream
 }
 
@@ -197,11 +196,11 @@ pub fn huffman_encode(data: &[u16], alphabet: usize) -> (Vec<u8>, Vec<u8>, usize
     let mut bit_lengths = vec![0; alphabet];
     dfs(root, 0, &mut bit_lengths);
 
-    limit_lengths(alphabet, &counts, &mut bit_lengths, 25);
+    limit_lengths(&counts, &mut bit_lengths, 25);
 
-    let encoding = build_canonical_code(alphabet, &bit_lengths);
+    let encoding = build_canonical_code(&bit_lengths);
 
-    let (out, total_bit_len) = encode(data, &bit_lengths, &encoding);
+    let (out, total_bit_len) = encode_stream(data, &bit_lengths, &encoding);
 
     while let Some(0) = bit_lengths.last() {
         bit_lengths.pop();
