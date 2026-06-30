@@ -1,7 +1,7 @@
 local compressed = __DATA__
 local trees = __TREES__
 
-local parsed_trees = {}
+local tree_parsers = {}
 for tree in trees:gmatch("[^\xff]+") do
     local len_buckets = {}
     local c = 0
@@ -17,13 +17,13 @@ for tree in trees:gmatch("[^\xff]+") do
     local parsers = {}
     for bit_len = 25, 1, -1 do
         for _, c in ipairs(len_buckets[bit_len] or {}) do
-            table.insert(parsers, ("return %d,%d"):format(c, bit_len))
+            table.insert(parsers, ("__SYMBOL__=%d __BIT_POS__=__BIT_POS__+%d"):format(c, bit_len))
         end
         local new_parsers = {}
         for i = 1, #parsers, 2 do
             table.insert(
                 new_parsers,
-                ("if ...<%d then %s else %s end"):format(
+                ("if __BITS__<%d then %s else %s end"):format(
                     i * 2 ^ (32 - bit_len),
                     parsers[i],
                     parsers[i + 1]
@@ -32,8 +32,8 @@ for tree in trees:gmatch("[^\xff]+") do
         end
         parsers = new_parsers
     end
-    table.insert(parsed_trees, load(parsers[1]))
+    table.insert(tree_parsers, __TREE1__ .. parsers[1] .. __TREE2__)
 end
 
-local s = load(__DECOMPRESS__)(compressed, parsed_trees)
+local s = load(__DECOMPRESS1__ .. table.concat(tree_parsers) .. __DECOMPRESS2__)(compressed)
 return load(s, "=initrd", nil, _ENV)()
