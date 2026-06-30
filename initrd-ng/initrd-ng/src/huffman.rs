@@ -1,5 +1,8 @@
 use std::{cmp::Reverse, collections::BinaryHeap};
 
+const N_TREES: usize = 6;
+const SWITCH_COST: usize = 9;
+
 pub enum Node {
     Leaf(u16),
     Branch(Box<Node>, Box<Node>),
@@ -106,19 +109,24 @@ fn limit_lengths(counts: &[usize], bit_lengths: &mut [usize], length_limit: usiz
     assert!(*bit_lengths.iter().max().unwrap() <= length_limit);
 }
 
-// Initial distribution, roughly follows bzip2.
-fn build_tree_lens(alphabet: usize, counts: &[usize], data: &[u16]) -> [Vec<usize>; N_TREES] {
-    let mut symbols_by_count: Vec<u8> = (0..=u8::MAX).filter(|&c| counts[c as usize] > 0).collect();
-    symbols_by_count.sort_by_key(|&c| core::cmp::Reverse(counts[c as usize]));
-    let mut symbols_by_count = symbols_by_count.into_iter();
+// Roughly follows bzip2. Returns per-tree arrays of (unrealistic) symbol length approximations.
+fn build_initial_distribution(counts: &[usize]) -> [Vec<usize>; N_TREES] {
+    let alphabet = counts.len();
+    let total_count: usize = counts.iter().sum();
+
+    let mut symbols_by_count = (0..alphabet)
+        .map(|c| (counts[c], c))
+        .filter(|&(count, _)| count > 0)
+        .collect::<BinaryHeap<_>>();
+
     let mut tree_lens = core::array::from_fn(|_| vec![8; alphabet]);
     for lens in &mut tree_lens {
-        let mut symbols_left = data.len() / N_TREES;
+        let mut symbols_left = total_count / N_TREES;
         while symbols_left > 0
-            && let Some(c) = symbols_by_count.next()
+            && let Some((count, c)) = symbols_by_count.pop()
         {
-            symbols_left = symbols_left.saturating_sub(counts[c as usize]);
-            lens[c as usize] = 0;
+            symbols_left = symbols_left.saturating_sub(count);
+            lens[c] = 0;
         }
     }
     tree_lens
@@ -128,6 +136,9 @@ fn calculate_suffix_cost(
     data: &[u16],
     tree_lens: &[Vec<usize>; N_TREES],
 ) -> Vec<[(usize, usize); N_TREES]> {
+    // Locate optimal tree switches. `dp[pos][tree_idx].0` is the cost to encode the suffix
+    // `data[pos..]` if the active tree is `tree_idx`, `dp[pos][tree_idx].1` is the tree chosen
+    // for encoding.
     let mut dp = vec![[(0, 0); N_TREES]; data.len() + 1];
 
     for (pos, &c) in data.iter().enumerate().rev() {
@@ -154,63 +165,75 @@ fn calculate_suffix_cost(
     dp
 }
 
-fn calculate_tree_counts(
+fn calculate_per_tree_histograms(
     alphabet: usize,
     data: &[u16],
-    tree_indices: &mut Vec<usize>,
     dp: &[[(usize, usize); N_TREES]],
 ) -> [Vec<usize>; N_TREES] {
-    let mut tree_counts = core::array::from_fn(|_| vec![0; alphabet]);
-    let mut tree_idx = 0;
-    tree_indices.clear();
+    let mut histograms = core::array::from_fn(|_| vec![0; alphabet]);
+    let mut active_tree_idx = 0;
     for (pos, &c) in data.iter().enumerate() {
-        let next_tree_idx = dp[pos][tree_idx].1;
-        if next_tree_idx != tree_idx {
+        let tree_idx = dp[pos][active_tree_idx].1;
+        if active_tree_idx != tree_idx {
             // Switch tree.
-            tree_counts[tree_idx][alphabet - N_TREES + next_tree_idx] += 1;
-            tree_idx = next_tree_idx;
+            histograms[active_tree_idx][alphabet - N_TREES + tree_idx] += 1;
+            active_tree_idx = tree_idx;
         }
-        tree_counts[tree_idx][c as usize] += 1;
-        tree_indices.push(tree_idx);
+        histograms[tree_idx][c as usize] += 1;
     }
-    tree_counts
+    histograms
 }
 
-fn recompute_tree_lens(
-    counts: &[usize],
-    tree_lens: &mut [Vec<usize>; N_TREES],
-    tree_counts: &mut [Vec<usize>; N_TREES],
-    is_last_stage: bool,
-) {
-    for (lens, tree_counts) in tree_lens.iter_mut().zip(tree_counts) {
-        if !is_last_stage {
-            for (tree_count, &global_count) in tree_counts.iter_mut().zip(counts) {
-                if global_count > 0 {
-                    // Baby's first zero-frequency estimator.
-                    *tree_count = (*tree_count << 8).max(1);
-                }
+fn calculate_symbol_trees(dp: &[[(usize, usize); N_TREES]]) -> Vec<usize> {
+    let mut active_tree_idx = 0;
+    (0..dp.len() - 1)
+        .map(|pos| {
+            active_tree_idx = dp[pos][active_tree_idx].1;
+            active_tree_idx
+        })
+        .collect()
+}
+
+fn apply_zero_frequency_estimator(global_counts: &[usize], histograms: &mut [Vec<usize>; N_TREES]) {
+    for histogram in histograms {
+        for (count, &global_count) in histogram.iter_mut().zip(global_counts) {
+            if global_count > 0 {
+                // Baby's first zero-frequency estimator.
+                *count = (*count << 8).max(1);
             }
         }
-        lens.fill(0);
-
-        dfs(build_huffman_tree(tree_counts), 0, lens);
-        limit_lengths(tree_counts, lens, 25);
     }
 }
 
+fn recompute_tree_lens(tree_lens: &mut [Vec<usize>; N_TREES], histograms: &[Vec<usize>; N_TREES]) {
+    for (lens, histogram) in tree_lens.iter_mut().zip(histograms) {
+        lens.fill(0);
+        dfs(build_huffman_tree(histogram), 0, lens);
+        limit_lengths(histogram, lens, 25);
+    }
+}
+
+// Returns `Some(symbol_trees)` on the last stage, `None` otherwise.
 fn refine_approximation(
-    alphabet: usize,
     counts: &[usize],
     data: &[u16],
     tree_lens: &mut [Vec<usize>; N_TREES],
-    tree_indices: &mut Vec<usize>,
     is_last_stage: bool,
-) {
-    // Insert optimal tree switches. `dp[pos][tree_idx]` is the cost to encode the suffix
-    // `data[pos..]` starting with active tree `tree_idx`.
+) -> Option<Vec<usize>> {
+    // Find optimal tree switches, treating `tree_lens` as gospel.
     let dp = calculate_suffix_cost(data, tree_lens);
-    let mut tree_counts = calculate_tree_counts(alphabet, data, tree_indices, &dp);
-    recompute_tree_lens(counts, tree_lens, &mut tree_counts, is_last_stage);
+    let mut histograms = calculate_per_tree_histograms(counts.len(), data, &dp);
+    if !is_last_stage {
+        // Every stage except the last one needs to make sure symbols absent from trees are treated
+        // as expensive, the last stage doesn't care because its output is not used for training.
+        apply_zero_frequency_estimator(counts, &mut histograms);
+    }
+    recompute_tree_lens(tree_lens, &histograms);
+    if is_last_stage {
+        Some(calculate_symbol_trees(&dp))
+    } else {
+        None
+    }
 }
 
 fn build_canonical_code(bit_lengths: &[usize]) -> Vec<u32> {
@@ -272,7 +295,7 @@ fn encode_stream(
     alphabet: usize,
     data: &[u16],
     tree_lens: &[Vec<usize>; N_TREES],
-    tree_indices: &[usize],
+    symbol_trees: &[usize],
     encodings: &[Vec<u32>; N_TREES],
 ) -> (Vec<u8>, usize) {
     let mut out = BitWriter::new();
@@ -280,11 +303,11 @@ fn encode_stream(
         out.extend(encodings[tree_idx][c], tree_lens[tree_idx][c]);
     };
 
-    let mut cur_tree_idx = 0;
-    for (&c, &tree_idx) in data.iter().zip(tree_indices) {
-        if tree_idx != cur_tree_idx {
-            push_char(alphabet - N_TREES + tree_idx, cur_tree_idx);
-            cur_tree_idx = tree_idx;
+    let mut active_tree_idx = 0;
+    for (&c, &tree_idx) in data.iter().zip(symbol_trees) {
+        if active_tree_idx != tree_idx {
+            push_char(alphabet - N_TREES + tree_idx, active_tree_idx);
+            active_tree_idx = tree_idx;
         }
         push_char(c as usize, tree_idx);
     }
@@ -308,60 +331,46 @@ fn encode_bit_lengths(bit_lengths: &[usize]) -> Vec<u8> {
     stream
 }
 
-fn encode_trees(tree_lens: &mut [Vec<usize>; N_TREES]) -> (Vec<u8>, [Vec<u32>; N_TREES]) {
-    let encodings = core::array::from_fn(|tree_idx| build_canonical_code(&tree_lens[tree_idx]));
-
-    let mut enc_bit_lengths = vec![];
+fn encode_trees(tree_lens: &[Vec<usize>; N_TREES]) -> Vec<u8> {
+    let mut out = vec![];
     for lens in tree_lens {
-        while let Some(0) = lens.last() {
-            lens.pop();
+        // Strip trailing zeros.
+        let mut lens = lens.as_slice();
+        while let Some((0, prefix)) = lens.split_last() {
+            lens = prefix;
         }
-        if !enc_bit_lengths.is_empty() {
-            enc_bit_lengths.push(0xff); // cannot occur in the current encoding
-        }
-        enc_bit_lengths.extend(encode_bit_lengths(lens));
+        out.extend(encode_bit_lengths(lens));
+        // Add a separator between trees. `encode_bit_lengths` currently never emits 0xFF.
+        out.push(0xff);
     }
-    (enc_bit_lengths, encodings)
+    out.pop();
+    out
 }
 
-const N_TREES: usize = 6;
-const SWITCH_COST: usize = 9;
-
 pub fn huffman_encode(data: &[u16], alphabet: usize) -> (Vec<u8>, Vec<u8>, usize) {
-    let alphabet: usize = alphabet + N_TREES; // for switching trees
+    let alphabet = alphabet + N_TREES; // for switching trees
 
     let mut counts = vec![0; alphabet];
     for &c in data {
         counts[c as usize] += 1;
     }
-    for tree_idx in 0..N_TREES {
-        // Mark tree switching symbols as used so that later passes don't ignore them.
-        counts[alphabet - N_TREES + tree_idx] += 1;
-    }
+    // Mark tree switching symbols as used so that later passes don't ignore them.
+    counts[alphabet - N_TREES..].fill(1);
 
-    let mut tree_lens = build_tree_lens(alphabet, &counts, data);
-
-    let mut tree_indices = Vec::with_capacity(data.len());
+    let mut tree_lens = build_initial_distribution(&counts);
 
     // Refine the initial approximation.
+    let mut symbol_trees = None;
     for stage_idx in 0..4 {
         let is_last_stage = stage_idx == 3;
-
-        refine_approximation(
-            alphabet,
-            &counts,
-            data,
-            &mut tree_lens,
-            &mut tree_indices,
-            is_last_stage,
-        );
+        symbol_trees = refine_approximation(&counts, data, &mut tree_lens, is_last_stage);
     }
+    let symbol_trees = symbol_trees.unwrap();
 
-    // let size = -data.iter().map(|&c| ((counts[c as usize] as f32) / data.len() as f32).log2()).sum::<f32>() / 8.0;
-    // println!("{size}");
+    let encodings = core::array::from_fn(|tree_idx| build_canonical_code(&tree_lens[tree_idx]));
 
-    let (enc_bit_lengths, encodings) = encode_trees(&mut tree_lens);
+    let (out, total_bit_len) = encode_stream(alphabet, data, &tree_lens, &symbol_trees, &encodings);
+    let enc_bit_lengths = encode_trees(&tree_lens);
 
-    let (out, total_bit_len) = encode_stream(alphabet, data, &tree_lens, &tree_indices, &encodings);
     (out, enc_bit_lengths, total_bit_len)
 }
