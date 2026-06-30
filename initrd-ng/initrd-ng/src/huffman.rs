@@ -135,15 +135,15 @@ fn build_initial_distribution(counts: &[usize]) -> [Vec<usize>; N_TREES] {
 fn calculate_suffix_cost(
     data: &[u16],
     tree_lens: &[Vec<usize>; N_TREES],
-) -> Vec<[(usize, usize); N_TREES]> {
-    // Locate optimal tree switches. `dp[pos][tree_idx].0` is the cost to encode the suffix
-    // `data[pos..]` if the active tree is `tree_idx`, `dp[pos][tree_idx].1` is the tree chosen
+) -> [Vec<(usize, usize)>; N_TREES] {
+    // Locate optimal tree switches. `dp[tree_idx][pos].0` is the cost to encode the suffix
+    // `data[pos..]` if the active tree is `tree_idx`, `dp[tree_idx][pos].1` is the tree chosen
     // for encoding.
-    let mut dp = vec![[(0, 0); N_TREES]; data.len() + 1];
+    let mut dp = core::array::from_fn(|_| vec![(0, 0); data.len() + 1]);
 
     for (pos, &c) in data.iter().enumerate().rev() {
         let base_cost: [_; N_TREES] = core::array::from_fn(|tree_idx| {
-            tree_lens[tree_idx][c as usize] + dp[pos + 1][tree_idx].0
+            tree_lens[tree_idx][c as usize] + dp[tree_idx][pos + 1].0
         });
         let (best_tree_idx, min_base_cost) = base_cost
             .iter()
@@ -154,7 +154,7 @@ fn calculate_suffix_cost(
         for tree_idx in 0..N_TREES {
             let same_cost = base_cost[tree_idx];
             let switched_cost = min_base_cost + SWITCH_COST;
-            dp[pos][tree_idx] = if switched_cost < same_cost {
+            dp[tree_idx][pos] = if switched_cost < same_cost {
                 (switched_cost, best_tree_idx)
             } else {
                 (same_cost, tree_idx)
@@ -168,12 +168,12 @@ fn calculate_suffix_cost(
 fn calculate_per_tree_histograms(
     alphabet: usize,
     data: &[u16],
-    dp: &[[(usize, usize); N_TREES]],
+    dp: &[Vec<(usize, usize)>; N_TREES],
 ) -> [Vec<usize>; N_TREES] {
     let mut histograms = core::array::from_fn(|_| vec![0; alphabet]);
     let mut active_tree_idx = 0;
     for (pos, &c) in data.iter().enumerate() {
-        let tree_idx = dp[pos][active_tree_idx].1;
+        let tree_idx = dp[active_tree_idx][pos].1;
         if active_tree_idx != tree_idx {
             // Switch tree.
             histograms[active_tree_idx][alphabet - N_TREES + tree_idx] += 1;
@@ -184,11 +184,11 @@ fn calculate_per_tree_histograms(
     histograms
 }
 
-fn calculate_symbol_trees(dp: &[[(usize, usize); N_TREES]]) -> Vec<usize> {
+fn calculate_symbol_trees(dp: &[Vec<(usize, usize)>; N_TREES]) -> Vec<usize> {
     let mut active_tree_idx = 0;
-    (0..dp.len() - 1)
+    (0..dp[0].len() - 1)
         .map(|pos| {
-            active_tree_idx = dp[pos][active_tree_idx].1;
+            active_tree_idx = dp[active_tree_idx][pos].1;
             active_tree_idx
         })
         .collect()
