@@ -124,29 +124,51 @@ fn build_canonical_code(alphabet: usize, bit_lengths: &[usize]) -> Vec<u32> {
     encoding
 }
 
-fn encode(data: &[u16], bit_lengths: &[usize], encoding: &[u32]) -> (Vec<u8>, usize) {
-    let mut out = vec![];
-    let mut bits = 0u64;
-    let mut bit_len = 0;
-    let mut total_bit_len = 0;
+struct BitWriter {
+    bytes: Vec<u8>,
+    acc_bits: u64,
+    acc_len: usize,
+}
 
-    for &c in data {
-        let c = c as usize;
-        bits = (bits << bit_lengths[c]) | encoding[c] as u64;
-        bit_len += bit_lengths[c];
-        total_bit_len += bit_lengths[c];
-        while bit_len >= 8 {
-            out.push((bits >> (bit_len - 8)) as u8);
-            bit_len -= 8;
-            bits &= (1 << bit_len) - 1;
+impl BitWriter {
+    fn new() -> Self {
+        Self {
+            bytes: Vec::new(),
+            acc_bits: 0,
+            acc_len: 0,
         }
     }
 
-    if bit_len > 0 {
-        out.push((bits << (8 - bit_len)) as u8);
+    fn extend(&mut self, word: u32, len: usize) {
+        self.acc_bits = (self.acc_bits << len) | word as u64;
+        self.acc_len += len;
+        if self.acc_len >= 32 {
+            self.bytes
+                .extend(((self.acc_bits >> (self.acc_len - 32)) as u32).to_be_bytes());
+            self.acc_len -= 32;
+        }
     }
 
-    (out, total_bit_len)
+    fn len(&self) -> usize {
+        self.bytes.len() * 8 + self.acc_len
+    }
+
+    fn into_vec(mut self) -> Vec<u8> {
+        let len = self.bytes.len();
+        self.bytes
+            .extend(((self.acc_bits << (32 - self.acc_len)) as u32).to_be_bytes());
+        self.bytes.truncate(len + self.acc_len.div_ceil(8));
+        self.bytes
+    }
+}
+
+fn encode(data: &[u16], bit_lengths: &[usize], encoding: &[u32]) -> (Vec<u8>, usize) {
+    let mut out = BitWriter::new();
+    for &c in data {
+        out.extend(encoding[c as usize], bit_lengths[c as usize]);
+    }
+    let total_bit_len = out.len();
+    (out.into_vec(), total_bit_len)
 }
 
 fn encode_bit_lengths(bit_lengths: &[usize]) -> Vec<u8> {
