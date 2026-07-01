@@ -139,9 +139,21 @@ fn calculate_tree_choices(data: &[u16], tree_lens: &[Vec<usize>; N_TREES]) -> [V
     let mut costs: [_; N_TREES] = core::array::from_fn(|_| vec![0; data.len() + 1]);
     let mut trees = core::array::from_fn(|_| vec![0; data.len() + 1]);
 
+    // Transpose `tree_lens` for performance.
+    let alphabet = tree_lens[0].len();
+    let tree_lens = (0..alphabet)
+        .map(|c| {
+            let mut lens = [0; N_TREES];
+            for tree_idx in 0..N_TREES {
+                lens[tree_idx] = tree_lens[tree_idx][c] as u32;
+            }
+            lens
+        })
+        .collect::<Vec<_>>();
+
     for (pos, &c) in data.iter().enumerate().rev() {
         let base_cost: [_; N_TREES] = core::array::from_fn(|tree_idx| {
-            tree_lens[tree_idx][c as usize] as u32 + costs[tree_idx][pos + 1]
+            tree_lens[c as usize][tree_idx] + costs[tree_idx][pos + 1]
         });
         let (best_tree_idx, min_base_cost) = base_cost
             .iter()
