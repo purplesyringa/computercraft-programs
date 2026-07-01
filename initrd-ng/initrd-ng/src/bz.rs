@@ -65,7 +65,7 @@ struct Cache([u8; 256]);
 #[target_feature(enable = "ssse3")]
 /// # Safety
 ///
-/// Requires `cache` to be a permutation
+/// `ch` must be present in `cache`.
 unsafe fn mtf_single_ssse3(cache: &mut Cache, ch: u8) -> u8 {
     const SHUFFLES: [__m128i; 16] = {
         let mut res = [[0u8; 16]; 16];
@@ -131,7 +131,7 @@ unsafe fn mtf_single_ssse3(cache: &mut Cache, ch: u8) -> u8 {
 #[target_feature(enable = "ssse3")]
 /// # Safety
 ///
-/// Requires cache to be a permutation
+/// Each character in `s` must be present in `cache`.
 unsafe fn mtf_encode_ssse3(out: &mut Vec<u8>, cache: &mut Cache, s: &[u8]) {
     for &ch in s {
         // SAFETY: passthrough
@@ -139,21 +139,51 @@ unsafe fn mtf_encode_ssse3(out: &mut Vec<u8>, cache: &mut Cache, s: &[u8]) {
     }
 }
 
-fn mtf_encode(s: &[u8]) -> Vec<u8> {
-    let mut cache: Cache = Cache(core::array::from_fn(|i| i as u8));
+fn mtf_encode(s: &[u8]) -> (Vec<u8>, Vec<bool>, usize) {
+    let mut present_bytes = vec![false; 256];
+    for &c in s {
+        present_bytes[c as usize] = true;
+    }
+    let mut cache: Cache = Cache([0; 256]);
+    let mut alphabet = 0;
+    for (c, &is_present) in present_bytes.iter().enumerate() {
+        if is_present {
+            cache.0[alphabet] = c as u8;
+            alphabet += 1;
+        }
+    }
+
     let mut out = Vec::with_capacity(s.len());
 
     #[cfg(target_arch = "x86_64")]
     if std::is_x86_feature_detected!("ssse3") {
-        // SAFETY: ssse3 is detected, cache is an identity permutation
+        // SAFETY: ssse3 is detected, `cache` contains every character from `s`.
         unsafe { mtf_encode_ssse3(&mut out, &mut cache, s) };
-        return out;
+        return (out, present_bytes, alphabet);
     }
 
     for &ch in s {
         let pos = cache.0.iter().position(|&c| c == ch).unwrap();
         out.push(pos as u8);
         cache.0[0..=pos].rotate_right(1);
+    }
+    (out, present_bytes, alphabet)
+}
+
+fn encode_byte_set(map: &[bool]) -> Vec<u8> {
+    let mut out = vec![];
+    let mut i = 0;
+    while i < map.len() {
+        if !map[i] {
+            i += 1;
+            continue;
+        }
+        let mut j = i + 1;
+        while let Some(true) = map.get(j) {
+            j += 1;
+        }
+        out.extend([i as u8, j as u8 - 1]);
+        i = j;
     }
     out
 }
@@ -183,12 +213,13 @@ fn rle0_encode(s: &[u8]) -> Vec<u16> {
     out
 }
 
-pub fn compress(data: &[u8]) -> (Vec<u8>, Vec<u8>, usize, usize) {
+pub fn compress(data: &[u8]) -> (Vec<u8>, Vec<u8>, Vec<u8>, usize, usize) {
     let (data, shift) = bwt_encode(data);
-    let (mut data, bit_lengths, total_bit_len) =
-        huffman_encode(&rle0_encode(&mtf_encode(&data)), 257);
+    let (data, present_bytes, alphabet) = mtf_encode(&data);
+    let present_bytes = encode_byte_set(&present_bytes);
+    let (mut data, bit_lengths, total_bit_len) = huffman_encode(&rle0_encode(&data), alphabet + 1);
     data.extend(b"\0\0\0");
-    (data, bit_lengths, total_bit_len, shift)
+    (data, present_bytes, bit_lengths, total_bit_len, shift)
 }
 
 #[cfg(test)]
@@ -216,14 +247,8 @@ mod tests {
 
     #[test]
     fn test_mtf() {
-        assert_eq!(mtf_encode(b"abacaba"), [97, 98, 1, 99, 1, 2, 1]);
-        assert_eq!(
-            mtf_encode(b"transform"),
-            [116, 115, 99, 112, 116, 106, 114, 5, 114]
-        );
-        assert_eq!(
-            mtf_encode(b"ssdfgsfgsf"),
-            [115, 0, 101, 103, 104, 3, 2, 2, 2, 2]
-        );
+        assert_eq!(mtf_encode(b"abacaba").0, [0, 1, 1, 2, 1, 2, 1]);
+        assert_eq!(mtf_encode(b"transform").0, [7, 6, 2, 5, 7, 5, 7, 5, 7]);
+        assert_eq!(mtf_encode(b"ssdfgsfgsf").0, [3, 0, 1, 2, 3, 3, 2, 2, 2, 2]);
     }
 }

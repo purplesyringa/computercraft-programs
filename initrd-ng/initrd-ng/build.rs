@@ -13,26 +13,44 @@ fn minify(code: &str) -> Vec<u8> {
         .into()
 }
 
-static DECODE_SYMBOL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"DECODE_SYMBOL\((?<bits>[^,]+),(?<symbol>[^,]+),(?<bit_pos>[^)]+)\)").unwrap()
+static CODE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"(?x)
+        ^
+        (?<decompress1>.*)
+        TREE_START\(\),
+        (?<tree1>.*)
+        DECODE_SYMBOL\((?<bits>[^,]+),(?<symbol>[^,]+),(?<bit_pos>[^)]+)\)
+        (?<tree2>.*)
+        TREE_END\(\)
+        (?<decompress2>.*)
+        $
+    ",
+    )
+    .unwrap()
 });
 
 fn code_template() -> Vec<u8> {
     let decompress = minify(&std::fs::read_to_string("src/decode-stage2.lua").unwrap());
     println!("cargo::rerun-if-changed=src/decode-stage2.lua");
 
-    let captures = DECODE_SYMBOL_REGEX.captures(&decompress).unwrap();
+    let captures = CODE_REGEX.captures(&decompress).unwrap();
+    let decompress1 = captures.name("decompress1").unwrap().as_bytes();
+    let tree1 = captures.name("tree1").unwrap().as_bytes();
     let bits = captures.name("bits").unwrap().as_bytes();
     let symbol = captures.name("symbol").unwrap().as_bytes();
     let bit_pos = captures.name("bit_pos").unwrap().as_bytes();
-    let range = captures.get(0).unwrap().range();
+    let tree2 = captures.name("tree2").unwrap().as_bytes();
+    let decompress2 = captures.name("decompress2").unwrap().as_bytes();
 
-    let decompress1 = LuaString::from(Vec::from(&decompress[..range.start])).into();
-    let decompress2 = {
+    let decompress1 = LuaString::from(decompress1).into();
+    let tree1 = LuaString::from(tree1).into();
+    let tree2 = {
         let mut out = vec![b' ']; // for concatenation with generated code
-        out.extend(&decompress[range.end..]);
+        out.extend(tree2);
         LuaString::from(out).into()
     };
+    let decompress2 = LuaString::from(decompress2).into();
 
     let code = minify(&std::fs::read_to_string("src/decode-stage1.lua").unwrap());
     println!("cargo::rerun-if-changed=src/decode-stage1.lua");
@@ -43,6 +61,8 @@ fn code_template() -> Vec<u8> {
             ("__SYMBOL__", symbol),
             ("__BIT_POS__", bit_pos),
             ("__BITS__", bits),
+            ("__TREE1__", &serialize_to_vec(&tree1)[..]),
+            ("__TREE2__", &serialize_to_vec(&tree2)[..]),
             ("__DECOMPRESS1__", &serialize_to_vec(&decompress1)[..]),
             ("__DECOMPRESS2__", &serialize_to_vec(&decompress2)[..]),
         ]
