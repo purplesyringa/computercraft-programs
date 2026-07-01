@@ -133,6 +133,12 @@ fn build_initial_distribution(counts: &[usize]) -> [Vec<usize>; N_TREES] {
 }
 
 fn calculate_tree_choices(data: &[u16], tree_lens: &[Vec<usize>; N_TREES]) -> [Vec<u8>; N_TREES] {
+    #[cfg(target_arch = "x86_64")]
+    if std::is_x86_feature_detected!("sse4.1") {
+        // SAFETY: sse4.1 is detected
+        return unsafe { calculate_tree_choices_sse41(data, tree_lens) };
+    }
+
     // Locate optimal tree switches. `costs[tree_idx]` is the cost to encode the current suffix
     // if the active tree is `tree_idx`, `trees[tree_idx][pos]` is the tree chosen for encoding of
     // the corresponding position.
@@ -168,6 +174,62 @@ fn calculate_tree_choices(data: &[u16], tree_lens: &[Vec<usize>; N_TREES]) -> [V
             } else {
                 (same_cost, tree_idx as u8)
             };
+        }
+    }
+
+    trees
+}
+
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "sse4.1")]
+fn calculate_tree_choices_sse41(
+    data: &[u16],
+    tree_lens: &[Vec<usize>; N_TREES],
+) -> [Vec<u8>; N_TREES] {
+    use core::arch::x86_64::*;
+
+    let mut costs = _mm_setzero_si128(); // biased, non-negative
+    let mut trees = core::array::from_fn(|_| vec![0; data.len() + 1]);
+
+    // Transpose `tree_lens` for performance.
+    let alphabet = tree_lens[0].len();
+    let tree_lens = (0..alphabet)
+        .map(|c| {
+            let mut lens = [0; 8];
+            for tree_idx in 0..N_TREES {
+                lens[tree_idx] = tree_lens[tree_idx][c] as i16;
+            }
+            unsafe { core::mem::transmute(lens) }
+        })
+        .collect::<Vec<__m128i>>();
+
+    let absent_mask: __m128i = {
+        let mut mask = [0; 8];
+        mask[N_TREES..].fill(u16::MAX);
+        unsafe { core::mem::transmute(mask) }
+    };
+
+    for (pos, &c) in data.iter().enumerate().rev() {
+        let base_cost = _mm_add_epi16(tree_lens[c as usize], costs);
+
+        let min = _mm_minpos_epu16(_mm_or_si128(base_cost, absent_mask));
+        let min_base_cost = _mm_extract_epi16(min, 0) as i16;
+        let best_tree_idx = _mm_extract_epi16(min, 1) as i16;
+
+        // Bias stored costs by `-min_base_cost`. This ensures the stored values are non-negative
+        // and `phminposuw` compares them correctly as unsigned values.
+        let biased_retain_cost = _mm_sub_epi16(base_cost, _mm_set1_epi16(min_base_cost));
+        let biased_switched_cost = _mm_set1_epi16(SWITCH_COST as i16);
+        costs = _mm_min_epi16(biased_retain_cost, biased_switched_cost);
+
+        let new_trees = _mm_blendv_epi8(
+            _mm_set1_epi16(best_tree_idx),
+            _mm_set_epi16(7, 6, 5, 4, 3, 2, 1, 0),
+            _mm_cmpeq_epi16(costs, biased_retain_cost),
+        );
+        let new_trees: [u16; 8] = unsafe { core::mem::transmute(new_trees) };
+        for tree_idx in 0..N_TREES {
+            trees[tree_idx][pos] = new_trees[tree_idx] as u8;
         }
     }
 
