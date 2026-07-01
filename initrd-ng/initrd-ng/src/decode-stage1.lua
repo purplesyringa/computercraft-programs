@@ -1,5 +1,6 @@
 local compressed = __DATA__
 local trees = __TREES__
+local bytes = __BYTES__
 
 local tree_parsers = {}
 for tree in trees:gmatch("[^\xff]+") do
@@ -35,5 +36,5 @@ for tree in trees:gmatch("[^\xff]+") do
     table.insert(tree_parsers, __TREE1__ .. parsers[1] .. __TREE2__)
 end
 
-local s = load(__DECOMPRESS1__ .. table.concat(tree_parsers) .. __DECOMPRESS2__)(compressed)
+local s = load(__DECOMPRESS1__ .. table.concat(tree_parsers) .. __DECOMPRESS2__)(compressed, bytes)
 return load(s, "=initrd", nil, _ENV)()

@@ -1,8 +1,10 @@
-local compressed = ...
+local compressed, bytes = ...
 
 local byte_cache = {}
-for c = 0, 255 do
-    byte_cache[c + 1] = c
+for i = 1, #bytes, 2 do
+    for c = bytes:byte(i), bytes:byte(i + 1) do
+        table.insert(byte_cache, c)
+    end
 end
 
 local rle = 1
@@ -33,8 +35,8 @@ trees = {
             DECODE_SYMBOL(bits,symbol,bit_pos)
             if symbol < 2 then
                 rle = rle * 2 + symbol
-            elseif symbol > 256 then
-                return trees[symbol - 256]()
+            elseif symbol > #byte_cache then
+                return trees[symbol - #byte_cache]()
             else
                 if rle > 1 then
                     local byte = byte_cache[1]
