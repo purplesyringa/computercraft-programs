@@ -29,7 +29,7 @@ trees = {
     function()
         while bit_pos < __LIMIT__ do
             local bits = bit32.lshift(
-                string.unpack(">I", compressed, bit32.rshift(bit_pos, 3)),
+                string.unpack(">I", compressed, math.floor(bit_pos / 8)),
                 bit_pos % 8
             )
             DECODE_SYMBOL(bits,symbol,bit_pos)
