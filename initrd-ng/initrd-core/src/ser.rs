@@ -88,8 +88,8 @@ fn serialize_string(out: &mut Vec<u8>, s: &LuaString, in_key: bool) {
             counts[c as usize] = usize::MAX;
         }
         let escape = (0..=u8::MAX).min_by_key(|&c| counts[c as usize]).unwrap();
+        prefix.push(b'(');
         if counts[escape as usize] == 0 {
-            prefix.push(b'(');
             suffix.extend(b"):gsub('");
             suffix.push(escape);
             suffix.extend(br"','\r')");
@@ -97,7 +97,6 @@ fn serialize_string(out: &mut Vec<u8>, s: &LuaString, in_key: bool) {
                 .map(|&c| if c == b'\r' { escape } else { c })
                 .collect()
         } else {
-            prefix.push(b'(');
             suffix.extend(b"):gsub('");
             suffix.push(escape);
             suffix.extend(br"r','\r'):gsub('");
