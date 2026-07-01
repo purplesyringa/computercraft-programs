@@ -36,6 +36,6 @@ With that out of the way, let's quickly go over the format itself. I recommend r
 
 We're close to matching `bzip2`'s compression ratio, and we're smaller than every other popular format. The possible incremental improvements are:
 
-1. Apply [LZP](https://hugi.scene.org/online/coding/hugi%2012%20-%20colzp.htm) before BWT like bzip3 does. This would save us about 1% [outdated] of space, and wouldn't require too much code.
-2. Replace Huffman with [tANS](https://en.wikipedia.org/wiki/Asymmetric_numeral_systems#Tabled_variant_(tANS)). This would save us about 3% in compressed data, at the cost of embedding more metadata and losing out on JIT.
+1. Apply a Lua-specific filter for modeling indentation. Simply removing it saves 3% in compressed data, good enough modeling should be able to save 2%.
+2. Replace Huffman with [tANS](https://en.wikipedia.org/wiki/Asymmetric_numeral_systems#Tabled_variant_(tANS)). This would save us about 3%, at the cost of embedding more metadata and losing out on JIT.
 3. Use a context-adaptive predictive model. bzip3 saves 6% on bzip2 with this method, but requires decoding data bit-by-bit, significantly slowing down decompression. Adjusting the frequencies only every 50 bytes and using [rANS](https://en.wikipedia.org/wiki/Asymmetric_numeral_systems#Range_variants_(rANS)_and_streaming) might help here, but requires experimentation and may fail to work well due to the 50-byte lag.
