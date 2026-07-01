@@ -93,29 +93,27 @@ fn serialize_string(out: &mut Vec<u8>, s: &LuaString, in_key: bool) {
             suffix.extend(b"):gsub('");
             suffix.push(escape);
             suffix.extend(br"','\r')");
-            s.iter()
-                .map(|&c| if c == b'\r' { escape } else { c })
-                .collect()
         } else {
             suffix.extend(b"):gsub('");
             suffix.push(escape);
-            suffix.extend(br"r','\r'):gsub('");
-            suffix.push(escape);
-            suffix.extend(b"]','");
-            suffix.push(escape);
-            suffix.extend(b"')");
-            let mut inner = vec![];
-            for &c in s.iter() {
-                if c == b'\r' {
-                    inner.extend([escape, b'r']);
-                } else if c == escape {
-                    inner.extend([escape, b']']);
-                } else {
-                    inner.push(c);
-                }
-            }
-            inner.into()
+            suffix.extend(b"',(function(i)return function()i=i+1 return bit32.btest(('");
+
+            (s.iter().filter(|&&c| c == b'\r' || c == escape))
+                .zip(core::iter::repeat(0..7).flatten())
+                .for_each(|(&c, bit)| {
+                    if bit == 0 {
+                        suffix.push(0x80);
+                    }
+                    if c == b'\r' {
+                        *suffix.last_mut().unwrap() |= 1 << bit;
+                    }
+                });
+
+            suffix.extend(br"'):byte(math.floor(i/7)),2^(i%7))and'\r'end end)(6))");
         }
+        s.iter()
+            .map(|&c| if c == b'\r' { escape } else { c })
+            .collect()
     };
 
     // Somewhat surprisingly, Lua forbids even opening brackets inside brackets.
