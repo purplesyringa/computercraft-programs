@@ -13,7 +13,7 @@ local function showGroupStatus(kind)
         for _, file_name in pairs(impure_items) do
             local name = file_name
             if kind == "targets" then
-                name = name:gsub("[.]lua$", "")
+                name = name:gsub("%.lua$", "")
             end
             table.insert(items, {
                 name = name,
