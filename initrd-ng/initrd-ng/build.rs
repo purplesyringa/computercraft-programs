@@ -1,6 +1,5 @@
 use initrd_core::prelude::*;
-use regex::bytes::Regex;
-use std::{path::Path, sync::LazyLock};
+use std::path::Path;
 
 fn minify(code: &str) -> Vec<u8> {
     std::process::Command::new("luamin")
@@ -13,10 +12,12 @@ fn minify(code: &str) -> Vec<u8> {
         .into()
 }
 
-static CODE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(
-        r"(?x)
-        ^
+fn code_template() -> Vec<u8> {
+    let decompress = minify(&std::fs::read_to_string("src/decode-stage2.lua").unwrap());
+    println!("cargo::rerun-if-changed=src/decode-stage2.lua");
+
+    let code_regex = lazy_regex::bytes_regex!(
+        r"^
         (?<decompress1>.*)
         TREE_START\(\),
         (?<tree1>.*)
@@ -24,17 +25,10 @@ static CODE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         (?<tree2>.*)
         TREE_END\(\)
         (?<decompress2>.*)
-        $
-    ",
-    )
-    .unwrap()
-});
+        $"x
+    );
 
-fn code_template() -> Vec<u8> {
-    let decompress = minify(&std::fs::read_to_string("src/decode-stage2.lua").unwrap());
-    println!("cargo::rerun-if-changed=src/decode-stage2.lua");
-
-    let captures = CODE_REGEX.captures(&decompress).unwrap();
+    let captures = code_regex.captures(&decompress).unwrap();
     let decompress1 = captures.name("decompress1").unwrap().as_bytes();
     let tree1 = captures.name("tree1").unwrap().as_bytes();
     let bits = captures.name("bits").unwrap().as_bytes();

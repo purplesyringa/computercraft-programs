@@ -12,4 +12,4 @@ regex = { workspace = true }
 
 [build-dependencies]
 initrd-core = { version = "0.1.0", path = "../initrd-core" }
-regex = { workspace = true }
+lazy-regex = { workspace = true }

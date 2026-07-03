@@ -1,6 +1,5 @@
 use crate::lua::*;
-use regex::bytes::Regex;
-use std::{borrow::Cow, collections::BTreeSet, io::Write, sync::LazyLock};
+use std::{borrow::Cow, collections::BTreeSet, io::Write};
 
 fn serialize_key(out: &mut Vec<u8>, k: &LuaString) {
     if !k.is_empty()
@@ -41,10 +40,8 @@ fn serialize_key(out: &mut Vec<u8>, k: &LuaString) {
     }
 }
 
-static RAW_STRING_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[\[\]]=*").unwrap());
-
 fn find_level(s: &[u8]) -> usize {
-    let banned_levels = RAW_STRING_REGEX
+    let banned_levels = lazy_regex::bytes_regex!(r"[\[\]]=*")
         .find_iter(s)
         .filter(|m| s.get(m.end()) == Some(&s[m.start()]))
         .map(|m| m.len() - 1)
