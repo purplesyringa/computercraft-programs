@@ -9,7 +9,7 @@ fn min_cyclic_shift(dup: &[u8], n: usize) -> usize {
         ans = i;
         let mut j = i + 1;
         let mut k = i;
-        while j < n && dup[k] <= dup[j] {
+        while j < 2 * n && dup[k] <= dup[j] {
             if dup[k] < dup[j] {
                 k = i;
             } else {
@@ -232,6 +232,7 @@ mod tests {
         assert_eq!(min_cyclic_shift(b"transformtransform", 9), 2);
         assert_eq!(min_cyclic_shift(b"ssdfgsfgsfssdfgsfgsf", 10), 2);
         assert_eq!(min_cyclic_shift(b"abababab", 4), 0);
+        assert_eq!(min_cyclic_shift(b"cabacaba", 4), 1);
     }
 
     #[test]
