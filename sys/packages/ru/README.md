@@ -2,7 +2,9 @@
 
 ```lua
 local ru = require "ru"
-ru.text.to_koi("<Priwet, mir!>") -- "Привет, мир!"
+local text = "<Priwet, mir!>"
+local koi = ru.text.to_koi(text) -- "Привет, мир!"
+local text2 = ru.koi.to_text(koi) -- "<Priwet, mir>!"
 ```
 
 Note that ComputerCraft uses a modification of ISO 8859-1 and CP437 as its base layout. To display KOI8 text properly, install [this resource pack](./CCT-koi8b-russian-pack.zip). It replaces all characters required by [KOI8-B](https://en.wikipedia.org/wiki/KOI8-B), and keeps pseudographics in place. To find out which characters are lost, inspect characters 0xA3, 0xB3, and 0xC0..=0xFF in [this CC charmap viewer](https://charmap.madefor.cc)

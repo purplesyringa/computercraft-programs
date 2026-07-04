@@ -47,6 +47,29 @@ function ru.text.to_koi(s)
     return ru.text.to_koi_inner(s, true)
 end
 
+function ru.koi.to_text_char(ch)
+    if ch >= 0xE0 then
+        return ch - 0xA0
+    elseif ch >= 0xC0 then
+        return ch - 0x60
+    elseif ch == 0xA3 then
+        return 0x33
+    elseif ch == 0xB3 then
+        return 0x23
+    else
+        return ch
+    end
+end
+
+function ru.koi.to_text(s)
+    local out = s:gsub("[<\xA3\xB3\xC0-\xFF]+[^>\x23\x33\x40-\x7F]*%f[^<\xA3\xB3\xC0-\xFF]", function(match)
+        return "<" .. match:gsub(".", function(s)
+            return string.char(ru.koi.to_text_char(s:byte()))
+        end) .. ">"
+    end)
+    return out
+end
+
 local off = { 30, 0, 1, 22, 4, 5, 20, 3, 21, 8, 9, 10, 11, 12, 13, 14, 15, 31, 16, 17, 18, 19, 6, 2, 28, 27, 7, 24, 29, 25, 23, 26 }
 function ru.koi.to_utf_char(ch)
     if ch >= 0xE0 then
