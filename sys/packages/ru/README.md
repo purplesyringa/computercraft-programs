@@ -22,3 +22,7 @@ Note that ComputerCraft uses a modification of ISO 8859-1 and CP437 as its base 
 - `_char` functions operate on single character.
 - `ru.text.` functions take ASCII (enterable) characters and apply escaping rules.
 - `ru.koi.` functions take KOI8-B (displayable) characters.
+
+### Playground
+
+Use `convrepl` to test conversions between text and koi representations. Enter empty string to quit.
