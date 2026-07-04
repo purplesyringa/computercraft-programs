@@ -20,7 +20,7 @@ function ru.text.to_koi_char(ch)
 end
 
 function ru.text.to_koi_inner(s, raw_initial)
-    s = { string.byte(s, 1, #s) }
+    s = { s:byte(1, #s) }
     local raw = raw_initial
     local n = 0
     for _, ch in ipairs(s) do
@@ -62,7 +62,7 @@ function ru.koi.to_utf_char(ch)
 end
 
 function ru.koi.to_utf(s)
-    s = { string.byte(s, 1, #s) }
+    s = { s:byte(1, #s) }
     for i, ch in ipairs(s) do
         s[i] = ru.koi.to_utf_char(ch)
     end
