@@ -6,8 +6,8 @@ mod fs;
 mod huffman;
 mod snippets;
 
-#[derive(FromArgs)]
 /// initrd generator and analyzer
+#[derive(FromArgs)]
 struct Args {
     #[argh(subcommand)]
     command: Command,
@@ -20,8 +20,8 @@ enum Command {
     Analyze(AnalyzeArgs),
 }
 
-#[derive(FromArgs)]
 /// build the initrd
+#[derive(FromArgs)]
 #[argh(subcommand, name = "build")]
 struct BuildArgs {
     /// sysroot path (e.g. ../sys)
@@ -35,8 +35,8 @@ struct BuildArgs {
     uncompressed: bool,
 }
 
-#[derive(FromArgs)]
 /// analyze initrd compression
+#[derive(FromArgs)]
 #[argh(subcommand, name = "analyze")]
 struct AnalyzeArgs {
     /// sysroot path (e.g. ../sys)
