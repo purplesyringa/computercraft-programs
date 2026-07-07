@@ -218,20 +218,17 @@ impl EncodingTable {
             .collect::<BinaryHeap<_>>();
 
         // Reserve 1 space for each present symbol.
-        let mut space_left: u64 = (1 << PROB_BITS) - symbols_by_count.len() as u64;
+        let free_space: u64 = (1 << PROB_BITS) - symbols_by_count.len() as u64;
 
         // Allocate the rest of the space greedily to most common symbols first.
         let total_count: usize = counts.iter().sum();
-        for (i, &(count, c)) in symbols_by_count.iter().enumerate() {
-            let space = if i != symbols_by_count.len() - 1 {
-                ((count as u64) << PROB_BITS) / total_count as u64
-            } else {
-                // Make sure the probabilities sum up to 2^PROB_BITS exactly, since the decoder
-                // relies on that.
-                u64::MAX
-            };
-            let space = space.min(space_left);
-            space_left -= space;
+        let mut sum = 0;
+        let mut interval_start = 0;
+        for (count, c) in symbols_by_count {
+            sum += count;
+            let interval_end = free_space * sum as u64 / total_count as u64;
+            let space = interval_end - interval_start;
+            interval_start = interval_end;
             probabilities[c] = space as u32 + 1;
         }
 
