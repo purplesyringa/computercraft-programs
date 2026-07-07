@@ -214,12 +214,13 @@ fn rle0_encode(s: &[u8]) -> Vec<u16> {
 }
 
 pub fn compress(data: &[u8]) -> (Vec<u8>, Vec<u8>, Vec<u8>, usize, usize) {
+    let limit = data.len();
     let (data, shift) = bwt_encode(data);
     let (data, present_bytes, alphabet) = mtf_encode(&data);
     let present_bytes = encode_byte_set(&present_bytes);
-    let (mut data, bit_lengths, total_bit_len) = entropy_encode(&rle0_encode(&data), alphabet + 1);
-    data.extend(b"\0\0\0");
-    (data, present_bytes, bit_lengths, total_bit_len, shift)
+    let data = rle0_encode(&data);
+    let (data, tables) = entropy_encode(&data, alphabet + 1);
+    (data, present_bytes, tables, limit, shift)
 }
 
 #[cfg(test)]

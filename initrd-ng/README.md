@@ -30,12 +30,13 @@ With that out of the way, let's quickly go over the format itself. I recommend r
 2. Our pipeline is BWT + MTF + RLE0 + HUFF, omitting the first RLE step from bzip2, since it's unnecessary on our data.
 3. The BWT origin pointer stores `perm[ptr]` as opposed to `ptr`.
 4. RUNA and RUNB are encoded as 0 and 1 respectively, meaning that MTF offsets start at 2: this agrees with Lua's 1-based indexing.
-5. The Huffman alphabet excludes EOB, we directly substitute the block length into the decoder code instead.
-6. Since the Huffman trees are very asymmetric post-MTF, we JIT them to decode symbols bit-by-bit, which turns out to be faster than using a precomputed table.
-7. Instead of switching between Huffman trees every 50 bytes and storing the selectors out-of-stream, we implement tree switching with additional symbols in the Huffman alphabet.
+5. We use ANS instead of Huffman.
+6. The ANS alphabet excludes EOB, we directly substitute the block length into the decoder code instead.
+7. We generate JIT code for a binary search-based rANS decoder, since tANS cannot achieve the desired probability precision in reasonable time/space.
+8. Instead of switching between ANS tables every 50 bytes and storing the selectors out-of-stream, we implement table switching with additional symbols in the ANS alphabet.
 
 We're close to matching `bzip2`'s compression ratio, and we're smaller than every other popular format. The possible incremental improvements are:
 
 1. Apply a Lua-specific filter for modeling indentation. Simply removing it saves 3% in compressed data, good enough modeling should be able to save 2%.
-2. Replace Huffman with [tANS](https://en.wikipedia.org/wiki/Asymmetric_numeral_systems#Tabled_variant_(tANS)). This would save us about 3%, at the cost of embedding more metadata and losing out on JIT.
-3. Use a context-adaptive predictive model. bzip3 saves 6% on bzip2 with this method, but requires decoding data bit-by-bit, significantly slowing down decompression. Adjusting the frequencies only every 50 bytes and using [rANS](https://en.wikipedia.org/wiki/Asymmetric_numeral_systems#Range_variants_(rANS)_and_streaming) might help here, but requires experimentation and may fail to work well due to the 50-byte lag.
+2. Replace 6 stored probability distributions with a parametrized distribution. This reduces the stored metadata and makes the codec more responsive to local probability changes, but it's unclear which distributions work best.
+3. Use a context-adaptive predictive model. bzip3 saves 6% on bzip2 with this method, but requires decoding data bit-by-bit, significantly slowing down decompression. Adjusting the frequencies only every 50 bytes might help here, but requires experimentation and may fail to work well due to the 50-byte lag.

@@ -4,36 +4,34 @@ local bytes = __BYTES__
 
 local table_parsers = {}
 for tbl in tables:gmatch("[^\xff]+") do
-    local len_buckets = {}
-    local c = 0
-    for i = 1, #tbl do
-        local byte = tbl:byte(i)
-        len_buckets[byte % 32] = len_buckets[byte % 32] or {}
-        for i = -1, byte, 32 do
-            table.insert(len_buckets[byte % 32], c)
-            c = c + 1
-        end
-    end
-
-    local parsers = {}
-    for bit_len = 25, 1, -1 do
-        for _, c in ipairs(len_buckets[bit_len] or {}) do
-            table.insert(parsers, ("__SYMBOL__=%d __BIT_POS__=__BIT_POS__+%d"):format(c, bit_len))
-        end
-        local new_parsers = {}
-        for i = 1, #parsers, 2 do
-            table.insert(
-                new_parsers,
-                ("if __BITS__<%d then %s else %s end"):format(
-                    i * 2 ^ (32 - bit_len),
-                    parsers[i],
-                    parsers[i + 1]
+    local parsers, sum, c = {}, 0, 0 -- each parser is a tuple { level, cumulative, code }
+    for _, p in utf8.codes(tbl) do
+        if p > 0 and p < 0x4000 then
+            -- Build a binary tree, using probabilities as weights. This uses a stack-based
+            -- algorithm, storing nodes roughly like in a segment tree. For each node, we detect
+            -- which level of the tree we're ready to finish and merge all parsers up to the
+            -- previous parser of a higher level. Technically, the true level is the ctz of the xor,
+            -- but just using the xor works as well, since we never have to compare nodes of two
+            -- equal levels.
+            local level, cumulative, code =
+                bit32.bxor(sum, sum + p),
+                sum,
+                ("__SYMBOL__=%d __STATE__=__STATE__*%q+__BITS__*%q-%d"):format(c, p / 2 ^ 14, 1 - p / 2 ^ 14, sum)
+            while #parsers > 0 and parsers[#parsers][1] < level do
+                local old_parser = table.remove(parsers)
+                code = ("if __BITS__<%d then %s else %s end"):format(
+                    cumulative,
+                    old_parser[3],
+                    code
                 )
-            )
+                cumulative = old_parser[2]
+            end
+            table.insert(parsers, { level, cumulative, code })
+            sum = sum + p
         end
-        parsers = new_parsers
+        c = c + math.max(1, p - 0x4000)
     end
-    table.insert(table_parsers, __TABLE1__ .. parsers[1] .. __TABLE2__)
+    table.insert(table_parsers, __TABLE1__ .. parsers[1][3] .. __TABLE2__)
 end
 
 local s = load(__DECOMPRESS1__ .. table.concat(table_parsers) .. __DECOMPRESS2__)(compressed, bytes)

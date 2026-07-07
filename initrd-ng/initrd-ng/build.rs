@@ -21,7 +21,7 @@ fn code_template() -> Vec<u8> {
         (?<decompress1>.*)
         TABLE_START\(\),
         (?<table1>.*)
-        DECODE_SYMBOL\((?<bits>[^,]+),(?<symbol>[^,]+),(?<bit_pos>[^)]+)\)
+        DECODE_SYMBOL\((?<bits>[^,]+),(?<symbol>[^,]+),(?<state>[^)]+)\)
         (?<table2>.*)
         TABLE_END\(\)
         (?<decompress2>.*)
@@ -33,7 +33,7 @@ fn code_template() -> Vec<u8> {
     let table1 = captures.name("table1").unwrap().as_bytes();
     let bits = captures.name("bits").unwrap().as_bytes();
     let symbol = captures.name("symbol").unwrap().as_bytes();
-    let bit_pos = captures.name("bit_pos").unwrap().as_bytes();
+    let state = captures.name("state").unwrap().as_bytes();
     let table2 = captures.name("table2").unwrap().as_bytes();
     let decompress2 = captures.name("decompress2").unwrap().as_bytes();
 
@@ -53,7 +53,7 @@ fn code_template() -> Vec<u8> {
         &code,
         [
             ("__SYMBOL__", symbol),
-            ("__BIT_POS__", bit_pos),
+            ("__STATE__", state),
             ("__BITS__", bits),
             ("__TABLE1__", &serialize_to_vec(&table1)[..]),
             ("__TABLE2__", &serialize_to_vec(&table2)[..]),
