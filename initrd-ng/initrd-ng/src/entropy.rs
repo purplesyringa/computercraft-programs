@@ -320,9 +320,7 @@ fn encode_probabilities(probabilities: &[u32]) -> Vec<u8> {
     while i < probabilities.len() {
         // RLE0
         let mut j = i;
-        while let Some(0) = probabilities.get(j)
-            && j + 1 - i < 64
-        {
+        while let Some(0) = probabilities.get(j) {
             j += 1;
         }
         if j - i >= 4 {
