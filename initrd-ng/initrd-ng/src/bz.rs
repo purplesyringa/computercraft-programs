@@ -1,4 +1,4 @@
-use crate::huffman::huffman_encode;
+use crate::entropy::entropy_encode;
 use libsais::BwtConstruction;
 
 // https://web.archive.org/web/20251112195119/http://e-maxx.ru/algo/duval_algorithm
@@ -217,7 +217,7 @@ pub fn compress(data: &[u8]) -> (Vec<u8>, Vec<u8>, Vec<u8>, usize, usize) {
     let (data, shift) = bwt_encode(data);
     let (data, present_bytes, alphabet) = mtf_encode(&data);
     let present_bytes = encode_byte_set(&present_bytes);
-    let (mut data, bit_lengths, total_bit_len) = huffman_encode(&rle0_encode(&data), alphabet + 1);
+    let (mut data, bit_lengths, total_bit_len) = entropy_encode(&rle0_encode(&data), alphabet + 1);
     data.extend(b"\0\0\0");
     (data, present_bytes, bit_lengths, total_bit_len, shift)
 }

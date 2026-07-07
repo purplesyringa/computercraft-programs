@@ -2,8 +2,8 @@ use argh::FromArgs;
 use std::path::PathBuf;
 
 mod bz;
+mod entropy;
 mod fs;
-mod huffman;
 mod snippets;
 
 /// initrd generator and analyzer

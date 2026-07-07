@@ -19,29 +19,29 @@ fn code_template() -> Vec<u8> {
     let code_regex = lazy_regex::bytes_regex!(
         r"^
         (?<decompress1>.*)
-        TREE_START\(\),
-        (?<tree1>.*)
+        TABLE_START\(\),
+        (?<table1>.*)
         DECODE_SYMBOL\((?<bits>[^,]+),(?<symbol>[^,]+),(?<bit_pos>[^)]+)\)
-        (?<tree2>.*)
-        TREE_END\(\)
+        (?<table2>.*)
+        TABLE_END\(\)
         (?<decompress2>.*)
         $"x
     );
 
     let captures = code_regex.captures(&decompress).unwrap();
     let decompress1 = captures.name("decompress1").unwrap().as_bytes();
-    let tree1 = captures.name("tree1").unwrap().as_bytes();
+    let table1 = captures.name("table1").unwrap().as_bytes();
     let bits = captures.name("bits").unwrap().as_bytes();
     let symbol = captures.name("symbol").unwrap().as_bytes();
     let bit_pos = captures.name("bit_pos").unwrap().as_bytes();
-    let tree2 = captures.name("tree2").unwrap().as_bytes();
+    let table2 = captures.name("table2").unwrap().as_bytes();
     let decompress2 = captures.name("decompress2").unwrap().as_bytes();
 
     let decompress1 = LuaString::from(decompress1).into();
-    let tree1 = LuaString::from(tree1).into();
-    let tree2 = {
+    let table1 = LuaString::from(table1).into();
+    let table2 = {
         let mut out = vec![b' ']; // for concatenation with generated code
-        out.extend(tree2);
+        out.extend(table2);
         LuaString::from(out).into()
     };
     let decompress2 = LuaString::from(decompress2).into();
@@ -55,8 +55,8 @@ fn code_template() -> Vec<u8> {
             ("__SYMBOL__", symbol),
             ("__BIT_POS__", bit_pos),
             ("__BITS__", bits),
-            ("__TREE1__", &serialize_to_vec(&tree1)[..]),
-            ("__TREE2__", &serialize_to_vec(&tree2)[..]),
+            ("__TABLE1__", &serialize_to_vec(&table1)[..]),
+            ("__TABLE2__", &serialize_to_vec(&table2)[..]),
             ("__DECOMPRESS1__", &serialize_to_vec(&decompress1)[..]),
             ("__DECOMPRESS2__", &serialize_to_vec(&decompress2)[..]),
         ]
