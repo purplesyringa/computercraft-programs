@@ -16,7 +16,9 @@ for tbl in tables:gmatch("[^\xff]+") do
             local level, cumulative, code =
                 bit32.bxor(sum, sum + p),
                 sum,
-                ("__SYMBOL__=%d __STATE__=__STATE__*%q+__BITS__*%q-%d"):format(c, p / 2 ^ 14, 1 - p / 2 ^ 14, sum)
+                -- Don't optimize this to `state * c1 + bits * c2 - sum`: that can overflow double
+                -- precision and cause issues with empirical probability 2^-28.
+                ("__SYMBOL__=%d __STATE__=(__STATE__-__BITS__)*%q+__BITS__-%d"):format(c, p / 2 ^ 14, sum)
             while #parsers > 0 and parsers[#parsers][1] < level do
                 local old_parser = table.remove(parsers)
                 code = ("if __BITS__<%d then %s else %s end"):format(
