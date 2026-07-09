@@ -73,7 +73,6 @@ fn main() {
             let total = make_initrd(&tree, false, None).len().cast_signed();
             println!("{total}\t100.0\t<initrd>");
 
-            let mut sizes = Vec::<(isize, String)>::new();
             let names = tree
                 .walk_to(&aa.dir)
                 .expect("no such directory")
@@ -82,11 +81,14 @@ fn main() {
                 .chain(Some("./".into()))
                 .collect::<Vec<_>>();
 
-            for name in names {
-                let path = aa.dir.join(&name);
-                let size = make_initrd(&tree, false, Some(&path)).len().cast_signed();
-                sizes.push((size, name));
-            }
+            let mut sizes = names
+                .into_iter()
+                .map(|name| {
+                    let path = aa.dir.join(&name);
+                    let size = make_initrd(&tree, false, Some(&path)).len().cast_signed();
+                    (size, name)
+                })
+                .collect::<Vec<(isize, String)>>();
 
             sizes.sort();
             for (size, name) in sizes {
