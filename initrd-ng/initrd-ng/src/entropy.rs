@@ -205,6 +205,9 @@ fn refine_approximation(
 struct EncodingTable {
     probabilities: Vec<u32>,
     cumulative_probabilities: Vec<u32>,
+
+    // ceil(2^64 / probabilities[i]) - 1
+    inverse_probabilities: Vec<u64>,
 }
 
 impl EncodingTable {
@@ -239,10 +242,29 @@ impl EncodingTable {
             sum += p;
         }
 
+        let inverse_probabilities = probabilities
+            .iter()
+            .map(|&p| {
+                if p == 0 {
+                    0
+                } else {
+                    ((1u128 << 64).div_ceil(p as u128) - 1) as u64
+                }
+            })
+            .collect();
+
         Self {
             probabilities,
             cumulative_probabilities,
+            inverse_probabilities,
         }
+    }
+
+    fn divmod(&self, val: u64, c: usize) -> (u64, u64) {
+        // XXX: use widening_mul when stable...
+        let (low, high) = self.inverse_probabilities[c].carrying_mul(val, val);
+        let rem = (self.probabilities[c] as u64).carrying_mul(low, 0).1;
+        (high, rem)
     }
 }
 
@@ -275,9 +297,8 @@ impl AnsEncoder {
             }
             self.dump_word();
         }
-        self.state = ((self.state / p) << PROB_BITS)
-            + self.state % p
-            + encoding.cumulative_probabilities[c] as u64;
+        let (div, rem) = encoding.divmod(self.state, c);
+        self.state = (div << PROB_BITS) + rem + encoding.cumulative_probabilities[c] as u64;
     }
 
     fn into_vec(mut self) -> Vec<u8> {
