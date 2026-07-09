@@ -1,9 +1,14 @@
+use crate::fs;
 use rayon::prelude::*;
 use std::path::Path;
 
+fn initrd_size(tree: &fs::Entry, ignore: Option<&Path>) -> isize {
+    fs::make_initrd(tree, false, ignore).len().cast_signed()
+}
+
 pub fn analyze(sysroot: &Path, dir: &Path) {
     assert!(dir.as_os_str().is_ascii(), "non-ascii dir name?");
-    let mut tree = crate::fs::build_tree(sysroot).unwrap();
+    let mut tree = fs::build_tree(sysroot).unwrap();
 
     let names = tree
         .walk_to(dir)
@@ -12,23 +17,18 @@ pub fn analyze(sysroot: &Path, dir: &Path) {
         .map(|(name, entry)| format!("{name}{}", if entry.is_dir() { "/" } else { "" }))
         .chain(Some("./".into()))
         .map(|name| (Some(dir.join(&name)), name))
-        .chain(Some((None, "<initrd>".into())))
         .collect::<Vec<_>>();
 
-    let mut sizes = names
-        .into_par_iter()
-        .map(|(ignore, name)| {
-            let ignore = ignore.as_deref();
-            let size = crate::fs::make_initrd(&tree, false, ignore)
-                .len()
-                .cast_signed();
-            (size, name)
-        })
-        .collect::<Vec<(isize, String)>>();
-
-    // XXX: rayon preserves order https://github.com/rayon-rs/rayon/issues/551
-    let total = sizes.last().unwrap().0;
-    sizes.last_mut().unwrap().0 = 0; // convert "size of" to "size without" for <initrd>
+    let (total, mut sizes) = rayon::join(
+        || initrd_size(&tree, None),
+        || {
+            names
+                .into_par_iter()
+                .map(|(ignore, name)| (initrd_size(&tree, ignore.as_deref()), name))
+                .collect::<Vec<(isize, String)>>()
+        },
+    );
+    println!("{total}\t100.0\t<initrd>");
 
     sizes.sort();
     for (size, name) in sizes {
