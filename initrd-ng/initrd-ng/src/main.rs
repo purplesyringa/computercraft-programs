@@ -1,4 +1,5 @@
 use argh::FromArgs;
+use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 
 mod bz;
@@ -82,7 +83,7 @@ fn main() {
                 .collect::<Vec<_>>();
 
             let mut sizes = names
-                .into_iter()
+                .into_par_iter()
                 .map(|name| {
                     let path = aa.dir.join(&name);
                     let size = make_initrd(&tree, false, Some(&path)).len().cast_signed();
