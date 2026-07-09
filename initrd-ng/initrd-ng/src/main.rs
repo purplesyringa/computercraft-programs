@@ -1,5 +1,5 @@
 use argh::FromArgs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 mod bz;
 mod entropy;
@@ -47,8 +47,8 @@ struct AnalyzeArgs {
     dir: PathBuf,
 }
 
-fn make_initrd(tree: &fs::Entry, uncompressed: bool) -> Vec<u8> {
-    let initrd = fs::build_uncompressed_initrd(tree);
+fn make_initrd(tree: &fs::Entry, uncompressed: bool, ignore_path: Option<&Path>) -> Vec<u8> {
+    let initrd = fs::build_uncompressed_initrd(tree, ignore_path);
     if uncompressed {
         initrd
     } else {
@@ -63,38 +63,31 @@ fn main() {
     match args.command {
         Command::Build(ba) => {
             let tree = fs::build_tree(&ba.sysroot).unwrap();
-            std::fs::write(ba.output, make_initrd(&tree, ba.uncompressed)).unwrap();
+            std::fs::write(ba.output, make_initrd(&tree, ba.uncompressed, None)).unwrap();
         }
 
         Command::Analyze(aa) => {
             assert!(aa.dir.as_os_str().is_ascii(), "non-ascii dir name?");
             let mut tree = fs::build_tree(&aa.sysroot).unwrap();
 
-            let total = make_initrd(&tree, false).len().cast_signed();
+            let total = make_initrd(&tree, false, None).len().cast_signed();
             println!("{total}\t100.0\t<initrd>");
 
             let mut sizes = Vec::<(isize, String)>::new();
             let names = tree
                 .walk_to(&aa.dir)
                 .expect("no such directory")
-                .keys()
-                .cloned()
+                .iter()
+                .map(|(name, entry)| format!("{name}{}", if entry.is_dir() { "/" } else { "" }))
                 .collect::<Vec<_>>();
 
             for name in names {
-                let entry = tree.walk_to_mut(&aa.dir).unwrap().remove(&name).unwrap();
-
-                let size = make_initrd(&tree, false).len().cast_signed();
-                sizes.push((
-                    size,
-                    format!("{name}{}", if entry.is_dir() { "/" } else { "" }),
-                ));
-
-                tree.walk_to_mut(&aa.dir).unwrap().insert(name, entry);
+                let path = aa.dir.join(&name);
+                let size = make_initrd(&tree, false, Some(&path)).len().cast_signed();
+                sizes.push((size, name));
             }
 
-            tree.walk_to_mut(&aa.dir).unwrap().clear();
-            let size = make_initrd(&tree, false).len().cast_signed();
+            let size = make_initrd(&tree, false, Some(&aa.dir)).len().cast_signed();
             sizes.push((size, "./".into()));
 
             sizes.sort();
