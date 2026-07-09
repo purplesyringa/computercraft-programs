@@ -85,7 +85,10 @@ fn main() {
                 let entry = tree.walk_to_mut(&aa.dir).unwrap().remove(&name).unwrap();
 
                 let size = make_initrd(&tree, false).len().cast_signed();
-                sizes.push((size, name.clone()));
+                sizes.push((
+                    size,
+                    format!("{name}{}", if entry.is_dir() { "/" } else { "" }),
+                ));
 
                 tree.walk_to_mut(&aa.dir).unwrap().insert(name, entry);
             }

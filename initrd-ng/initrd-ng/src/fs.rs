@@ -29,7 +29,6 @@ impl Entry {
         }
     }
 
-    #[expect(unused)]
     pub fn is_dir(&self) -> bool {
         matches!(self, Entry::Dir(_))
     }
