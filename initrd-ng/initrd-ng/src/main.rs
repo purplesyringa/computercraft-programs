@@ -1,6 +1,6 @@
 use argh::FromArgs;
 use rayon::prelude::*;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 mod bz;
 mod entropy;
@@ -48,28 +48,13 @@ struct AnalyzeArgs {
     dir: PathBuf,
 }
 
-fn make_initrd(tree: &fs::Entry, uncompressed: bool, ignore_path: Option<&Path>) -> Vec<u8> {
-    let initrd = fs::build_uncompressed_initrd(tree, ignore_path);
-    if uncompressed {
-        initrd
-    } else {
-        #[cfg(feature = "perf-record")]
-        for _ in 1..1000 {
-            let (data, present_bytes, tables, limit, shift) = bz::compress(&initrd);
-            snippets::generate_sfx(&data, &present_bytes, tables, limit, shift);
-        }
-        let (data, present_bytes, tables, limit, shift) = bz::compress(&initrd);
-        snippets::generate_sfx(&data, &present_bytes, tables, limit, shift)
-    }
-}
-
 fn main() {
     let args: Args = argh::from_env();
 
     match args.command {
         Command::Build(ba) => {
             let tree = fs::build_tree(&ba.sysroot).unwrap();
-            std::fs::write(ba.output, make_initrd(&tree, ba.uncompressed, None)).unwrap();
+            std::fs::write(ba.output, fs::make_initrd(&tree, ba.uncompressed, None)).unwrap();
         }
 
         Command::Analyze(aa) => {
@@ -90,7 +75,7 @@ fn main() {
                 .into_par_iter()
                 .map(|(ignore, name)| {
                     let ignore = ignore.as_deref();
-                    let size = make_initrd(&tree, false, ignore).len().cast_signed();
+                    let size = fs::make_initrd(&tree, false, ignore).len().cast_signed();
                     (size, name)
                 })
                 .collect::<Vec<(isize, String)>>();

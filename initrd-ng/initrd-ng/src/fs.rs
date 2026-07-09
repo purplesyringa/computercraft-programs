@@ -141,7 +141,7 @@ fn to_lua_tree<'tree>(tree: &'tree Entry, ignore: Option<&[&str]>) -> Option<Lua
     Some(node.into())
 }
 
-pub fn build_uncompressed_initrd(sysroot_tree: &Entry, ignore_path: Option<&Path>) -> Vec<u8> {
+fn build_uncompressed_initrd(sysroot_tree: &Entry, ignore_path: Option<&Path>) -> Vec<u8> {
     let empty = Entry::Dir(HashMap::new());
     let ignore = ignore_path.map(|p| lexical_components(p).collect::<Vec<_>>());
     let tree = to_lua_tree(sysroot_tree, ignore.as_deref()).unwrap_or_else(|| {
@@ -152,4 +152,19 @@ pub fn build_uncompressed_initrd(sysroot_tree: &Entry, ignore_path: Option<&Path
         include_bytes!("initrd-template.lua"),
         [("__TREE__", &serialize_to_vec(&tree)[..])].into(),
     )
+}
+
+pub fn make_initrd(tree: &Entry, uncompressed: bool, ignore_path: Option<&Path>) -> Vec<u8> {
+    let initrd = build_uncompressed_initrd(tree, ignore_path);
+    if uncompressed {
+        initrd
+    } else {
+        #[cfg(feature = "perf-record")]
+        for _ in 1..1000 {
+            let (data, present_bytes, tables, limit, shift) = crate::bz::compress(&initrd);
+            crate::snippets::generate_sfx(&data, &present_bytes, tables, limit, shift);
+        }
+        let (data, present_bytes, tables, limit, shift) = crate::bz::compress(&initrd);
+        crate::snippets::generate_sfx(&data, &present_bytes, tables, limit, shift)
+    }
 }
