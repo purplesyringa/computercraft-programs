@@ -79,6 +79,7 @@ fn main() {
                 .expect("no such directory")
                 .iter()
                 .map(|(name, entry)| format!("{name}{}", if entry.is_dir() { "/" } else { "" }))
+                .chain(Some("./".into()))
                 .collect::<Vec<_>>();
 
             for name in names {
@@ -86,9 +87,6 @@ fn main() {
                 let size = make_initrd(&tree, false, Some(&path)).len().cast_signed();
                 sizes.push((size, name));
             }
-
-            let size = make_initrd(&tree, false, Some(&aa.dir)).len().cast_signed();
-            sizes.push((size, "./".into()));
 
             sizes.sort();
             for (size, name) in sizes {
