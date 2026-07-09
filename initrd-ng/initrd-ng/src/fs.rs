@@ -114,7 +114,10 @@ pub fn build_tree(root: &Path) -> Result<Entry, ignore::Error> {
     Ok(tree)
 }
 
-fn to_lua_tree<'tree>(tree: &'tree Entry, ignore: Option<&[&str]>) -> LuaValue<'tree> {
+fn to_lua_tree<'tree>(tree: &'tree Entry, ignore: Option<&[&str]>) -> Option<LuaValue<'tree>> {
+    if let Some([]) = ignore {
+        return None;
+    }
     let mut node = LuaTable::new();
     match tree {
         Entry::File(contents) => {
@@ -124,28 +127,27 @@ fn to_lua_tree<'tree>(tree: &'tree Entry, ignore: Option<&[&str]>) -> LuaValue<'
             let mut lua_entries = LuaTable::with_capacity(entries.len());
             for (name, entry) in entries {
                 let next_ignore = match ignore {
-                    Some([ignore_name]) if ignore_name == name => continue,
                     Some([ignore_name, rest @ ..]) if ignore_name == name => Some(rest),
                     _ => None,
                 };
                 let lua_name = name.as_bytes().into();
-                let lua_tree = to_lua_tree(entry, next_ignore);
-                assert!(lua_entries.insert(lua_name, lua_tree).is_none());
+                if let Some(lua_tree) = to_lua_tree(entry, next_ignore) {
+                    assert!(lua_entries.insert(lua_name, lua_tree).is_none());
+                }
             }
             node.insert(b"entries".into(), lua_entries.into());
         }
     }
-    node.into()
+    Some(node.into())
 }
 
 pub fn build_uncompressed_initrd(sysroot_tree: &Entry, ignore_path: Option<&Path>) -> Vec<u8> {
     let empty = Entry::Dir(HashMap::new());
     let ignore = ignore_path.map(|p| lexical_components(p).collect::<Vec<_>>());
-    let tree = match ignore.as_deref() {
+    let tree = to_lua_tree(sysroot_tree, ignore.as_deref()).unwrap_or_else(|| {
         // Special-case for root directory, as it would otherwise appear as having no impact
-        Some([]) => to_lua_tree(&empty, None),
-        i => to_lua_tree(sysroot_tree, i),
-    };
+        to_lua_tree(&empty, None).unwrap()
+    });
     initrd_core::templates::substitute_template(
         include_bytes!("initrd-template.lua"),
         [("__TREE__", &serialize_to_vec(&tree)[..])].into(),
