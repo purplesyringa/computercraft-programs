@@ -281,6 +281,7 @@ impl AnsEncoder {
         }
     }
 
+    #[inline(always)]
     fn dump_word(&mut self) {
         const {
             assert!(WORD_BITS == 32, "assuming 32-bit word");
@@ -289,6 +290,7 @@ impl AnsEncoder {
         self.state >>= WORD_BITS;
     }
 
+    #[inline(always)]
     fn push(&mut self, encoding: &EncodingTable, c: usize) {
         let p = encoding.probabilities[c] as u64;
         if self.state >= p << (STATE_BITS - PROB_BITS) {
