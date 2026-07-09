@@ -8,7 +8,7 @@ fn initrd_size(tree: &fs::Entry, ignore: Option<&Path>) -> isize {
 
 pub fn analyze(sysroot: &Path, dir: &Path) {
     assert!(dir.as_os_str().is_ascii(), "non-ascii dir name?");
-    let mut tree = fs::build_tree(sysroot).unwrap();
+    let tree = fs::build_tree(sysroot).unwrap();
 
     let names = tree
         .walk_to(dir)

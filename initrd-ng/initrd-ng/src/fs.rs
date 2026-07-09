@@ -59,7 +59,7 @@ impl Entry {
         }
     }
 
-    pub fn walk_to(&mut self, dir: &Path) -> Option<&HashMap<String, Entry>> {
+    pub fn walk_to(&self, dir: &Path) -> Option<&HashMap<String, Entry>> {
         let mut node = self.dir()?;
         for name in lexical_components(dir) {
             node = node.get(name)?.dir()?;
