@@ -184,6 +184,7 @@ fn recompute_costs(table_costs: &mut [[u16; N_TABLES]], histograms: &[Vec<usize>
 }
 
 // Returns `Some((symbol_tables, histograms))` on the last stage, `None` otherwise.
+#[cfg_attr(feature = "perf-record", inline(never))]
 fn refine_approximation(
     counts: &[usize],
     data: &[u16],
@@ -369,6 +370,7 @@ fn encode_tables(encodings: &[EncodingTable; N_TABLES]) -> Vec<u8> {
     out
 }
 
+#[cfg_attr(feature = "perf-record", inline(never))]
 pub fn entropy_encode(data: &[u16], alphabet: usize) -> (Vec<u8>, Vec<u8>) {
     let alphabet = alphabet + N_TABLES; // for switching tables
 

@@ -53,6 +53,11 @@ fn make_initrd(tree: &fs::Entry, uncompressed: bool, ignore_path: Option<&Path>)
     if uncompressed {
         initrd
     } else {
+        #[cfg(feature = "perf-record")]
+        for _ in 1..1000 {
+            let (data, present_bytes, tables, limit, shift) = bz::compress(&initrd);
+            snippets::generate_sfx(&data, &present_bytes, tables, limit, shift);
+        }
         let (data, present_bytes, tables, limit, shift) = bz::compress(&initrd);
         snippets::generate_sfx(&data, &present_bytes, tables, limit, shift)
     }

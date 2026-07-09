@@ -35,6 +35,7 @@ fn count_cyclic_shifts_less_than_s(dup: &[u8], n: usize) -> usize {
         .count()
 }
 
+#[cfg_attr(feature = "perf-record", inline(never))]
 fn bwt_encode(s: &[u8]) -> (Vec<u8>, usize) {
     // This implements cyclic-shift-BWT on top of suffix-BWT provided by libsais. We compute the BWT
     // string itself by running suffix-BWT on the lexicographically smallest cyclic shift, which
@@ -139,6 +140,7 @@ unsafe fn mtf_encode_ssse3(out: &mut Vec<u8>, cache: &mut Cache, s: &[u8]) {
     }
 }
 
+#[cfg_attr(feature = "perf-record", inline(never))]
 fn mtf_encode(s: &[u8]) -> (Vec<u8>, Vec<bool>, usize) {
     let mut present_bytes = vec![false; 256];
     for &c in s {
@@ -188,6 +190,7 @@ fn encode_byte_set(map: &[bool]) -> Vec<u8> {
     out
 }
 
+#[cfg_attr(feature = "perf-record", inline(never))]
 fn rle0_encode(s: &[u8]) -> Vec<u16> {
     let mut out = vec![];
     let mut i = 0;
