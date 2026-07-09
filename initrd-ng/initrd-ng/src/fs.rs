@@ -1,6 +1,9 @@
 use ignore::WalkBuilder;
 use initrd_core::prelude::*;
-use std::{collections::HashMap, path::Path};
+use std::{
+    collections::HashMap,
+    path::{Component, Path},
+};
 
 pub enum Entry {
     File(Vec<u8>),
@@ -50,7 +53,12 @@ impl Entry {
     pub fn walk_to(&mut self, dir: &Path) -> Option<&HashMap<String, Entry>> {
         let mut node = self.dir()?;
         for component in dir.components() {
-            let name = component.as_os_str().to_str().unwrap();
+            let name = match component {
+                Component::Normal(name) => name.to_str().unwrap(),
+                Component::CurDir => continue,
+                Component::RootDir => continue, // can only occur at the first iteration
+                _ => panic!("unsupported path component {component:?}"),
+            };
             node = node.get(name)?.dir()?;
         }
         Some(node)
@@ -59,7 +67,12 @@ impl Entry {
     pub fn walk_to_mut(&mut self, dir: &Path) -> Option<&mut HashMap<String, Entry>> {
         let mut node = self.dir_mut()?;
         for component in dir.components() {
-            let name = component.as_os_str().to_str().unwrap();
+            let name = match component {
+                Component::Normal(name) => name.to_str().unwrap(),
+                Component::CurDir => continue,
+                Component::RootDir => continue, // can only occur at the first iteration
+                _ => panic!("unsupported path component {component:?}"),
+            };
             node = node.get_mut(name)?.dir_mut()?;
         }
         Some(node)
