@@ -13,6 +13,7 @@ use cursive::{
 use rayon::prelude::*;
 use std::{
     cmp::Reverse,
+    collections::hash_map::HashMap,
     path::{Path, PathBuf},
     sync::mpsc,
 };
@@ -73,10 +74,10 @@ fn dismissable_view(view: impl View, has_dismiss: bool, title: String) -> impl V
 
 fn impacts_view(
     dir: PathBuf,
-    tx: mpsc::Sender<(PathBuf, oneshot::Sender<Box<dyn View>>)>,
+    tx: &mpsc::Sender<(PathBuf, oneshot::Sender<Box<dyn View>>)>,
     total: isize,
     this_total: isize,
-    impacts: Vec<(isize, String, bool)>,
+    impacts: &[(isize, String, bool)],
 ) -> impl View {
     let mut layout = LinearLayout::vertical();
 
@@ -90,15 +91,15 @@ fn impacts_view(
         );
         inner.add_child(DummyView.fixed_width(1));
 
-        inner.add_child(impact_view(total, impact));
+        inner.add_child(impact_view(total, *impact));
         inner.add_child(DummyView.fixed_width(1));
 
-        inner.add_child(impact_view(this_total, impact));
+        inner.add_child(impact_view(this_total, *impact));
         inner.add_child(DummyView.fixed_width(1));
 
-        if is_dir {
+        if *is_dir {
             let tx = tx.clone();
-            let new_dir = dir.join(&name);
+            let new_dir = dir.join(name);
             inner.add_child(Button::new(name, move |siv| {
                 let (otx, orx) = oneshot::channel();
                 tx.send((new_dir.clone(), otx)).unwrap();
@@ -154,9 +155,12 @@ pub fn analyze(sysroot: &Path) {
 
     let new_tx = tx.clone();
     rayon::spawn(move || {
+        let mut cache = HashMap::new();
         for (dir, otx) in rx {
-            let (cur_total, impacts) = process_dir(total, &tree, &dir);
-            let view = impacts_view(dir, new_tx.clone(), total, cur_total, impacts);
+            let (cur_impact, impacts) = cache
+                .entry(dir.clone())
+                .or_insert_with(|| process_dir(total, &tree, &dir));
+            let view = impacts_view(dir, &new_tx, total, *cur_impact, impacts);
             otx.send(Box::new(view)).unwrap();
         }
     });
