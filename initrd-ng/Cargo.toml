@@ -4,8 +4,8 @@ resolver = "3"
 
 [workspace.dependencies]
 argh = "0.1.19"
+cursive = { git = "https://github.com/sylfn/cursive", version = "0.21.1", branch = "fixes" }
 ignore = "0.4.26"
 lazy-regex = "3.6.0"
 libsais = { version = "0.2.0", default-features = false }
 rayon = "1.12.0"
-regex = { version = "1.12.4", default-features = false, features = ["std", "perf"] }

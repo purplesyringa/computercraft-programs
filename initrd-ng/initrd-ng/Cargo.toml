@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 argh = { workspace = true }
+cursive = { workspace = true }
 ignore = { workspace = true }
 initrd-core = { version = "0.1.0", path = "../initrd-core" }
 libsais = { workspace = true }

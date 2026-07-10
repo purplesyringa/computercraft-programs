@@ -6,7 +6,7 @@ This directory contains the code to build and analyze a bootable `initrd.lua` im
 
 Run `cargo run --release -- build --sysroot ../sys --output <output.lua>` from this directory. Note that in development, unless you're debugging `initrd` itself, you can often just symlink or bind-mount `sys` into the computer's filesystem in your local Minecraft instance, without rebuilding `initrd`.
 
-Run `cargo run --release -- analyze --sysroot ../sys --dir <path/to/subdir>` from this directory to see how much bytes you will gain if you drop `<path/to/subdir>` from sysroot.
+Run `cargo run --release -- analyze --sysroot ../sys` from this directory to see how much bytes you will gain if you drop various files from sysroot.
 
 ## Design
 

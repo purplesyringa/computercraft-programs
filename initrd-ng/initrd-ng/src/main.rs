@@ -43,9 +43,6 @@ struct AnalyzeArgs {
     /// sysroot path (e.g. ../sys)
     #[argh(option)]
     sysroot: PathBuf,
-    /// directory to analyze, relative to sysroot
-    #[argh(option, default = "PathBuf::new()")]
-    dir: PathBuf,
 }
 
 fn main() {
@@ -58,7 +55,7 @@ fn main() {
         }
 
         Command::Analyze(aa) => {
-            analyze::analyze(&aa.sysroot, &aa.dir);
+            analyze::analyze(&aa.sysroot);
         }
     }
 }
