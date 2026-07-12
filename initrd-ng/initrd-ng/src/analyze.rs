@@ -2,7 +2,7 @@ use crate::fs;
 use cursive::{
     Cursive, CursiveExt, View,
     align::HAlign,
-    event::Key,
+    event::{Event, Key},
     style::BorderStyle,
     theme::Theme,
     view::Resizable,
@@ -91,9 +91,12 @@ fn dismissable_view(view: impl View, has_dismiss: bool, title: String) -> impl V
     let dialog = Panel::new(view).title(title).title_position(HAlign::Left);
     let mut view = OnEventView::new(dialog);
     if has_dismiss {
-        view.set_on_event(Key::Esc, |siv| {
-            siv.pop_layer();
-        });
+        view.set_on_event(
+            |ev: &Event| matches!(ev, Event::Key(Key::Esc | Key::Left)),
+            |siv| {
+                siv.pop_layer();
+            },
+        );
     }
     view
 }
@@ -106,9 +109,13 @@ impl Controller {
         }
     }
 
-    fn impacts_view(&mut self, dir: impl AsRef<Path>) -> impl View {
-        let dir = dir.as_ref();
+    fn push_layer(siv: &mut Cursive, dir: impl AsRef<Path>) {
+        let ctrl = siv.user_data::<Controller>().unwrap();
+        let layer = ctrl.impacts_view(dir.as_ref());
+        siv.add_fullscreen_layer(layer);
+    }
 
+    fn impacts_view(&mut self, dir: &Path) -> impl View {
         let res = self
             .cache
             .entry(dir.into())
@@ -134,13 +141,13 @@ impl Controller {
 
             if *is_dir {
                 let new_dir = dir.join(name);
-                inner.add_child(Button::new(name, move |siv| {
-                    let layer = siv
-                        .user_data::<Controller>()
-                        .unwrap()
-                        .impacts_view(&new_dir);
-                    siv.add_fullscreen_layer(layer);
-                }));
+                let btn = Button::new(name, move |siv| Self::push_layer(siv, &new_dir));
+
+                let new_dir = dir.join(name);
+                let ev = OnEventView::new(btn)
+                    .on_event(Key::Right, move |siv| Self::push_layer(siv, &new_dir));
+
+                inner.add_child(ev);
             } else {
                 inner.add_child(TextView::new(name));
             }
@@ -191,9 +198,7 @@ pub fn analyze(sysroot: &Path) {
     });
 
     siv.set_user_data(Controller::new(sysroot));
-
-    let layer = siv.user_data::<Controller>().unwrap().impacts_view("/");
-    siv.add_fullscreen_layer(layer);
+    Controller::push_layer(&mut siv, "/");
 
     siv.add_global_callback('q', |s| s.quit());
 
