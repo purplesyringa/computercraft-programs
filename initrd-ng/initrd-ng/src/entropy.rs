@@ -37,7 +37,7 @@ fn build_initial_costs(counts: &[usize]) -> Vec<[u16; N_TABLES]> {
     table_costs
 }
 
-fn calculate_table_choices(data: &[u16], table_costs: &[[u16; N_TABLES]]) -> [Vec<u8>; N_TABLES] {
+fn calculate_table_choices(data: &[u16], table_costs: &[[u16; N_TABLES]]) -> Vec<[u8; N_TABLES]> {
     #[cfg(target_arch = "x86_64")]
     if std::is_x86_feature_detected!("sse4.1") {
         // SAFETY: sse4.1 is detected
@@ -45,10 +45,10 @@ fn calculate_table_choices(data: &[u16], table_costs: &[[u16; N_TABLES]]) -> [Ve
     }
 
     // Locate optimal table switches. `costs[table_idx]` is the cost to encode the current suffix if
-    // the active table is `table_idx`, `tables[table_idx][pos]` is the table chosen for encoding of
+    // the active table is `table_idx`, `tables[pos][table_idx]` is the table chosen for encoding of
     // the corresponding position.
     let mut costs = [0; N_TABLES];
-    let mut tables = core::array::from_fn(|_| vec![0; data.len() + 1]);
+    let mut tables = vec![[0; N_TABLES]; data.len() + 1];
 
     for (pos, &c) in data.iter().enumerate().rev() {
         let base_cost: [_; N_TABLES] = core::array::from_fn(|table_idx| {
@@ -63,7 +63,7 @@ fn calculate_table_choices(data: &[u16], table_costs: &[[u16; N_TABLES]]) -> [Ve
         for table_idx in 0..N_TABLES {
             let same_cost = base_cost[table_idx];
             let switched_cost = min_base_cost + SWITCH_COST as u32;
-            (costs[table_idx], tables[table_idx][pos]) = if switched_cost < same_cost {
+            (costs[table_idx], tables[pos][table_idx]) = if switched_cost < same_cost {
                 (switched_cost, best_table_idx as u8)
             } else {
                 (same_cost, table_idx as u8)
@@ -79,11 +79,11 @@ fn calculate_table_choices(data: &[u16], table_costs: &[[u16; N_TABLES]]) -> [Ve
 fn calculate_table_choices_sse41(
     data: &[u16],
     table_costs: &[[u16; N_TABLES]],
-) -> [Vec<u8>; N_TABLES] {
+) -> Vec<[u8; N_TABLES]> {
     use core::arch::x86_64::*;
 
     let mut costs = _mm_setzero_si128(); // biased, non-negative
-    let mut tables = core::array::from_fn(|_| vec![0; data.len() + 1]);
+    let mut tables = vec![[0; N_TABLES]; data.len() + 1];
 
     let table_costs = table_costs
         .iter()
@@ -119,8 +119,10 @@ fn calculate_table_choices_sse41(
             _mm_cmpeq_epi16(costs, biased_retain_cost),
         );
         let new_tables: [u16; 8] = unsafe { core::mem::transmute(new_tables) };
+        // Compiles to a shuffle, followed by some combination of `movd` and `pextrb`. Not on
+        // a lantecy-critical path, so doesn't matter as much.
         for table_idx in 0..N_TABLES {
-            tables[table_idx][pos] = new_tables[table_idx] as u8;
+            tables[pos][table_idx] = new_tables[table_idx] as u8;
         }
     }
 
@@ -130,12 +132,12 @@ fn calculate_table_choices_sse41(
 fn calculate_per_table_histograms(
     alphabet: usize,
     data: &[u16],
-    tables: &[Vec<u8>; N_TABLES],
+    tables: &[[u8; N_TABLES]],
 ) -> [Vec<usize>; N_TABLES] {
     let mut histograms = core::array::from_fn(|_| vec![0; alphabet]);
     let mut active_table_idx = 0;
-    for (pos, &c) in data.iter().enumerate() {
-        let table_idx = tables[active_table_idx][pos] as usize;
+    for (&c, symbol_tables) in data.iter().zip(tables) {
+        let table_idx = symbol_tables[active_table_idx] as usize;
         if active_table_idx != table_idx {
             // Switch table.
             histograms[active_table_idx][alphabet - N_TABLES + table_idx] += 1;
@@ -146,11 +148,11 @@ fn calculate_per_table_histograms(
     histograms
 }
 
-fn calculate_symbol_tables(tables: &[Vec<u8>; N_TABLES]) -> Vec<usize> {
+fn calculate_symbol_tables(tables: &[[u8; N_TABLES]]) -> Vec<usize> {
     let mut active_table_idx = 0;
-    (0..tables[0].len() - 1)
+    (0..tables.len() - 1)
         .map(|pos| {
-            active_table_idx = tables[active_table_idx][pos] as usize;
+            active_table_idx = tables[pos][active_table_idx] as usize;
             active_table_idx
         })
         .collect()
