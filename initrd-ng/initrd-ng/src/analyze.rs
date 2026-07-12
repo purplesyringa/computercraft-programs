@@ -3,8 +3,9 @@ use cursive::{
     Cursive, CursiveExt, View,
     align::HAlign,
     event::{Event, Key},
-    style::BorderStyle,
+    style::{BorderStyle, ColorStyle},
     theme::Theme,
+    utils::span::SpannedString,
     view::Resizable,
     views::{
         Button, DummyView, LinearLayout, OnEventView, Panel, ProgressBar, ScrollView, TextView,
@@ -122,6 +123,24 @@ impl Controller {
             .or_insert_with(|| self.analyzer.analyze(dir));
 
         let mut layout = LinearLayout::vertical();
+        let sep = || DummyView.fixed_width(1);
+
+        layout.add_child({
+            let head = |text, a, w| {
+                TextView::new(SpannedString::styled(text, ColorStyle::title_secondary()))
+                    .h_align(a)
+                    .fixed_width(w)
+            };
+            let mut inner = LinearLayout::horizontal();
+            inner.add_child(head("bytes", HAlign::Right, 8));
+            inner.add_child(sep());
+            inner.add_child(head("of root", HAlign::Center, 12));
+            inner.add_child(sep());
+            inner.add_child(head("of current", HAlign::Center, 12));
+            inner.add_child(sep());
+            inner.add_child(head("name", HAlign::Center, 4));
+            inner
+        });
 
         for (impact, name, is_dir) in &res.impacts {
             let mut inner = LinearLayout::horizontal();
@@ -131,13 +150,13 @@ impl Controller {
                     .h_align(HAlign::Right)
                     .fixed_width(8),
             );
-            inner.add_child(DummyView.fixed_width(1));
+            inner.add_child(sep());
 
             inner.add_child(impact_view(self.analyzer.total, *impact));
-            inner.add_child(DummyView.fixed_width(1));
+            inner.add_child(sep());
 
             inner.add_child(impact_view(res.this_total, *impact));
-            inner.add_child(DummyView.fixed_width(1));
+            inner.add_child(sep());
 
             if *is_dir {
                 let new_dir = dir.join(name);
