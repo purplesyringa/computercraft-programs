@@ -59,7 +59,7 @@ fn bwt_encode(s: &[u8]) -> (Vec<u8>, usize) {
     (data, start)
 }
 
-fn encode_byte_set(map: &[bool]) -> Vec<u8> {
+fn encode_byte_set(map: &[bool; 256]) -> Vec<u8> {
     let mut out = vec![];
     let mut i = 0;
     while i < map.len() {

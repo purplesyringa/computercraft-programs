@@ -2,8 +2,8 @@
 struct Cache([u8; 256]);
 
 #[cfg_attr(feature = "perf-record", inline(never))]
-pub fn mtf_encode(s: &[u8]) -> (Vec<u8>, Vec<bool>, usize) {
-    let mut present_bytes = vec![false; 256];
+pub fn mtf_encode(s: &[u8]) -> (Vec<u8>, [bool; 256], usize) {
+    let mut present_bytes = [false; 256];
     for &c in s {
         present_bytes[c as usize] = true;
     }
