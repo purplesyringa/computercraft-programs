@@ -2,6 +2,7 @@ use argh::FromArgs;
 use std::path::PathBuf;
 
 mod analyze;
+mod bwt;
 mod bz;
 mod entropy;
 mod fs;
