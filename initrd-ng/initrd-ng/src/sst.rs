@@ -18,11 +18,21 @@ pub fn mtf_encode(s: &[u8]) -> (Vec<u8>, [bool; 256], usize) {
 
     let mut out = Vec::with_capacity(s.len());
 
+    // SAFETY: contains every character from `s`.
+    unsafe { mtf_core_loop(&mut out, &mut cache, s) };
+
+    (out, present_bytes, alphabet)
+}
+
+/// # Safety
+///
+/// Each character in `s` must be present in `cache`.
+unsafe fn mtf_core_loop(out: &mut Vec<u8>, cache: &mut Cache, s: &[u8]) {
     #[cfg(target_arch = "x86_64")]
     if std::is_x86_feature_detected!("ssse3") {
         // SAFETY: ssse3 is detected, `cache` contains every character from `s`.
-        unsafe { mtf_encode_ssse3(&mut out, &mut cache, s) };
-        return (out, present_bytes, alphabet);
+        unsafe { mtf_encode_ssse3(out, cache, s) };
+        return;
     }
 
     for &ch in s {
@@ -30,7 +40,6 @@ pub fn mtf_encode(s: &[u8]) -> (Vec<u8>, [bool; 256], usize) {
         out.push(pos as u8);
         cache.0[0..=pos].rotate_right(1);
     }
-    (out, present_bytes, alphabet)
 }
 
 /// # Safety
