@@ -23,19 +23,19 @@ Here's an example of running a coroutine while rewriting and skipping certain ev
 local redirected = redirect.runWithEventSource(f)
 
 while not redirected.isDead() do
-	local ev = table.pack(os.pullEventRaw())
-	if ev[1] == "a" then
-		-- Rewrite
-		ev[1] = "b"
-	elseif ev[1] == "c" then
-		-- Skip
-		ev = nil
-	end
-	if ev then
-		-- While `pullEventRaw` might take time, the coroutine cannot become dead between the check
-		-- in the `while` condition and this `pushEvent` because it's not resumed by anyone else.
-		redirected.pushEvent(table.unpack(ev, 1, ev.n))
-	end
+    local ev = table.pack(os.pullEventRaw())
+    if ev[1] == "a" then
+        -- Rewrite
+        ev[1] = "b"
+        elseif ev[1] == "c" then
+        -- Skip
+        ev = nil
+    end
+    if ev then
+        -- While `pullEventRaw` might take time, the coroutine cannot become dead between the check
+        -- in the `while` condition and this `pushEvent` because it's not resumed by anyone else.
+        redirected.pushEvent(table.unpack(ev, 1, ev.n))
+    end
 end
 ```
 
