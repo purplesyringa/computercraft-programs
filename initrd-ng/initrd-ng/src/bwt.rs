@@ -72,7 +72,6 @@ mod tests {
 
     #[test]
     fn test_bwt() {
-        // let (s, i) = bwt_encode_broken(b"abacaba".into());
         let (s, i) = bwt_encode(b"abacaba");
         assert_eq!((String::from_utf8(s), i), (Ok("bcabaaa".into()), 2));
         let (s, i) = bwt_encode(b"transform");
