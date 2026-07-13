@@ -6,7 +6,6 @@ mod bwt;
 mod bz;
 mod entropy;
 mod fs;
-mod snippets;
 mod sst;
 
 /// initrd generator and analyzer

@@ -1,6 +1,7 @@
 use crate::bwt::bwt_encode;
 use crate::entropy::entropy_encode;
 use crate::sst::{SrcOutput, src_encode};
+use initrd_core::prelude::*;
 
 #[cfg_attr(feature = "perf-record", inline(never))]
 fn rle0_encode(s: &[u16]) -> Vec<u16> {
@@ -28,7 +29,7 @@ fn rle0_encode(s: &[u16]) -> Vec<u16> {
     out
 }
 
-pub fn compress(data: &[u8]) -> (Vec<u8>, Vec<u8>, Vec<u8>, usize, usize) {
+pub fn compress(data: &[u8]) -> Vec<u8> {
     let limit = data.len();
     let (data, shift) = bwt_encode(data);
     let SrcOutput {
@@ -37,5 +38,19 @@ pub fn compress(data: &[u8]) -> (Vec<u8>, Vec<u8>, Vec<u8>, usize, usize) {
     } = src_encode(&data);
     let data = rle0_encode(&data);
     let (data, tables) = entropy_encode(&data, src_cache.len() + 2); // 1 for RLE0, 1 for terminator
-    (data, src_cache, tables, limit, shift)
+
+    let lua_data = LuaString::from(data).into();
+    let lua_cache = LuaString::from(src_cache).into();
+    let lua_tables = LuaString::from(tables).into();
+    initrd_core::templates::substitute_template(
+        include_bytes!(concat!(env!("OUT_DIR"), "/decompress-template.lua")),
+        [
+            ("__DATA__", &serialize_to_vec(&lua_data)[..]),
+            ("__CACHE__", &serialize_to_vec(&lua_cache)[..]),
+            ("__TABLES__", &serialize_to_vec(&lua_tables)[..]),
+            ("__LIMIT__", (limit + 1).to_string().as_bytes()),
+            ("__SHIFT__", (shift + 1).to_string().as_bytes()),
+        ]
+        .into(),
+    )
 }
