@@ -161,10 +161,10 @@ pub fn make_initrd(tree: &Entry, uncompressed: bool, ignore_path: Option<&Path>)
     } else {
         #[cfg(feature = "perf-record")]
         for _ in 1..1000 {
-            let (data, present_bytes, tables, limit, shift) = crate::bz::compress(&initrd);
-            crate::snippets::generate_sfx(&data, &present_bytes, tables, limit, shift);
+            let (data, src_cache, tables, limit, shift) = crate::bz::compress(&initrd);
+            crate::snippets::generate_sfx(&data, &src_cache, tables, limit, shift);
         }
-        let (data, present_bytes, tables, limit, shift) = crate::bz::compress(&initrd);
-        crate::snippets::generate_sfx(&data, &present_bytes, tables, limit, shift)
+        let (data, src_cache, tables, limit, shift) = crate::bz::compress(&initrd);
+        crate::snippets::generate_sfx(&data, &src_cache, tables, limit, shift)
     }
 }

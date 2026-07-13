@@ -1,18 +1,21 @@
 //! Second-stage (post-BWT) transform.
 
-/// Output of [`mtf_encode`].
+/// Output of [`src_encode`].
 #[derive(PartialEq, Eq, Debug)]
-pub struct MtfOutput {
-    pub out: Vec<u8>,
-    pub present_bytes: [bool; 256],
-    pub alphabet: usize,
+pub struct SrcOutput {
+    /// The sequence of ranks, grouped by character. Groups are separated by a rank denoting the
+    /// first impossible move, equal to the cardinality of the alphabet.
+    pub ranks: Vec<u16>,
+    /// The initial cache.
+    pub initial: Vec<u8>,
 }
 
 #[repr(align(16), C)]
 struct Cache([u8; 256]);
 
+/// Compute the Sorted Rank Coding transform of a string.
 #[cfg_attr(feature = "perf-record", inline(never))]
-pub fn mtf_encode(s: &[u8]) -> MtfOutput {
+pub fn src_encode(s: &[u8]) -> SrcOutput {
     let mut present_bytes = [false; 256];
     for &c in s {
         present_bytes[c as usize] = true;
@@ -26,32 +29,39 @@ pub fn mtf_encode(s: &[u8]) -> MtfOutput {
         }
     }
 
-    let mut out = Vec::with_capacity(s.len());
+    let mut sequences = [const { Vec::new() }; 256];
 
     // SAFETY: contains every character from `s`.
-    unsafe { mtf_core_loop(&mut out, &mut cache, s) };
+    unsafe { src_core_loop(&mut sequences, &mut cache, s) };
 
-    MtfOutput {
-        out,
-        present_bytes,
-        alphabet,
-    }
+    let initial = cache.0[..alphabet].to_vec();
+
+    let ranks = sequences
+        .into_iter()
+        .filter(|sequence| !sequence.is_empty())
+        .flat_map(|sequence| {
+            core::iter::once(alphabet as u16)
+                .chain(sequence.into_iter().rev().map(|rank| rank as u16))
+        })
+        .collect();
+
+    SrcOutput { ranks, initial }
 }
 
 /// # Safety
 ///
 /// Each character in `s` must be present in `cache`.
-unsafe fn mtf_core_loop(out: &mut Vec<u8>, cache: &mut Cache, s: &[u8]) {
+unsafe fn src_core_loop(sequences: &mut [Vec<u8>], cache: &mut Cache, s: &[u8]) {
     #[cfg(target_arch = "x86_64")]
     if std::is_x86_feature_detected!("ssse3") {
         // SAFETY: ssse3 is detected, `cache` contains every character from `s`.
-        unsafe { mtf_encode_ssse3(out, cache, s) };
+        unsafe { src_core_loop_ssse3(sequences, cache, s) };
         return;
     }
 
-    for &ch in s {
+    for &ch in s.iter().rev() {
         let pos = cache.0.iter().position(|&c| c == ch).unwrap();
-        out.push(pos as u8);
+        sequences[ch as usize].push(pos as u8);
         cache.0[0..=pos].rotate_right(1);
     }
 }
@@ -128,10 +138,10 @@ unsafe fn mtf_single_ssse3(cache: &mut Cache, ch: u8) -> u8 {
 /// Each character in `s` must be present in `cache`.
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "ssse3")]
-unsafe fn mtf_encode_ssse3(out: &mut Vec<u8>, cache: &mut Cache, s: &[u8]) {
-    for &ch in s {
+unsafe fn src_core_loop_ssse3(sequences: &mut [Vec<u8>], cache: &mut Cache, s: &[u8]) {
+    for &ch in s.iter().rev() {
         // SAFETY: passthrough
-        out.push(unsafe { mtf_single_ssse3(cache, ch) });
+        sequences[ch as usize].push(unsafe { mtf_single_ssse3(cache, ch) });
     }
 }
 
@@ -140,53 +150,26 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_mtf() {
+    fn test_src() {
         assert_eq!(
-            mtf_encode(b"abacaba"),
-            MtfOutput {
-                out: vec![0, 1, 1, 2, 1, 2, 1],
-                present_bytes: const {
-                    let mut set = [false; _];
-                    set[b'a' as usize] = true;
-                    set[b'b' as usize] = true;
-                    set[b'c' as usize] = true;
-                    set
-                },
-                alphabet: 3,
+            src_encode(b"abacaba"),
+            SrcOutput {
+                ranks: vec![3, 1, 1, 1, 0, 3, 2, 1, 3, 2],
+                initial: b"abc".into(),
             }
         );
         assert_eq!(
-            mtf_encode(b"transform"),
-            MtfOutput {
-                out: vec![7, 6, 2, 5, 7, 5, 7, 5, 7],
-                present_bytes: const {
-                    let mut set = [false; _];
-                    set[b'a' as usize] = true;
-                    set[b'f' as usize] = true;
-                    set[b'm' as usize] = true;
-                    set[b'n' as usize] = true;
-                    set[b'o' as usize] = true;
-                    set[b'r' as usize] = true;
-                    set[b's' as usize] = true;
-                    set[b't' as usize] = true;
-                    set
-                },
-                alphabet: 8,
+            src_encode(b"transform"),
+            SrcOutput {
+                ranks: vec![8, 6, 8, 4, 8, 2, 8, 6, 8, 5, 8, 5, 5, 8, 6, 8, 7],
+                initial: b"transfom".into(),
             }
         );
         assert_eq!(
-            mtf_encode(b"ssdfgsfgsf"),
-            MtfOutput {
-                out: vec![3, 0, 1, 2, 3, 3, 2, 2, 2, 2],
-                present_bytes: const {
-                    let mut set = [false; _];
-                    set[b'd' as usize] = true;
-                    set[b'f' as usize] = true;
-                    set[b'g' as usize] = true;
-                    set[b's' as usize] = true;
-                    set
-                },
-                alphabet: 4,
+            src_encode(b"ssdfgsfgsf"),
+            SrcOutput {
+                ranks: vec![4, 3, 4, 2, 2, 1, 4, 2, 3, 4, 0, 3, 2, 3],
+                initial: b"sdfg".into(),
             }
         );
     }

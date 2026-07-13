@@ -1,5 +1,5 @@
 use crate::entropy::entropy_encode;
-use crate::sst::{MtfOutput, mtf_encode};
+use crate::sst::{SrcOutput, src_encode};
 use libsais::BwtConstruction;
 
 // https://web.archive.org/web/20251112195119/http://e-maxx.ru/algo/duval_algorithm
@@ -59,31 +59,13 @@ fn bwt_encode(s: &[u8]) -> (Vec<u8>, usize) {
     (data, start)
 }
 
-fn encode_byte_set(map: &[bool; 256]) -> Vec<u8> {
-    let mut out = vec![];
-    let mut i = 0;
-    while i < map.len() {
-        if !map[i] {
-            i += 1;
-            continue;
-        }
-        let mut j = i + 1;
-        while let Some(true) = map.get(j) {
-            j += 1;
-        }
-        out.extend([i as u8, j as u8 - 1]);
-        i = j;
-    }
-    out
-}
-
 #[cfg_attr(feature = "perf-record", inline(never))]
-fn rle0_encode(s: &[u8]) -> Vec<u16> {
+fn rle0_encode(s: &[u16]) -> Vec<u16> {
     let mut out = vec![];
     let mut i = 0;
     while i < s.len() {
         if s[i] != 0 {
-            out.push(s[i] as u16 + 1);
+            out.push(s[i] + 1);
             i += 1;
             continue;
         }
@@ -106,15 +88,13 @@ fn rle0_encode(s: &[u8]) -> Vec<u16> {
 pub fn compress(data: &[u8]) -> (Vec<u8>, Vec<u8>, Vec<u8>, usize, usize) {
     let limit = data.len();
     let (data, shift) = bwt_encode(data);
-    let MtfOutput {
-        out: data,
-        present_bytes,
-        alphabet,
-    } = mtf_encode(&data);
-    let present_bytes = encode_byte_set(&present_bytes);
+    let SrcOutput {
+        ranks: data,
+        initial: src_cache,
+    } = src_encode(&data);
     let data = rle0_encode(&data);
-    let (data, tables) = entropy_encode(&data, alphabet + 1);
-    (data, present_bytes, tables, limit, shift)
+    let (data, tables) = entropy_encode(&data, src_cache.len() + 2); // 1 for RLE0, 1 for terminator
+    (data, src_cache, tables, limit, shift)
 }
 
 #[cfg(test)]

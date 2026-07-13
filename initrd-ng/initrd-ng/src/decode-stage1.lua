@@ -1,6 +1,6 @@
 local compressed = __DATA__
 local tables = __TABLES__
-local bytes = __BYTES__
+local cache = __CACHE__
 
 local table_parsers = {}
 for tbl in tables:gmatch("[^\xff]+") do
@@ -36,5 +36,5 @@ for tbl in tables:gmatch("[^\xff]+") do
     table.insert(table_parsers, __TABLE1__ .. parsers[1][3] .. __TABLE2__)
 end
 
-local s = load(__DECOMPRESS1__ .. table.concat(table_parsers) .. __DECOMPRESS2__)(compressed, bytes)
+local s = load(__DECOMPRESS1__ .. table.concat(table_parsers) .. __DECOMPRESS2__)(compressed, cache)
 return load(s, "=initrd", nil, _ENV)()
