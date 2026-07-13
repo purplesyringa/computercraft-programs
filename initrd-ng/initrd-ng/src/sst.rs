@@ -1,12 +1,44 @@
 #[repr(align(16), C)]
 struct Cache([u8; 256]);
 
-#[inline]
-#[cfg(target_arch = "x86_64")]
-#[target_feature(enable = "ssse3")]
+#[cfg_attr(feature = "perf-record", inline(never))]
+pub fn mtf_encode(s: &[u8]) -> (Vec<u8>, Vec<bool>, usize) {
+    let mut present_bytes = vec![false; 256];
+    for &c in s {
+        present_bytes[c as usize] = true;
+    }
+    let mut cache: Cache = Cache([0; 256]);
+    let mut alphabet = 0;
+    for (c, &is_present) in present_bytes.iter().enumerate() {
+        if is_present {
+            cache.0[alphabet] = c as u8;
+            alphabet += 1;
+        }
+    }
+
+    let mut out = Vec::with_capacity(s.len());
+
+    #[cfg(target_arch = "x86_64")]
+    if std::is_x86_feature_detected!("ssse3") {
+        // SAFETY: ssse3 is detected, `cache` contains every character from `s`.
+        unsafe { mtf_encode_ssse3(&mut out, &mut cache, s) };
+        return (out, present_bytes, alphabet);
+    }
+
+    for &ch in s {
+        let pos = cache.0.iter().position(|&c| c == ch).unwrap();
+        out.push(pos as u8);
+        cache.0[0..=pos].rotate_right(1);
+    }
+    (out, present_bytes, alphabet)
+}
+
 /// # Safety
 ///
 /// `ch` must be present in `cache`.
+#[inline]
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "ssse3")]
 unsafe fn mtf_single_ssse3(cache: &mut Cache, ch: u8) -> u8 {
     const SHUFFLES: [__m128i; 16] = {
         let mut res = [[0u8; 16]; 16];
@@ -68,48 +100,16 @@ unsafe fn mtf_single_ssse3(cache: &mut Cache, ch: u8) -> u8 {
     }
 }
 
-#[cfg(target_arch = "x86_64")]
-#[target_feature(enable = "ssse3")]
 /// # Safety
 ///
 /// Each character in `s` must be present in `cache`.
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "ssse3")]
 unsafe fn mtf_encode_ssse3(out: &mut Vec<u8>, cache: &mut Cache, s: &[u8]) {
     for &ch in s {
         // SAFETY: passthrough
         out.push(unsafe { mtf_single_ssse3(cache, ch) });
     }
-}
-
-#[cfg_attr(feature = "perf-record", inline(never))]
-pub fn mtf_encode(s: &[u8]) -> (Vec<u8>, Vec<bool>, usize) {
-    let mut present_bytes = vec![false; 256];
-    for &c in s {
-        present_bytes[c as usize] = true;
-    }
-    let mut cache: Cache = Cache([0; 256]);
-    let mut alphabet = 0;
-    for (c, &is_present) in present_bytes.iter().enumerate() {
-        if is_present {
-            cache.0[alphabet] = c as u8;
-            alphabet += 1;
-        }
-    }
-
-    let mut out = Vec::with_capacity(s.len());
-
-    #[cfg(target_arch = "x86_64")]
-    if std::is_x86_feature_detected!("ssse3") {
-        // SAFETY: ssse3 is detected, `cache` contains every character from `s`.
-        unsafe { mtf_encode_ssse3(&mut out, &mut cache, s) };
-        return (out, present_bytes, alphabet);
-    }
-
-    for &ch in s {
-        let pos = cache.0.iter().position(|&c| c == ch).unwrap();
-        out.push(pos as u8);
-        cache.0[0..=pos].rotate_right(1);
-    }
-    (out, present_bytes, alphabet)
 }
 
 #[cfg(test)]
