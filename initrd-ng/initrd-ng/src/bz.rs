@@ -1,5 +1,5 @@
 use crate::entropy::entropy_encode;
-use crate::sst::mtf_encode;
+use crate::sst::{MtfOutput, mtf_encode};
 use libsais::BwtConstruction;
 
 // https://web.archive.org/web/20251112195119/http://e-maxx.ru/algo/duval_algorithm
@@ -106,7 +106,11 @@ fn rle0_encode(s: &[u8]) -> Vec<u16> {
 pub fn compress(data: &[u8]) -> (Vec<u8>, Vec<u8>, Vec<u8>, usize, usize) {
     let limit = data.len();
     let (data, shift) = bwt_encode(data);
-    let (data, present_bytes, alphabet) = mtf_encode(&data);
+    let MtfOutput {
+        out: data,
+        present_bytes,
+        alphabet,
+    } = mtf_encode(&data);
     let present_bytes = encode_byte_set(&present_bytes);
     let data = rle0_encode(&data);
     let (data, tables) = entropy_encode(&data, alphabet + 1);

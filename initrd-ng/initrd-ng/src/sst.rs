@@ -1,8 +1,18 @@
+//! Second-stage (post-BWT) transform.
+
+/// Output of [`mtf_encode`].
+#[derive(PartialEq, Eq, Debug)]
+pub struct MtfOutput {
+    pub out: Vec<u8>,
+    pub present_bytes: [bool; 256],
+    pub alphabet: usize,
+}
+
 #[repr(align(16), C)]
 struct Cache([u8; 256]);
 
 #[cfg_attr(feature = "perf-record", inline(never))]
-pub fn mtf_encode(s: &[u8]) -> (Vec<u8>, [bool; 256], usize) {
+pub fn mtf_encode(s: &[u8]) -> MtfOutput {
     let mut present_bytes = [false; 256];
     for &c in s {
         present_bytes[c as usize] = true;
@@ -21,7 +31,11 @@ pub fn mtf_encode(s: &[u8]) -> (Vec<u8>, [bool; 256], usize) {
     // SAFETY: contains every character from `s`.
     unsafe { mtf_core_loop(&mut out, &mut cache, s) };
 
-    (out, present_bytes, alphabet)
+    MtfOutput {
+        out,
+        present_bytes,
+        alphabet,
+    }
 }
 
 /// # Safety
@@ -129,23 +143,23 @@ mod tests {
     fn test_mtf() {
         assert_eq!(
             mtf_encode(b"abacaba"),
-            (
-                vec![0, 1, 1, 2, 1, 2, 1],
-                const {
+            MtfOutput {
+                out: vec![0, 1, 1, 2, 1, 2, 1],
+                present_bytes: const {
                     let mut set = [false; _];
                     set[b'a' as usize] = true;
                     set[b'b' as usize] = true;
                     set[b'c' as usize] = true;
                     set
                 },
-                3,
-            )
+                alphabet: 3,
+            }
         );
         assert_eq!(
             mtf_encode(b"transform"),
-            (
-                vec![7, 6, 2, 5, 7, 5, 7, 5, 7],
-                const {
+            MtfOutput {
+                out: vec![7, 6, 2, 5, 7, 5, 7, 5, 7],
+                present_bytes: const {
                     let mut set = [false; _];
                     set[b'a' as usize] = true;
                     set[b'f' as usize] = true;
@@ -157,14 +171,14 @@ mod tests {
                     set[b't' as usize] = true;
                     set
                 },
-                8,
-            )
+                alphabet: 8,
+            }
         );
         assert_eq!(
             mtf_encode(b"ssdfgsfgsf"),
-            (
-                vec![3, 0, 1, 2, 3, 3, 2, 2, 2, 2],
-                const {
+            MtfOutput {
+                out: vec![3, 0, 1, 2, 3, 3, 2, 2, 2, 2],
+                present_bytes: const {
                     let mut set = [false; _];
                     set[b'd' as usize] = true;
                     set[b'f' as usize] = true;
@@ -172,8 +186,8 @@ mod tests {
                     set[b's' as usize] = true;
                     set
                 },
-                4,
-            )
+                alphabet: 4,
+            }
         );
     }
 }
