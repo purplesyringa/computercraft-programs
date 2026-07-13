@@ -127,8 +127,53 @@ mod tests {
 
     #[test]
     fn test_mtf() {
-        assert_eq!(mtf_encode(b"abacaba").0, [0, 1, 1, 2, 1, 2, 1]);
-        assert_eq!(mtf_encode(b"transform").0, [7, 6, 2, 5, 7, 5, 7, 5, 7]);
-        assert_eq!(mtf_encode(b"ssdfgsfgsf").0, [3, 0, 1, 2, 3, 3, 2, 2, 2, 2]);
+        assert_eq!(
+            mtf_encode(b"abacaba"),
+            (
+                vec![0, 1, 1, 2, 1, 2, 1],
+                const {
+                    let mut set = [false; _];
+                    set[b'a' as usize] = true;
+                    set[b'b' as usize] = true;
+                    set[b'c' as usize] = true;
+                    set
+                },
+                3,
+            )
+        );
+        assert_eq!(
+            mtf_encode(b"transform"),
+            (
+                vec![7, 6, 2, 5, 7, 5, 7, 5, 7],
+                const {
+                    let mut set = [false; _];
+                    set[b'a' as usize] = true;
+                    set[b'f' as usize] = true;
+                    set[b'm' as usize] = true;
+                    set[b'n' as usize] = true;
+                    set[b'o' as usize] = true;
+                    set[b'r' as usize] = true;
+                    set[b's' as usize] = true;
+                    set[b't' as usize] = true;
+                    set
+                },
+                8,
+            )
+        );
+        assert_eq!(
+            mtf_encode(b"ssdfgsfgsf"),
+            (
+                vec![3, 0, 1, 2, 3, 3, 2, 2, 2, 2],
+                const {
+                    let mut set = [false; _];
+                    set[b'd' as usize] = true;
+                    set[b'f' as usize] = true;
+                    set[b'g' as usize] = true;
+                    set[b's' as usize] = true;
+                    set
+                },
+                4,
+            )
+        );
     }
 }
