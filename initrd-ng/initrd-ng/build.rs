@@ -25,7 +25,7 @@ fn code_template() -> Vec<u8> {
         (?<table2>.*)
         TABLE_END\(\)
         (?<decompress2>.*)
-        $"x
+        $"sx
     );
 
     let captures = code_regex.captures(&decompress).unwrap();
