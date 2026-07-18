@@ -21,11 +21,11 @@ tables = {
     TABLE_START(),
     function()
         while ranks_pos < __LIMIT__ do
-            while state < 2 ^ 21 do
+            while state < 2 ^ 19 do
                 state = state * 2 ^ 32 + string.unpack("<I", compressed, byte_pos)
                 byte_pos = byte_pos + 4
             end
-            local bits = state % 2 ^ 14
+            local bits = state % 2 ^ 13
             DECODE_SYMBOL(bits,symbol,state)
             if symbol < 2 then
                 rle = rle * 2 + symbol

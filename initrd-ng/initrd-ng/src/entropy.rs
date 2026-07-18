@@ -2,9 +2,12 @@ use std::collections::BinaryHeap;
 use std::io::Write;
 
 const N_TABLES: usize = 6;
-const PROB_BITS: usize = 14;
-const STATE_BITS: usize = 53;
+const PROB_BITS: usize = 13;
+const STATE_BITS: usize = 51;
 const WORD_BITS: usize = 32;
+
+// https://arxiv.org/pdf/1902.01961
+const _: () = assert!(PROB_BITS + STATE_BITS <= 64);
 
 // Costs are computed as `-log_2(p)` and stored scaled by a factor of `COST_SCALE`, such that
 // `max_cost * COST_SCALE + SWITCH_COST < 2^16`.
@@ -349,9 +352,10 @@ fn encode_probabilities(probabilities: &[u32]) -> Vec<u8> {
         while let Some(0) = probabilities.get(j) {
             j += 1;
         }
-        if j - i >= 4 {
+        if j - i > const { char::from_u32(1 << PROB_BITS).unwrap().len_utf8() } {
             // UTF-8 is a reasonably good varint, and Lua has a built-in decoder for it.
-            write!(out, "{}", char::from_u32(0x4000 + (j - i) as u32).unwrap()).unwrap();
+            let ch = char::from_u32((1 << PROB_BITS) + (j - i) as u32).unwrap();
+            write!(out, "{ch}").unwrap();
             i = j;
             continue;
         }
