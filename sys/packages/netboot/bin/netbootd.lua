@@ -7,6 +7,10 @@ vfs.unmount("pub/sys") -- clean up after a previous netbootd process
 fs.makeDir("pub/sys") -- create unconditionally as a mountpoint for tmpfs
 
 local code = [[
+    os._timings = {
+        { "startup.lua", ... },
+        { "netboot response", os.clock() },
+    }
     require "vfs.install"
     require("vfs").unmount("nfs")
     fs.makeDir("nfs")
@@ -15,6 +19,7 @@ local code = [[
 if os._initrd_tree then
     code = code .. [[
         local _, tree, _ = rednet.receive("netboot-response-initrd")
+        table.insert(os._timings, { "initrd response", os.clock() })
         os._initrd_tree = tree
         require("tmpfs").mount("nfs/sys", tree, true)
     ]]

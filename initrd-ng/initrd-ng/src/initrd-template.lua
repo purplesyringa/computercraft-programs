@@ -22,6 +22,10 @@ local function loadFromTree(name)
 end
 table.insert(package.loaders, loadFromTree)
 
+os._timings = {
+    { "startup.lua", ... },
+    { "initrd unpacked", os.clock() },
+}
 require "vfs.install"
 local vfs = require "vfs"
 local tmpfs = require "tmpfs"

@@ -19,6 +19,11 @@ end
 
 print("Booting...")
 
+if not os._timings then
+    os._timings = {}
+end
+table.insert(os._timings, { "packages.svc.boot", os.clock() })
+
 settings.define("svc.target", {
     description = "Default target to reach",
     default = "shell",
@@ -98,6 +103,7 @@ proc.start("boot", function()
     if not ok then
         printError(err)
     end
+    table.insert(os._timings, { "boot target reached", os.clock() })
 end)
 
 proc.loop(function()
