@@ -6,9 +6,6 @@ const PROB_BITS: usize = 13;
 const STATE_BITS: usize = 51;
 const WORD_BITS: usize = 32;
 
-// https://arxiv.org/pdf/1902.01961
-const _: () = assert!(PROB_BITS + STATE_BITS <= 64);
-
 // Costs are computed as `-log_2(p)` and stored scaled by a factor of `COST_SCALE`, such that
 // `max_cost * COST_SCALE + SWITCH_COST < 2^16`.
 const COST_SCALE: u16 = 2048;
@@ -267,6 +264,10 @@ impl EncodingTable {
     }
 
     fn divmod(&self, val: u64, c: usize) -> (u64, u64) {
+        const {
+            // https://arxiv.org/pdf/1902.01961 proves this bound is sufficient.
+            assert!(PROB_BITS + STATE_BITS <= 64, "too much precision for fast divmod");
+        }
         // XXX: use widening_mul when stable...
         let (low, high) = self.inverse_probabilities[c].carrying_mul(val, val);
         let rem = (self.probabilities[c] as u64).carrying_mul(low, 0).1;
