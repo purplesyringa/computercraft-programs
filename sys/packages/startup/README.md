@@ -5,7 +5,7 @@ Startup logic and system updater.
 
 ### Usage
 
-The `resys` executable updates the system. `resys` fetches the latest initrd image from https://cc.purplesyringa.moe/initrd.lua and safely replaces the active `startup.lua`.
+The `resys` executable updates the system. `resys` fetches the latest initrd image from https://cc.purplesyringa.moe/initrd.lua (or another provided server) and safely replaces the active `startup.lua`.
 
 In addition, the `startup` library exposes the following API:
 

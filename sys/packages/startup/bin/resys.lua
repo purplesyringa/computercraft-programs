@@ -1,5 +1,12 @@
 local startup = require "startup"
 
+local args = { ... }
+if #args == 1 and args[1] == "--help" then
+    printError("Usage:")
+    printError("  resys [channel]")
+end
+local channel = args[1] or "cc.purplesyringa.moe"
+
 local cur_startup = startup.getScript()
 if not cur_startup then
     printError("startup.lua is missing, cannot update")
@@ -16,7 +23,7 @@ if not cur_startup:match('"=initrd"') then
     return
 end
 
-local response, error = http.get("https://cc.purplesyringa.moe/initrd.lua")
+local response, error = http.get("https://" .. channel .. "/initrd.lua")
 if not response then
     printError("Failed to fetch initrd.lua: " .. error)
     return
