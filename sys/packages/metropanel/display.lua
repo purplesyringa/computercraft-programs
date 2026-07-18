@@ -19,7 +19,6 @@ end
 local function refresh()
     term.clear()
     term.setCursorPos(1, 1)
-    term.setTextColor(colors.white)
     local est = estimation.estimates()
     local wait = 1
     for k, v in ipairs(est) do
