@@ -1,5 +1,4 @@
 local async = require "async"
-local routes = require "metropanel.routes"
 local estimation = require "metropanel.estimation"
 local locale = require "metropanel.locale"
 local ru = require "ru"
