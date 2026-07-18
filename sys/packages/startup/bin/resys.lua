@@ -30,8 +30,28 @@ if not response then
 end
 
 local initrd = response.readAll()
+-- This check works both for compressed initrd (it uses this string as a filename)
+-- and for uncompressed initrd (because this string is used here)
 if not initrd:match("=initrd") then
     printError("Corrupted initrd.lua fetched")
+    return
+end
+
+local env = setmetatable({ mounting = true }, { __index = _G })
+local startup, error = load(initrd, "=startup", nil, env)
+if not startup then
+    printError("Corrupted initrd.lua: " .. error)
+    return
+end
+
+local ok, image = pcall(startup)
+if not ok then
+    printError("Decompression error: " .. image)
+    return
+end
+
+if not (image and image.entries and initrd.entries["startup.lua"] and initrd.entries["startup.lua"].contents) then
+    printError("Corrupted initrd image")
     return
 end
 
