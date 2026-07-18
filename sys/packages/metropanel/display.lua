@@ -16,24 +16,25 @@ local function nonWrappingPrint()
     end
 end
 
-local function refresh()
+local function refresh(use_table)
     term.clear()
     term.setCursorPos(1, 1)
-    local est = estimation.estimates()
+    local width, height = term.getSize()
+    local est = (use_table and estimation.trainEstimates or estimation.estimates)()
     local wait = 1
-    for k, v in ipairs(est) do
+    for _, v in ipairs(est) do
         if v.value == estimation.PRESENT then
-            v.text = locale.BOARDING
+            v.text = (use_table and locale.BOARDING_SHORT or locale.BOARDING)
             v.color = colors.green
         elseif v.value == estimation.IMMINENT then
-            v.text = locale.ARRIVING
+            v.text = (use_table and locale.ARRIVING_SHORT or locale.ARRIVING)
             v.color = colors.yellow
         elseif v.value then
             local floor = math.floor(v.value)
             wait = math.min(wait, v.value - floor)
             v.text = ("%2d:%02d"):format((floor-floor%60)/60, floor%60)
         else
-            v.text = locale.NO_TRAINS
+            v.text = (use_table and locale.NO_TRAINS_SHORT or locale.NO_TRAINS)
             v.color = colors.red
         end
     end
@@ -43,11 +44,22 @@ local function refresh()
         dprint(locale.TOWARDS)
         for k, v in ipairs(est) do
             term.setTextColor(colors.white)
-            dprint(ru.text.to_koi(v.name))
-            if v.color then
-                term.setTextColor(v.color)
+            local name = ru.text.to_koi(v.name)
+            if use_table then
+                if v.color then
+                    term.setTextColor(v.color)
+                end
+                local train = ru.text.to_koi(v.train)
+                local prefix = (" "):rep(5 - #v.text) .. v.text .. " " .. name .. "  "
+                local suffix = (" "):rep(width - #prefix - #train) .. train
+                dprint((prefix .. suffix):sub(1, width))
+            else
+                dprint(name)
+                if v.color then
+                    term.setTextColor(v.color)
+                end
+                dprint(v.text)
             end
-            dprint(v.text)
         end
     else
         term.setTextColor(colors.white)
@@ -56,9 +68,9 @@ local function refresh()
     return wait
 end
 
-local function thread()
+local function thread(use_table)
     while true do
-        local wait = refresh()
+        local wait = refresh(use_table)
         async.timeout(wait, estimation.waitForUpdates)
     end
 end
