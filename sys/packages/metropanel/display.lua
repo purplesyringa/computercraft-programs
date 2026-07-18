@@ -24,17 +24,17 @@ local function refresh()
     local wait = 1
     for k, v in ipairs(est) do
         if v.value == estimation.PRESENT then
-            v.value = locale.BOARDING
+            v.text = locale.BOARDING
             v.color = colors.green
         elseif v.value == estimation.IMMINENT then
-            v.value = locale.ARRIVING
+            v.text = locale.ARRIVING
             v.color = colors.yellow
         elseif v.value then
             local floor = math.floor(v.value)
             wait = math.min(wait, v.value - floor)
-            v.value = ("%2d:%02d"):format((floor-floor%60)/60, floor%60)
+            v.text = ("%2d:%02d"):format((floor-floor%60)/60, floor%60)
         else
-            v.value = locale.NO_TRAINS
+            v.text = locale.NO_TRAINS
             v.color = colors.red
         end
     end
@@ -48,7 +48,7 @@ local function refresh()
             if v.color then
                 term.setTextColor(v.color)
             end
-            dprint(v.value)
+            dprint(v.text)
         end
     else
         term.setTextColor(colors.white)
