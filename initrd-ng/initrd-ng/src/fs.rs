@@ -80,7 +80,7 @@ pub fn build_tree(root: &Path) -> Result<Entry, ignore::Error> {
     let mut tree = Entry::Dir(HashMap::new());
     for result in WalkBuilder::new(root)
         .add_custom_ignore_filename(".rdignore")
-        .hidden(true)
+        .hidden(false)
         .build()
     {
         let entry = result?;
