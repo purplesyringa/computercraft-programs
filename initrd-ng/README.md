@@ -46,6 +46,8 @@ Here are some ideas for further improvements.
 
 1. Apply a Lua-specific filter for modeling indentation. Simply removing it saves 3% in compressed data, good enough modeling should be able to save 2%.
 
-2. Replace 6 stored frequency tables with an adaptive parametrized distribution. This reduces the stored metadata and makes the codec more responsive to local probability changes. It does so at the cost of decoding time, but there are promising cheap models.
+2. Generate the six stored frequency tables more optimally; they are currently seemingly underutilized.
 
-3. Try to avoid BWT and go full CM -- `paq` achieves much better results than even `bsc-m03`, and it's possible that there's a good enough model that is still fast enough because we don't need to decode BWT and MTF.
+3. Skip BWT and go full CM. Even simple [bsc](https://github.com/IlyaGrebnov/libbsc)-style models with [QLFC](https://sci-hub.ru/10.1109/dcc.2005.75) take an unreasonably long time to decode despite not significantly improving compression, but there may be models that produce good enough results without having to waste time on BWT.
+
+4. Alternatively, [GLZA](https://encode.su/threads/1909-Tree-alpha-v0-1-download) seems to compress both better and faster than BWT.
