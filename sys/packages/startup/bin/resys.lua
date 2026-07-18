@@ -23,9 +23,9 @@ if not cur_startup:match('"=initrd"') then
     return
 end
 
-local response, error = http.get("https://" .. channel .. "/initrd.lua")
+local response, err = http.get("https://" .. channel .. "/initrd.lua")
 if not response then
-    printError("Failed to fetch initrd.lua: " .. error)
+    printError("Failed to fetch initrd.lua: " .. err)
     return
 end
 
@@ -38,9 +38,9 @@ if not initrd:match("=initrd") then
 end
 
 local env = setmetatable({ mounting = true }, { __index = _G })
-local startup, error = load(initrd, "=startup", nil, env)
+local startup, err = load(initrd, "=startup", nil, env)
 if not startup then
-    printError("Corrupted initrd.lua: " .. error)
+    printError("Corrupted initrd.lua: " .. err)
     return
 end
 
