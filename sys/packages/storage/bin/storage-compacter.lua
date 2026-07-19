@@ -120,8 +120,8 @@ local CRAFTING_SLOTS = {
     },
 }
 
-local KEEP_LOW = 96
-local KEEP_HIGH = 128
+local KEEP_LOW = 160
+local KEEP_HIGH = 192
 
 local function currentInventory()
     return async.parMap(util.iota(16), function(slot)
