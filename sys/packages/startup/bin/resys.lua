@@ -50,7 +50,7 @@ if not ok then
     return
 end
 
-if not (image and image.entries and initrd.entries["startup.lua"] and initrd.entries["startup.lua"].contents) then
+if not (image and image.entries and image.entries["startup.lua"] and image.entries["startup.lua"].contents) then
     printError("Corrupted initrd image")
     return
 end
