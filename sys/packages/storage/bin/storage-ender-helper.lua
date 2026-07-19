@@ -64,7 +64,7 @@ local function handleOrder(rail, goal_inventory)
         turtle.attack()
         turtle.place()
 
-        ok = async.timeout(5, util.bind(adjustInventory, server_id, rail, {}, goal_inventory))
+        ok = async.timeout(5, adjustInventory, server_id, rail, {}, goal_inventory)
     end
 
     if has_bucket then

@@ -143,7 +143,7 @@ assert(value1 == 123)
 assert(value2 == 456)
 ```
 
-### `async.timeout(duration, task or function)`
+### `async.timeout(duration, task or function, ...)`
 
 Wait for a task to complete until a given time limit. If the task completes in time, returns `true` and its return values, otherwise the function returns `false`.
 

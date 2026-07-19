@@ -340,12 +340,20 @@ function async.race(task_list)
     return ready.key, table.unpack(ready.value, 1, ready.value.n)
 end
 
-function async.timeout(duration, f)
+function async.timeout(duration, f, ...)
+    local args = table.pack(...)
+    local task = f
+    if args.n ~= 0 then
+        assert(type(f) == "function", "tasks can't have additional arguments")
+        task = function()
+            return f(table.unpack(args, 1, args.n))
+        end
+    end
     local result = table.pack(async.race({
         sleep = function()
             os.sleep(duration)
         end,
-        f = f,
+        f = task,
     }))
     local key = result[1]
     if key == "f" then
