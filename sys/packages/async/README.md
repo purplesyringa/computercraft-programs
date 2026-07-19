@@ -59,9 +59,9 @@ end)
 async.drive()
 ```
 
-### `async.spawn(function)`
+### `async.spawn(function, ...)`
 
-Spawns a function as a task. The returned task object has the following API:
+Spawns `function(...)` as a task. The returned task object has the following API:
 
 - `Task.finished()`: check if the task has completed.
 - `Task.join()`: wait for the task to complete. Forwards its return values. If the task has already finished, returns the saved output immediately.
@@ -69,18 +69,18 @@ Spawns a function as a task. The returned task object has the following API:
 
 The created task is considered *supervised* by the current task, which means that if the current task is cancelled, the child task is automatically cancelled as well. This is propagated in a chain-like reaction across trees. If a task completes out of its own volition, its children are not cancelled, unless a grandparent is cancelled.
 
-Errors in tasks terminate the entire runtime, except when occurring during `cancel`, in which case they are silently ignored. Use `async.spawn(function() pcall(...) end)` to catch errors if necessary.
+Errors in tasks terminate the entire runtime, except when occurring during `cancel`, in which case they are silently ignored. Use `async.spawn(pcall, ...)` to catch errors if necessary.
 
 When `async.spawn` is called, the coroutine executes synchronous actions up to the first yield point and schedules its first asynchronous action before `async.spawn` returns, so e.g.
 
 ```lua
-async.spawn(function() chest.pullItems(...) end)
+async.spawn(chest.pullItems, ...)
 local item = chest.getItemDetail(...)
 ```
 
 ...is guaranteed to schedule `getItemDetail` after `pullItems`, so when `getItemDetail` completes, `item` will contain post-pulling info. Multiple background tasks are typically polled in order of spawning, but can diverge if they pull different events.
 
-### `async.spawnDetached(function)`
+### `async.spawnDetached(function, ...)`
 
 Like `async.spawn`, but the task is spawned without supervision. If the current task is cancelled, the child keeps going. This is equivalent to `async.spawn` in a top-level context, i.e. when there is no current task.
 
@@ -168,7 +168,7 @@ Task sets offer a way to create a group of tasks which can be joined or cancelle
 
 A task set can be created by calling `async.newTaskSet([concurrency_limit])`. If present, `concurrency_limit` limits the number of tasks that can run at once. The `TaskSet` API has the following methods:
 
-- `TaskSet.spawn(function)`: creates a supervised task and returns a task object similarly to `async.spawn`. The task set remembers that it spawned this task. If there are already `concurrency_limit` running tasks in this task set, waits for a task to complete (either normally or by being cancelled) before spawning a new one.
+- `TaskSet.spawn(function, ...)`: creates a supervised task and returns a task object similarly to `async.spawn`. The task set remembers that it spawned this task. If there are already `concurrency_limit` running tasks in this task set, waits for a task to complete (either normally or by being cancelled) before spawning a new one.
 
 - `TaskSet.join()`: wait for all spawned tasks to complete. Does not return anything. If necessary, individual return values can be obtained by calling `join` on task objects.
 
@@ -307,9 +307,7 @@ end)
 
 -- Asynchronous callback, handling events concurrently.
 async.subscribe("char", function(ch)
-    async.spawn(function()
-        someAsyncFn(ch)
-    end)
+    async.spawn(someAsyncFn, ch)
 end)
 
 -- Asynchronous callback, handling events sequentially.

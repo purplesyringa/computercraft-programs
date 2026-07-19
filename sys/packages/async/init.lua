@@ -96,13 +96,15 @@ local function resumeTask(task_id, ...)
     end
 end
 
-local function spawn(closure, detached)
+local function spawn(closure, detached, ...)
+    local args = table.pack(...)
+
     local task_id = next_task_id
     next_task_id = next_task_id + 1
 
     local task = {
         coroutine = coroutine.create(function()
-            local result = table.pack(xpcall(closure, debug.traceback))
+            local result = table.pack(xpcall(closure, debug.traceback, table.unpack(args, 1, args.n)))
             if result[1] then
                 return table.unpack(result, 2, result.n)
             else
@@ -155,12 +157,12 @@ local function spawn(closure, detached)
     }
 end
 
-function async.spawn(closure)
-    return spawn(closure, false)
+function async.spawn(closure, ...)
+    return spawn(closure, false, ...)
 end
 
-function async.spawnDetached(closure)
-    return spawn(closure, true)
+function async.spawnDetached(closure, ...)
+    return spawn(closure, true, ...)
 end
 
 function async.newTaskSet(concurrency_limit)
@@ -171,14 +173,14 @@ function async.newTaskSet(concurrency_limit)
     local local_tasks = {}
     local next_id = 1
     return {
-        spawn = function(closure)
+        spawn = function(closure, ...)
             if semaphore then
                 semaphore.acquire()
             end
             local id = next_id
             next_id = next_id + 1
-            local task = async.spawn(function()
-                local result = table.pack(pcall(closure))
+            local task = async.spawn(function(...)
+                local result = table.pack(pcall(closure, ...))
                 if semaphore then
                     semaphore.release()
                 end
@@ -189,7 +191,7 @@ function async.newTaskSet(concurrency_limit)
                 else
                     error(result[2], 0)
                 end
-            end)
+            end, ...)
             if not task.finished() then
                 local_tasks[id] = task
             end

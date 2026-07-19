@@ -185,13 +185,11 @@ function Index:new(on_keys_changed)
                 local cur_limit = math.min(bundle.limit - bundle.count, chest_cell.count)
                 bundle.count = bundle.count + cur_limit
                 chest_cell.count = chest_cell.count - cur_limit
-                task_set.spawn(function()
-                    chest_cell.chest.pushItems(
-                        peripheral.getName(bundle.bundle),
-                        chest_cell.slot,
-                        cur_limit
-                    )
-                end)
+                task_set.spawn(chest_cell.chest.pushItems,
+                    peripheral.getName(bundle.bundle),
+                    chest_cell.slot,
+                    cur_limit
+                )
                 if chest_cell.count == 0 then
                     item_info.chest_cells[i] = nil
                     table.insert(index.empty_cells, chest_cell)
@@ -245,13 +243,11 @@ function Index:importChestCell(input_cell, on_before_import)
         if to_pull > 0 then
             input_cell.count = input_cell.count - to_pull
             bundle.count = bundle.count + to_pull
-            async.spawn(function()
-                bundle.bundle.pullItems(
-                    peripheral.getName(input_cell.chest),
-                    input_cell.slot,
-                    to_pull
-                )
-            end)
+            async.spawn(bundle.bundle.pullItems,
+                peripheral.getName(input_cell.chest),
+                input_cell.slot,
+                to_pull
+            )
         end
     end
 
@@ -261,14 +257,12 @@ function Index:importChestCell(input_cell, on_before_import)
         if to_pull > 0 then
             input_cell.count = input_cell.count - to_pull
             output_cell.count = output_cell.count + to_pull
-            async.spawn(function()
-                output_cell.chest.pullItems(
-                    peripheral.getName(input_cell.chest),
-                    input_cell.slot,
-                    to_pull,
-                    output_cell.slot
-                )
-            end)
+            async.spawn(output_cell.chest.pullItems,
+                peripheral.getName(input_cell.chest),
+                input_cell.slot,
+                to_pull,
+                output_cell.slot
+            )
         end
     end
 
@@ -331,9 +325,9 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
             local input_cell = self:takeEmptyCell()
             input_cells[slot_from] = input_cell
             input_cell.count = count_to_pull
-            task_set.spawn(util.bind(pcall, function() -- protect against client disconnects
-                input_cell.chest.pullItems(client, slot_from, limit_to_pull, input_cell.slot)
-            end))
+            task_set.spawn(pcall, -- protect against client disconnects
+                input_cell.chest.pullItems, client, slot_from, limit_to_pull, input_cell.slot
+            )
         end
     end
 
@@ -415,19 +409,18 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
                     local cur_limit = math.min(goal_item.count - pushed, bundle.count)
                     pushed = pushed + cur_limit
                     bundle.count = bundle.count - cur_limit
-                    task_set.spawn(util.bind(
-                        bundle.bundle.pushItems,
+                    task_set.spawn(bundle.bundle.pushItems,
                         peripheral.getName(output_cell.chest),
                         1,
                         cur_limit,
                         output_cell.slot
-                    ))
+                    )
                 end
             end
 
-            task_set.spawn(util.bind(pcall, function() -- protect against client disconnects
-                output_cell.chest.pushItems(client, output_cell.slot, nil, slot_to)
-            end))
+            task_set.spawn(pcall, -- protect against client disconnects
+                output_cell.chest.pushItems, client, output_cell.slot, nil, slot_to
+            )
             task_set.spawn(function()
                 -- No need to touch the actual key here because we trust the chest, and so the key
                 -- is `goal_key`, which we've already touched.
@@ -451,14 +444,9 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
                         local tmp_cell = self:takeEmptyCell()
                         local cur_limit = math.min(goal_item.count - pushed, other_item.count)
                         pushed = pushed + cur_limit
-                        task_set.spawn(util.bind(pcall, function() -- protect against client disconnects
-                            tmp_cell.chest.pullItems(
-                                other_client,
-                                slot_from,
-                                cur_limit,
-                                tmp_cell.slot
-                            )
-                        end))
+                        task_set.spawn(pcall, -- protect against client disconnects
+                            tmp_cell.chest.pullItems, other_client, slot_from, cur_limit, tmp_cell.slot
+                        )
                         task_set.spawn(function()
                             local item = tmp_cell.chest.getItemDetail(tmp_cell.slot)
                             if item and util.getItemKey(item) == goal_key then
@@ -473,9 +461,7 @@ function Index:adjustInventory(client, current_inventory, goal_inventory, previe
                                         other_inventory[slot_from] = nil
                                     end
                                 end
-                                async.spawn(function()
-                                    tmp_cell.chest.pushItems(client, tmp_cell.slot, nil, slot_to)
-                                end)
+                                async.spawn(tmp_cell.chest.pushItems, client, tmp_cell.slot, nil, slot_to)
                             else
                                 -- The other client's preview seems to be incorrect, possibly due to
                                 -- a race or a disconnect. Either way, treat that specific item as
