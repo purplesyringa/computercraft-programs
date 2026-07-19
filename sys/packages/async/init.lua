@@ -349,8 +349,9 @@ function async.timeout(duration, f)
     }))
     local key = result[1]
     if key == "f" then
-        return table.unpack(result, 2, result.n)
+        return true, table.unpack(result, 2, result.n)
     end
+    return false
 end
 
 function async.parMap(tbl, callback)

@@ -532,11 +532,7 @@ local function adjustInventoryOverworld(wired_name, goal_inventory)
     -- we just timeout and come back. If the server eventually wakes up and tries to interact with
     -- the client, we'll already have left the wired network by that point, so it'll fail silently;
     -- or if we return back by that point, we'll quickly sort it out by ping-pong.
-    local key = async.race({
-        sleep = util.bind(os.sleep, 5),
-        adjust = util.bind(adjustInventoryWired, wired_name, goal_inventory),
-    })
-    if key == "sleep" then
+    if not async.timeout(5, util.bind(adjustInventoryWired, wired_name, goal_inventory)) then
         return "Operation timed out"
     end
     -- We only refuel if we've successfully interacted with the server, since otherwise we might

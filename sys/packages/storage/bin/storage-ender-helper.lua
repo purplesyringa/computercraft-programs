@@ -51,26 +51,20 @@ local function handleOrder(rail, goal_inventory)
 
     local server_id
     local current_inventory = async.parMap(util.iota(16), rail.getItemDetail)
-    local key = async.race({
-        sleep = util.bind(os.sleep, 15),
-        adjust = function()
-            server_id = ping()
-            adjustInventory(server_id, rail, current_inventory, {})
-        end,
-    })
+    local ok = async.timeout(15, function()
+        server_id = ping()
+        adjustInventory(server_id, rail, current_inventory, {})
+    end)
     -- If adjustment times out, the cart is not guaranteed to be empty, so we can't reset its
     -- cooldown by breaking it. But since we timeout for 15s, the natural cooldown has already
     -- passed and we don't have to worry about it.
-    if key == "adjust" then
+    if ok then
         -- Reset cooldown.
         turtle.select(2)
         turtle.attack()
         turtle.place()
 
-        key = async.race({
-            sleep = util.bind(os.sleep, 5),
-            adjust = util.bind(adjustInventory, server_id, rail, {}, goal_inventory),
-        })
+        ok = async.timeout(5, util.bind(adjustInventory, server_id, rail, {}, goal_inventory))
     end
 
     if has_bucket then
@@ -84,7 +78,7 @@ local function handleOrder(rail, goal_inventory)
 
     common.sendCartToPortal(rail)
 
-    if key == "sleep" then
+    if not ok then
         return "Operation timed out"
     end
 end

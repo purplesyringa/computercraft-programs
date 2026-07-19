@@ -210,11 +210,9 @@ async.spawn(function()
         -- If we're disconnected from the wired network, but the modems are still wired, we'll
         -- receive a message, but our inventory may fail to update, possibly partially. We'll
         -- trigger readjustment when we're connected back, but for now this is everything we can do.
-        local key = async.race({
-            sleep = util.bind(os.sleep, 1),
-            response = inventory_adjusted.wait,
-        })
-        if key == "sleep" then
+        if async.timeout(1, inventory_adjusted.wait) then
+            readjust.wait()
+        else
             -- Server died, was disconnected, or there's lag; either way, wait for the request to
             -- complete before following up. Also trigger readjustment immediately, since we might
             -- have lost index notifications.
@@ -231,8 +229,6 @@ async.spawn(function()
             end)
             awaited_pong.received.wait()
             send_task.cancel()
-        else
-            readjust.wait()
         end
         recordInteraction()
     end
