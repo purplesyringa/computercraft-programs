@@ -145,7 +145,7 @@ assert(value2 == 456)
 
 ### `async.timeout(duration, task or function, ...)`
 
-Wait for a task to complete until a given time limit. If the task completes in time, returns `true` and its return values, otherwise the function returns `false`.
+Wait for a task to complete until a given time limit in seconds. If the task completes in time, returns `true` and its return values, otherwise the function returns `false`.
 
 `duration` is in seconds. If a function is passed as the second argument, it is scheduled as a supervised task. The task is cancelled on timeout.
 
