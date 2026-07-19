@@ -314,9 +314,7 @@ end)
 
 -- Asynchronous callback, handling events sequentially.
 local queue = async.newQueue()
-async.subscribe("char", function(ch)
-    queue.put(ch)
-end)
+async.subscribe("char", queue.put)
 async.spawn(function()
     while true do
         someAsyncFn(queue.get())
