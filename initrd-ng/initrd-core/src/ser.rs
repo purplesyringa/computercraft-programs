@@ -41,9 +41,14 @@ fn serialize_key(out: &mut Vec<u8>, k: &LuaString) {
 }
 
 fn find_level(s: &[u8]) -> usize {
-    let banned_levels = lazy_regex::bytes_regex!(r"[\[\]]=*")
+    let banned_levels = lazy_regex::bytes_regex!(r"\[|\]=*")
         .find_iter(s)
-        .filter(|m| s.get(m.end()) == Some(&s[m.start()]))
+        .filter(|m| {
+            matches!(
+                (s[m.start()], s.get(m.end())),
+                (b'[', Some(b'[')) | (b']', Some(b']') | None)
+            )
+        })
         .map(|m| m.len() - 1)
         .collect::<BTreeSet<_>>();
     (0..).find(|level| !banned_levels.contains(level)).unwrap()
@@ -175,4 +180,21 @@ pub fn serialize_to_vec(v: &LuaValue) -> Vec<u8> {
     let mut out = vec![];
     serialize(&mut out, v);
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_find_level() {
+        assert_eq!(find_level(b""), 0);
+        assert_eq!(find_level(b"["), 0);
+        assert_eq!(find_level(b"]"), 1);
+        assert_eq!(find_level(b"[["), 1);
+        assert_eq!(find_level(b"]]"), 1);
+        assert_eq!(find_level(b"[=["), 0);
+        assert_eq!(find_level(b"]=]"), 2);
+        assert_eq!(find_level(b"]]=]"), 2);
+    }
 }
