@@ -20,6 +20,7 @@ struct Args {
 enum Command {
     Build(BuildArgs),
     Analyze(AnalyzeArgs),
+    Compress(CompressArgs),
 }
 
 /// build the initrd
@@ -46,6 +47,18 @@ struct AnalyzeArgs {
     sysroot: PathBuf,
 }
 
+/// compress any lua file
+#[derive(FromArgs)]
+#[argh(subcommand, name = "compress")]
+struct CompressArgs {
+    /// input path (e.g. uncompressed.lua)
+    #[argh(option)]
+    input: PathBuf,
+    /// output path (e.g. initrd.lua)
+    #[argh(option)]
+    output: PathBuf,
+}
+
 fn main() {
     let args: Args = argh::from_env();
 
@@ -57,6 +70,10 @@ fn main() {
 
         Command::Analyze(aa) => {
             analyze::analyze(&aa.sysroot);
+        }
+
+        Command::Compress(ca) => {
+            std::fs::write(ca.output, bz::compress(&std::fs::read(ca.input).unwrap())).unwrap();
         }
     }
 }
