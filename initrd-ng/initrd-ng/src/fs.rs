@@ -163,6 +163,8 @@ pub fn make_initrd(tree: &Entry, uncompressed: bool, ignore_path: Option<&Path>)
         for _ in 1..1000 {
             crate::bz::compress(&initrd);
         }
-        crate::bz::compress(&initrd)
+        let mut compressed = Vec::from(b"os._bt=os.clock()");
+        compressed.extend(crate::bz::compress(&initrd));
+        compressed
     }
 }

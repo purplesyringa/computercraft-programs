@@ -1,4 +1,4 @@
-local booted, compressed, tables, cache, table_parsers = os.clock(), __DATA__, __TABLES__, __CACHE__, {}
+local compressed, tables, cache, table_parsers = __DATA__, __TABLES__, __CACHE__, {}
 for tbl in tables:gmatch("[^\xff]+") do
     local parsers, sum, c = {}, 0, 0 -- each parser is a tuple { level, cumulative, code }
     for _, p in utf8.codes(tbl) do
@@ -37,4 +37,4 @@ for tbl in tables:gmatch("[^\xff]+") do
 end
 
 local s = load(__DECOMPRESS1__ .. table.concat(table_parsers) .. __DECOMPRESS2__)(compressed, cache)
-return load(s, "=initrd", nil, _ENV)(booted)
+return load(s, "=initrd", nil, _ENV)(...)

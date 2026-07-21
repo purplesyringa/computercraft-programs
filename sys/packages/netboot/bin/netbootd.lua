@@ -8,7 +8,7 @@ fs.makeDir("pub/sys") -- create unconditionally as a mountpoint for tmpfs
 
 local code = [[
     os._timings = {
-        { "startup.lua", ... },
+        { "startup.lua", os._bt or 0 },
         { "netboot response", os.clock() },
     }
     require "vfs.install"

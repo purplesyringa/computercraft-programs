@@ -23,7 +23,7 @@ end
 table.insert(package.loaders, loadFromTree)
 
 os._timings = {
-    { "startup.lua", ... },
+    { "startup.lua", os._bt or 0 },
     { "initrd unpacked", os.clock() },
 }
 require "vfs.install"
