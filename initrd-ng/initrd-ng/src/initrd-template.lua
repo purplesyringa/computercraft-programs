@@ -27,10 +27,8 @@ os._timings = {
     { "initrd unpacked", os.clock() },
 }
 require "vfs.install"
-local vfs = require "vfs"
-local tmpfs = require "tmpfs"
-vfs.unmount("sys")
+require("vfs").unmount("sys")
 fs.makeDir("sys")
-tmpfs.mount("sys", tree, true)
+require("tmpfs").mount("sys", tree, true)
 os._initrd_tree = tree
 shell.run("sys/startup")
