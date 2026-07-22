@@ -55,11 +55,11 @@ wget https://cc.purplesyringa.moe/netboot.lua startup.lua
 
 If something doesn't behave as expected or you make a mistake, you'll need to learn how to use a few utilities. The important ones are:
 
-- [Remote shell](sys/packages/rsh). You can connect to any computer running this OS with `rsh <hostname>`, where the hostname can be configured with `hostname <hostname>`. If the hostname has not been configured ahead of time, use `rsh <computer-id>`.
+- [Remote shell](sys/packages/rsh). You can connect to any computer running this OS with `rsh <hostname>`, where the hostname can be configured with `hostname <hostname>`. If the hostname has not been configured ahead of time, use `rsh <computer-id>`. Computers connected to the network respond to `online [glob]` calls even without hostname configured.
 
 - [Service manager](sys/packages/svc). `svc` shows the list of services (programs) running on the computer and their failures. Use `svc status <service-name>` for error logs, `svc stop <service-name>`/`svc start <service-name>` to manipulate services. You can change which services are started on boot with `svc reach <target-name> --persist`; the `base` target is the default "empty" one.
 
-- System updater. The `resys` program fetches the most recent OS image from web and updates `startup.lua` accordingly. Note that we don't guarantee stability, so things might break.
+- [System updater](sys/packages/resys). The `resys` program fetches the most recent OS image from web and updates `startup.lua` accordingly. Note that we don't guarantee stability, so things might break.
 
 
 ## Development

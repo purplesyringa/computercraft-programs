@@ -113,7 +113,7 @@ You can also use `getty` to run programs on an external monitor and keyboard by 
 
 Keyboard layouts are implemented by passing the native `key`, `key_up`, and `char` events to [the `keyboard` package](sys/packages/keyboard), which replaces `char` events with custom ones as necessary.
 
-All of this means that running `getty` within `getty` doesn't really work: the outer `getty` filters out all keyboard events except for one source, including the source the nested `getty` listens to, and nested layouts can quickly get broken. Output will still likely work, but this configuration is unsupported.
+All of this means that running `getty` within `getty` doesn't really work: the outer `getty` filters out all keyboard events except for one source, including the source the nested `getty` listens to, and nested layouts can quickly get broken. Output will still likely work, but this configuration is unsupported. Use `proc start` to circumvent the problem by spawning `getty` outside of `getty`.
 
 Also note that currently, services are started with `term` pointing to the internal display, so using `print` from a service works as is, but we plan to change this so that `term` points to a log file. Don't rely on the current behavior.
 
@@ -156,8 +156,8 @@ Finally, don't keep your code to yourself. We don't offer API stability, so out-
 
 Some libraries you need to be aware of to avoid reinventing the wheel are:
 
-- Userland: [`async`](sys/packages/async) (async runtime).
+- Userland: [`async`](sys/packages/async) (async runtime), [`globbing`](sys/packages/globbing) (convert globs to patterns), [`ru`](sys/packages/ru) (KOI8 utilities).
 - Virtual I/O: [`vfs`](sys/packages/vfs) (the underlying API), [`bytesio`](sys/packages/bytesio) (in-memory files), [`wakeywakey`](sys/packages/wakeywakey) (asynchronous monkey-patching).
-- Terminal I/O: [`redirect`](sys/packages/redirect) (`term` and event source redirection), [`svc` shell APIs used by `rsh`](sys/packages/rsh/bin/rsh-serve-session.lua).
+- Terminal I/O: [`redirect`](sys/packages/redirect) (`term` and event source redirection), [`svc` shell APIs used by `rsh`](sys/packages/rsh/bin/rsh-serve-session.lua), [`keyboard`](sys/packages/keyboard) (`key`, `key_up`, and `char` event modification).
 - System: [`hardware`](sys/packages/hardware) (hardware assignments), [`startup`](sys/packages/startup) (startup script manipulation), [`svc`](sys/packages/svc) (services, targets, processes).
 - Networking: [`named`](sys/packages/named) (hostname management and resolution), [`rsh`](sys/packages/rsh) (remote shell), [`pack`](sys/packages/pack) (webpack for Lua).
