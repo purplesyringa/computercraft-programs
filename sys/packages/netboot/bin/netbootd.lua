@@ -30,7 +30,7 @@ if os._initrd_tree then
     code = code .. [[
         local _, tree, _ = rednet.receive("netboot-response-initrd@" .. id)
         table.insert(os._timings, { "initrd response", os.clock() })
-        os._initrd_tree = tree
+        function os._initrd_tree() return tree end
         require("tmpfs").mount("nfs/sys", tree, true)
     ]]
 else
@@ -50,7 +50,7 @@ local function reply(channel)
     end
     if os._initrd_tree then
         -- Don't use tag here to make sure initrd is consistent with netboot glue
-        rednet.send(channel, os._initrd_tree, "netboot-response-initrd@" .. os.computerID())
+        rednet.send(channel, os._initrd_tree(), "netboot-response-initrd@" .. os.computerID())
     end
 end
 

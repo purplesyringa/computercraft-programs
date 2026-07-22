@@ -29,6 +29,6 @@ os._timings = {
 require "vfs.install"
 require("vfs").unmount("sys")
 fs.makeDir("sys")
+function os._initrd_tree() return tree end
 require("tmpfs").mount("sys", tree, true)
-os._initrd_tree = tree
 shell.run("sys/startup")
