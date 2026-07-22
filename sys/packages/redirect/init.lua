@@ -11,7 +11,7 @@ local function runWithTerm(redirect, f, ...)
         -- Reload `redirect` because the process might have set up its own terminal redirect.
         redirect = term.current()
         term.redirect(old_term)
-        if not out[1] or coroutine.status(coro) == "dead" then
+        if coroutine.status(coro) == "dead" then
             break
         end
         local filter = out[2]
