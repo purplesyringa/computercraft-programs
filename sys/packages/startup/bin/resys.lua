@@ -4,6 +4,7 @@ local args = { ... }
 if #args == 1 and args[1] == "--help" then
     printError("Usage:")
     printError("  resys [channel]")
+    return
 end
 local channel = args[1] or "cc.purplesyringa.moe"
 
