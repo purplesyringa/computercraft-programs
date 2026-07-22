@@ -22,6 +22,8 @@ After this, the computer can be configured as a panel via:
 svc reach metropanel --persist
 ```
 
+metropanel supports table view, similar to Create's displays, but without platform detection. To use table view, reach `metrotable` instead. Table metropanels require larger displays (about 4 blocks wide) or manual scaling, as automatic scaling is not yet implemented in getty.
+
 ## Station naming convention
 
 In order for metropanel to work, train station names must follow the following naming convention:

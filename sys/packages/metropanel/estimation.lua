@@ -65,15 +65,9 @@ end)
 local IMMINENT = -1
 local PRESENT = -2
 
-local function getEstimates()
-    local estimates_by_dst = {}
+local function getTrainEstimates()
+    local estimates_by_train = {}
     local own = routes.ownStation()
-    for k, v in pairs(known_nexts) do
-        estimates_by_dst[k] = {
-            name = k,
-            value = nil,
-        }
-    end
     for train, t in pairs(train_last_seen_proleptic) do
         local sinceSeen = os.clock() - t
         local route = train_route[train]
@@ -87,55 +81,72 @@ local function getEstimates()
                     if rtt >= sinceSeen then
                         value = rtt - sinceSeen
                     end
-                    local q = estimates_by_dst[next.name]
-                    if not q then
-                        q = {
-                            name = next.name,
-                            value = value,
-                        }
-                        estimates_by_dst[next.name] = q
-                    elseif value and (not q.value or value < q.value) then
-                        q.value = value
-                    end
+                    estimates_by_train[train] = {
+                        name = next.name,
+                        value = value,
+                        train = train,
+                    }
                 end
             end
         end
     end
     if routes.trainPresent() then
+        local current_train = routes.trainName()
         local current_next = routes.nextStation(routes.trainStations())
         if current_next then
-            local q = estimates_by_dst[current_next.name]
+            local q = estimates_by_train[current_train]
             if not q then
                 q = {
                     name = current_next.name,
+                    train = current_train,
                 }
-                estimates_by_dst[current_next.name] = q
+                estimates_by_train[current_train] = q
             end
             q.value = PRESENT
         end
     end
-    for k, v in pairs(estimates_by_dst) do
-        if not known_nexts[k] then
-            known_nexts[k] = true
+    local estimates_by_train_list = {}
+    for _, v in pairs(estimates_by_train) do
+        if not known_nexts[v.name] then
+            known_nexts[v.name] = true
             db.save()
         end
-        table.insert(estimates_by_dst, v)
+        table.insert(estimates_by_train_list, v)
     end
-    table.sort(estimates_by_dst, function(a, b)
+    table.sort(estimates_by_train_list, function(a, b)
         if b.value then
             return a.value and a.value < b.value
         else
             return a.value
         end
     end)
-    if next(estimates_by_dst) and estimates_by_dst[1].value ~= PRESENT and routes.trainImminent() then
-        estimates_by_dst[1].value = IMMINENT
+    if next(estimates_by_train_list) and estimates_by_train_list[1].value ~= PRESENT and routes.trainImminent() then
+        estimates_by_train_list[1].value = IMMINENT
+    end
+    return estimates_by_train_list
+end
+
+local function getEstimates()
+    local estimates_by_train = getTrainEstimates()
+    local estimates_by_dst = {}
+    local seen_nexts = {}
+    for _, v in ipairs(estimates_by_train) do
+        if not seen_nexts[v.name] then
+            seen_nexts[v.name] = true
+            table.insert(estimates_by_dst, v)
+        end
+    end
+    for k, _ in pairs(known_nexts) do
+        if not seen_nexts[k] then
+            table.insert(estimates_by_dst, { name = k, value = nil, train = nil })
+        end
     end
     return estimates_by_dst
 end
 
 return {
     estimates = getEstimates,
+    trainEstimates = getTrainEstimates,
     waitForUpdates = update_event.wait,
     IMMINENT = IMMINENT,
     PRESENT = PRESENT,
