@@ -49,7 +49,7 @@ local function newTerminalRedirect(handlers)
     redirect.setPaletteColor = handling("setPaletteColor", function(color, ...)
         local params = table.pack(...)
         if params.n == 1 then
-            palette[color] = colors.unpackRGB(rgb)
+            palette[color] = colors.unpackRGB(params[1])
         else
             palette[color] = params
         end
