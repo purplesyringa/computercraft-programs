@@ -27,7 +27,7 @@ function Handler:setNativeLayout()
 end
 
 function Handler:toggleLayout()
-    if self.active_layout == native_layout then
+    if self.active_layout == self.native_layout then
         if self.last_custom_layout_name then
             self:setCustomLayout(self.last_custom_layout_name)
         end
