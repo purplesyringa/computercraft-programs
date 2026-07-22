@@ -3,8 +3,14 @@ local startup = require "startup"
 local args = { ... }
 if #args == 1 and args[1] == "--help" then
     printError("Usage:")
-    printError("  resys [channel]")
+    printError("  resys [--now] [channel]")
     return
+end
+
+local now = false
+if args[1] == "--now" then
+    now = true
+    table.remove(args, 1)
 end
 local channel = args[1] or "cc.purplesyringa.moe"
 
@@ -62,4 +68,8 @@ if initrd == cur_startup then
 end
 
 startup.setScript(initrd)
-print("Updated startup.lua, restart the computer for changes to take effect")
+if now then
+    os.reboot()
+else
+    print("Updated startup.lua, restart the computer for changes to take effect")
+end
