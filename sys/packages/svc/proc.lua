@@ -2,12 +2,11 @@ local proc = {}
 
 local processes = {} -- { [pid] = { name, coroutine, filter, on_killed } }
 local next_process_id = 1
-local running_process_id = nil
 local processes_to_start = {}
 local processes_to_stop = {}
+local imminent_handlers = setmetatable({}, { __weak = "v" })
 
 local function deliverEvent(pid, ...)
-    running_process_id = pid
     local process = processes[pid]
     local out = table.pack(coroutine.resume(process.coroutine, ...))
     if coroutine.status(process.coroutine) == "dead" then
@@ -111,14 +110,30 @@ function proc.registerRebootShutdownHandlers()
             -- `coroutine.yield` nor `error` can implement these semantics in presence of `parallel`
             -- and `pcall`. So instead of setting a flag and unwinding, we execute logic here.
             --
-            -- Deliver an event to all processes except the currently running one: that's both
-            -- expected because the code in the process should be unreachable, and necessary because
-            -- we can't resume a running coroutine.
-            processes[running_process_id].filter = ""
-            deliverEventToAll(method .. "_imminent")
+            -- Give all programs a chance to handle going down. We can't just deliver an event to
+            -- processes here, because processes are not reentrant, and so programs running within
+            -- the current process (e.g. those across a `multishell` tab) wouldn't be able to react.
+            for handler, _ in pairs(imminent_handlers) do
+                -- Don't let handlers prevent shutdown -- that would make remotely updating broken
+                -- software unnecessarily difficult.
+                pcall(handler, method)
+            end
             old_method()
             error("unreachable")
         end
+    end
+end
+
+function proc.withImminentHandler(handler, f, ...)
+    assert(not imminent_handlers[handler], "handler already registered")
+    -- Make the entry weak by coroutine so that abandoned coroutines aren't kept alive forever.
+    imminent_handlers[handler] = coroutine.running()
+    local result = table.pack(pcall(f, ...))
+    imminent_handlers[handler] = nil
+    if result[1] then
+        return table.unpack(result, 2, result.n)
+    else
+        error(result[2], 0)
     end
 end
 

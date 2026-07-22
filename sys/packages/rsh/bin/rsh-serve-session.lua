@@ -43,11 +43,6 @@ local function pullEventNetworked()
         if event[1] == "terminate" then
             sendToClient({ type = "close", reason = "terminate" }, "rsh")
             error("Terminated", 0)
-        elseif event[1] == "reboot_imminent" or event[1] == "shutdown_imminent" then
-            sendToClient({
-                type = "close",
-                reason = event[1]:gsub("_imminent", ""),
-            })
         elseif event[1] == "rednet_message" then
             local client_id, msg, protocol = event[2], event[3], event[4]
             if (
@@ -80,29 +75,34 @@ local function flushOpQueue()
     end
 end
 
-local bg_command = redirect.runWithEventSource(redirect.runWithTerm, virtual_term, function()
-    if not params.command[1] then
-        params.command[1] = "msh"
-    end
-    local nested_shell = svc.makeNestedShell({ shell = shell })
-    svc.reloadShellEnv(nested_shell)
-    nested_shell.execute(table.unpack(params.command))
-end)
-flushOpQueue()
-
-while not bg_command.isDead() do
-    local event = table.pack(pullEventNetworked())
-    if remote_events[event[1]] then
-        sendToClient({ type = "ack" })
-        -- The client adds dimension information to `term_resize` -- read it and make sure to remove
-        -- it for consistency with base CraftOS.
-        if event[1] == "term_resize" then
-            params.size[1], params.size[2] = event[2], event[3]
-            event = { "term_resize" }
-        end
-    end
-    bg_command.pushEvent(table.unpack(event, 1, event.n))
+svc.withImminentHandler(function(reason)
     flushOpQueue()
-end
+    sendToClient({ type = "close", reason = reason })
+end, function()
+    local bg_command = redirect.runWithEventSource(redirect.runWithTerm, virtual_term, function()
+        if not params.command[1] then
+            params.command[1] = "msh"
+        end
+        local nested_shell = svc.makeNestedShell({ shell = shell })
+        svc.reloadShellEnv(nested_shell)
+        nested_shell.execute(table.unpack(params.command))
+    end)
+    flushOpQueue()
+
+    while not bg_command.isDead() do
+        local event = table.pack(pullEventNetworked())
+        if remote_events[event[1]] then
+            sendToClient({ type = "ack" })
+            -- The client adds dimension information to `term_resize` -- read it and make sure to
+            -- remove it for consistency with base CraftOS.
+            if event[1] == "term_resize" then
+                params.size[1], params.size[2] = event[2], event[3]
+                event = { "term_resize" }
+            end
+        end
+        bg_command.pushEvent(table.unpack(event, 1, event.n))
+        flushOpQueue()
+    end
+end)
 
 sendToClient({ type = "close", reason = "exit" }, "rsh")

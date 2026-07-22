@@ -86,6 +86,7 @@ svc.startProcess = proc.start
 svc.stopProcess = proc.stop
 svc.killProcess = proc.kill
 svc.listProcesses = proc.list
+svc.withImminentHandler = proc.withImminentHandler
 
 env.setShellPath(shell)
 svc.reload()
