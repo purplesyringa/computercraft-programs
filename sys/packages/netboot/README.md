@@ -4,7 +4,7 @@ Boot `svc` over the network. This enables easy global updates of not just data, 
 
 ## Usage
 
-The server needs to run `nfsd` with a directory containing a sysroot that clients will boot from. Use `netbootd <path of sysroot relative to nfs share>` to host a system. Look at the `nfsd` and `netbootd` service definitions for inspiration.
+`netbootd` hosts current sysroot over `nfs` (or serves the initrd image directly), and it expects `pub` to be the `nfs` share. `fileserver` target provides out-of-the-box solution for creating a netboot server.
 
 To boot from network, clients need to run the [boot.lua](boot.lua) script from this directory. You can either copy it to clients manually, or use `wget` to load it from the internet:
 
