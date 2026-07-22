@@ -86,7 +86,7 @@ fn serialize_string(out: &mut Vec<u8>, s: &LuaString, in_key: bool) {
         for &c in s.iter() {
             counts[c as usize] += 1;
         }
-        for &c in b"^$()%.[]*+-?'\r\\".iter() {
+        for &c in b"^$()%.[]*+-?'\r\n\\".iter() {
             counts[c as usize] = usize::MAX;
         }
         let escape = (0..=u8::MAX).min_by_key(|&c| counts[c as usize]).unwrap();
