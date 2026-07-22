@@ -39,13 +39,13 @@ if not initrd:match("=initrd") then
 end
 
 local env = setmetatable({ mounting = true }, { __index = _G })
-local startup, err = load(initrd, "=startup", nil, env)
-if not startup then
+local unpack_initrd, err = load(initrd, "=startup", nil, env)
+if not unpack_initrd then
     printError("Corrupted initrd.lua: " .. err)
     return
 end
 
-local ok, image = pcall(startup)
+local ok, image = pcall(unpack_initrd)
 if not ok then
     printError("Decompression error: " .. image)
     return
