@@ -79,7 +79,9 @@ function env.make(base_env)
         -- so there's no race when reading `_setup_env`.
         svc_setup_env
     )
-    return os._svc._setup_env
+    local nested_env = os._svc._setup_env
+    os._svc._setup_env = nil
+    return nested_env
 end
 
 function env.makeNestedShell(base_env)
@@ -156,4 +158,3 @@ function env.reloadShellEnv(shell)
 end
 
 return env
-
