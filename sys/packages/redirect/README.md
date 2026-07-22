@@ -4,9 +4,9 @@ Helper library for running coroutines with redirected terminal and event sources
 
 ## Usage
 
-### `redirect.runWithTerm(redirect, f, ...)`
+### `redirect.runWithTerm(redirect_term, redirect_seat, f, ...)`
 
-Mostly equivalent to `f(...)`. Each time the coroutine is resumed, the terminal is redirected to `redirect`, and each time it yields, the terminal is redirected back. If `f` errors, the error is printed to `redirect` as if by [`printError`](https://tweaked.cc/module/_G.html#v:printError) and the function returns. This function never fails (as long as the arguments have valid types) and always returns nothing, ignoring the return value of `f`.
+Mostly equivalent to `f(...)`. Each time the coroutine is resumed, the terminal is redirected to `redirect_term`, the current seat is updated to `redirect_seat`, and each time the coroutine yields, the terminal and the seat are redirected back. If `f` errors, the error is printed to `redirect_term` as if by [`printError`](https://tweaked.cc/module/_G.html#v:printError) and the function returns. This function never fails (as long as the arguments have valid types) and always returns nothing, ignoring the return value of `f`.
 
 ### `redirect.runWithEventSource(f, ...)`
 

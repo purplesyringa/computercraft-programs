@@ -1,16 +1,18 @@
-local function runWithTerm(redirect, f, ...)
+local function runWithTerm(redirect_term, redirect_seat, f, ...)
     local coro = coroutine.create(f)
     local event = table.pack(...)
     while true do
-        local old_term = term.current()
-        term.redirect(redirect)
+        local old_term, old_seat = term.current(), term._seat
+        term.redirect(redirect_term)
+        term._seat = redirect_seat
         local out = table.pack(coroutine.resume(coro, table.unpack(event, 1, event.n)))
         if not out[1] then
             printError(out[2])
         end
-        -- Reload `redirect` because the process might have set up its own terminal redirect.
-        redirect = term.current()
+        -- Reload `redirect_term` because the process might have set up its own terminal redirect.
+        redirect_term, redirect_seat = term.current(), term._seat
         term.redirect(old_term)
+        term._seat = old_seat
         if coroutine.status(coro) == "dead" then
             break
         end

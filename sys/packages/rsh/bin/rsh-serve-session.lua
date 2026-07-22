@@ -79,7 +79,7 @@ svc.withImminentHandler(function(reason)
     flushOpQueue()
     sendToClient({ type = "close", reason = reason })
 end, function()
-    local bg_command = redirect.runWithEventSource(redirect.runWithTerm, virtual_term, function()
+    local bg_command = redirect.runWithEventSource(redirect.runWithTerm, virtual_term, nil, function()
         if not params.command[1] then
             params.command[1] = "msh"
         end

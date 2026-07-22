@@ -22,7 +22,7 @@ After this, the computer can be configured as a panel via:
 svc reach metropanel --persist
 ```
 
-metropanel supports table view, similar to Create's displays, but without platform detection. To use table view, reach `metrotable` instead. Table metropanels require larger displays (about 4 blocks wide) or manual scaling, as automatic scaling is not yet implemented in getty.
+metropanel supports table view, similar to Create's displays, but without platform detection. To use table view, reach `metrotable` instead. Table metropanels require larger displays (about 4 blocks wide) or setting a scale for `metropanel` seat.
 
 ## Station naming convention
 
