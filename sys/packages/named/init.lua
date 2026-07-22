@@ -23,6 +23,9 @@ function named._hostHostname(hostname)
 end
 
 function named.setHostname(hostname)
+    if tonumber(hostname) then
+        error("Invalid hostname: " .. hostname)
+    end
     settings.set("named.hostname", hostname)
     settings.save()
     named._hostHostname(hostname)
