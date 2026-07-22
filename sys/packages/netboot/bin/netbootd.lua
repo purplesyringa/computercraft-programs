@@ -6,7 +6,11 @@ local vfs = require "vfs"
 vfs.unmount("pub/sys") -- clean up after a previous netbootd process
 fs.makeDir("pub/sys") -- create unconditionally as a mountpoint for tmpfs
 
-local code = [[
+local code = ([[
+    local id, boot_path = %q, %q
+]]):format(os.computerID(), "nfs/sys/packages/svc/boot.lua")
+
+code = code .. [[
     os._timings = {
         { "startup.lua", os._bt or 0 },
         { "netboot response", os.clock() },
@@ -14,7 +18,7 @@ local code = [[
     require "vfs.install"
     require("vfs").unmount("nfs")
     fs.makeDir("nfs")
-    require("nfs").mount("nfs", %q)
+    require("nfs").mount("nfs", id)
 ]]
 if os._initrd_tree then
     code = code .. [[
@@ -27,11 +31,10 @@ else
     bind.mount("sys", "pub/sys", true)
 end
 code = code .. [[
-    os.run(_ENV, %q, "packages.svc.boot", %q)
+    os.run(_ENV, boot_path, "packages.svc.boot", boot_path)
 ]]
 
-local boot_path = "nfs/sys/packages/svc/boot.lua"
-local code = pack.packString(code:format(os.computerID(), boot_path, boot_path))
+local code = pack.packString(code)
 
 local function reply(channel)
     rednet.send(channel, code, "netboot-response")
