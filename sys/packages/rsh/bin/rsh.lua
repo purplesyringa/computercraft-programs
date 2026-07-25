@@ -8,8 +8,10 @@ local function connect(server_id, ...)
     term.setCursorBlink(true)
     term.setTextColor(colors.white)
     term.setBackgroundColor(colors.black)
+    local palette = {}
     for i = 0, 15 do
         local index = bit.blshift(1, i)
+        palette[index] = colors.packRGB(term.getPaletteColor(index))
         term.setPaletteColor(index, term.nativePaletteColor(index))
     end
 
@@ -79,6 +81,11 @@ local function connect(server_id, ...)
                 end
             end
         end
+    end
+
+    for i = 0, 15 do
+        local index = bit.blshift(1, i)
+        term.setPaletteColor(index, palette[index])
     end
 end
 
