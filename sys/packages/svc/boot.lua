@@ -52,13 +52,14 @@ require "vfs.install"
 local runfs = require "runfs"
 runfs.mount(fs.combine(svc.sysroot, "run"))
 
+local configs = require "svc.configs"
 local env = require "svc.env"
 local proc = require "svc.proc"
-local targets = require "svc.targets"
 local services = require "svc.services"
+local targets = require "svc.targets"
 
 function svc.reload()
-    services.reload()
+    configs.reload()
     targets.reload()
 end
 

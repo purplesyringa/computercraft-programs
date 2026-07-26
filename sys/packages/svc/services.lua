@@ -1,72 +1,25 @@
-local proc = require "svc.proc"
 local env = require "svc.env"
+local configs = require "svc.configs"
+local proc = require "svc.proc"
 
-local sysroot = os._svc.sysroot
-
+-- Runtime service info. Services that never ran during the current boot are absent.
 -- {
 --     [name] = {
---         config? = ...,
---         config_error? = ...,
+--         -- Present only if a process is actively running.
 --         pid? = ...,
---         runtime_status = "stopped" | "running" | "finished" | "failed",
---         runtime_error? = ...,
+--         -- The runtime status of the process, not the logical status of the service. For example,
+--         -- a running oneshot service that's already been initialized will have `finished` here.
+--         status = "stopped" | "running" | "finished" | "failed",
+--         error? = ...,
 --     },
 --     ...
 -- }
-local services = {}
+local instances = {}
 
-local services_api = {
-    services = services,
-}
-
-function services_api.reload()
-    local name_to_paths = {}
-    local glob = fs.combine(sysroot, "run", "packages", "*", "services", "*.lua")
-    for _, path in pairs(fs.find(glob)) do
-        local name = fs.getName(path):gsub("%.lua$", "")
-        if not name_to_paths[name] then
-            name_to_paths[name] = {}
-        end
-        table.insert(name_to_paths[name], path)
-    end
-
-    for name, paths in pairs(name_to_paths) do
-        local ok, config_or_err = pcall(function()
-            if #paths > 1 then
-                error("Multiple manifests: " .. table.concat(paths, ", "), 0)
-            end
-            local module, err = loadfile(paths[1], nil, {})
-            if not module then
-                error(err, 0)
-            end
-            return module()
-        end)
-        if not services[name] then
-            services[name] = {
-                pid = nil,
-                runtime_status = "stopped",
-                runtime_error = nil,
-            }
-        end
-        local service = services[name]
-        if ok then
-            service.config, service.config_error = config_or_err, nil
-        else
-            service.config, service.config_error = nil, config_or_err
-        end
-    end
-
-    for name, service in pairs(services) do
-        if not name_to_paths[name] then
-            service.config = nil
-            service.config_error = "Manifest deleted"
-        end
-    end
-end
+local services_api = {}
 
 local function waitForStatusChange(name)
-    local service = services[name]
-    assert(service, name .. ": unknown service")
+    assert(configs.tryGetConfig(name), name .. ": unknown service")
     local _, updated_name
     repeat
         _, updated_name = os.pullEvent("service_status")
@@ -74,7 +27,7 @@ local function waitForStatusChange(name)
 end
 
 function services_api.waitUp(name)
-    assert(services[name], name .. ": unknown service")
+    assert(configs.tryGetConfig(name), name .. ": unknown service")
     while true do
         local status = services_api.status(name)
         if status.status == "stopped" then
@@ -89,7 +42,7 @@ function services_api.waitUp(name)
 end
 
 function services_api.waitDown(name)
-    assert(services[name], name .. ": unknown service")
+    assert(configs.tryGetConfig(name), name .. ": unknown service")
     while true do
         local status = services_api.status(name)
         if status.status == "stopped" then
@@ -109,11 +62,10 @@ local function runHook(hook)
 end
 
 function services_api.start(name)
+    local config = configs.getConfig(name)
+
     local function checkStatus()
         local status = services_api.status(name)
-        if not status then
-            error(name .. ": unknown service")
-        end
         if status.status == "up" then
             return true
         elseif status.status == "starting" then
@@ -128,38 +80,37 @@ function services_api.start(name)
         return
     end
 
-    local service = services[name]
     local closures = {}
-    for _, dependency in ipairs(service.config.requires or {}) do
+    for _, dependency in ipairs(config.requires or {}) do
         table.insert(closures, function() services_api.start(dependency) end)
     end
     parallel.waitForAll(table.unpack(closures))
 
     -- By the time the dependencies are started, the service might have already been started by
-    -- another instance of `services.start` or its config might be changed, so check again.
+    -- another instance of `services.start`, so check again.
     if checkStatus() then
         return
     end
-
-    service.runtime_status = "running"
-    service.runtime_error = nil
-    os.queueEvent("service_status", name)
+    -- The config at this point might differ from the one we used to check dependencies. We can't
+    -- detect this without deep comparison, and that's not possible for closures (if we don't want
+    -- `svc reload` to break all ongoing `svc start` commands). For now we just use the old config
+    -- for consistency.
 
     local start = nil
-    if service.config.type == "oneshot" then
+    if config.type == "oneshot" then
         start = function()
-            local ok, err = pcall(runHook, service.config.start)
+            local ok, err = pcall(runHook, config.start)
             if not ok then
-                local ok_stop, err_stop = pcall(runHook, service.config.stop)
+                local ok_stop, err_stop = pcall(runHook, config.stop)
                 if not ok_stop then
                     err = err .. "\nwhile stopping:\n" .. err_stop
                 end
                 error(err, 0)
             end
         end
-    elseif service.config.type == "process" then
+    elseif config.type == "process" then
         start = function()
-            local ok, err = pcall(env.execIsolated, table.unpack(service.config.command))
+            local ok, err = pcall(env.execIsolated, table.unpack(config.command))
             if not ok then
                 -- Log the error to screen, since the user won't be able to observe it without
                 -- a working shell otherwise.
@@ -171,67 +122,72 @@ function services_api.start(name)
 
     -- Run even oneshot services in a background process, since we don't want them to be cancelled
     -- if `services.start` is cancelled.
-    service.pid = proc.start("service " .. name, function()
+    local pid = proc.start("service " .. name, function()
         local ok, err = pcall(start)
         if not ok and err == "Terminated" then
-            service.runtime_status = "stopped"
+            instances[name] = { status = "stopped" }
         elseif ok then
-            service.runtime_status = "finished"
+            instances[name] = { status = "finished" }
         else
-            service.runtime_status = "failed"
-            service.runtime_error = err
+            instances[name] = { status = "failed", error = err }
         end
-        service.pid = nil
         os.queueEvent("service_status", name)
     end, function()
-        service.runtime_status = "failed"
-        service.runtime_error = "Killed"
-        service.pid = nil
+        instances[name] = { status = "failed", error = "Killed" }
         os.queueEvent("service_status", name)
     end)
 
-    if service.config.type == "oneshot" then
+    instances[name] = {
+        pid = pid,
+        status = "running",
+        error = nil,
+    }
+    os.queueEvent("service_status", name)
+
+    if config.type == "oneshot" then
         services_api.waitUp(name)
     end
 end
 
 function services_api.stop(name)
-    local service = services[name]
-    assert(service, name .. ": unknown service")
-    if not service.config then
-        error(name .. ": " .. service.config_error)
+    local config = configs.getConfig(name)
+
+    local instance = instances[name]
+    if not instance then
+        -- Hasn't ever started.
+        return
     end
 
     local function assertNotRequired()
-        for name2, service2 in pairs(services) do
+        for name2, _ in pairs(instances) do
             local status2 = services_api.status(name2).status
-            if (
-                (status2 == "starting" or status2 == "up")
-                and service2.config and service2.config.requires
-            ) then
-                for _, name3 in pairs(service2.config.requires) do
-                    if name3 == name then
-                        error(name .. ": required by running service " .. name2)
+            if status2 == "starting" or status2 == "up" then
+                local ok, config2 = pcall(configs.getConfig, name2)
+                if ok then
+                    for _, name3 in pairs(config2.requires or {}) do
+                        if name3 == name then
+                            error(name .. ": required by running service " .. name2)
+                        end
                     end
                 end
             end
         end
     end
 
-    if service.runtime_status == "running" then
+    if instance.status == "running" then
         assertNotRequired()
-        proc.stop(service.pid)
+        proc.stop(instance.pid)
         -- For oneshot services, `stop` throws an error, which `pcall` in `start` catches and stops
-        -- the service, so there is no need to call `service.config.stop` or update the status here.
+        -- the service, so there is no need to call `config.stop` or update the status here.
         services_api.waitDown(name)
-    elseif service.config.type == "oneshot" and service.runtime_status == "finished" then
+    elseif config.type == "oneshot" and instance.status == "finished" then
         assertNotRequired()
-        local ok, err = pcall(runHook, service.config.stop)
+        local ok, err = pcall(runHook, config.stop)
         if ok then
-            service.runtime_status = "stopped"
+            instance.status = "stopped"
         else
-            service.runtime_status = "failed"
-            service.runtime_error = err
+            instance.status = "failed"
+            instance.error = err
         end
         os.queueEvent("service_status", name)
         if not ok then
@@ -241,17 +197,21 @@ function services_api.stop(name)
 end
 
 function services_api.kill(name)
-    local service = services[name]
-    assert(service, name .. ": unknown service")
-    if service.runtime_status == "running" then
-        proc.kill(service.pid)
-    elseif (
-        service.config
-        and service.config.type == "oneshot"
-        and service.runtime_status == "finished"
-    ) then
-        service.runtime_status = "failed"
-        service.runtime_error = "Killed"
+    local config_result = configs.tryGetConfig(name)
+    assert(config_result, name .. ": unknown service")
+    local config = config_result.config
+
+    local instance = instances[name]
+    if not instance then
+        -- Hasn't ever started.
+        return
+    end
+
+    if instance.status == "running" then
+        proc.kill(instance.pid)
+    elseif config and config.type == "oneshot" and instance.status == "finished" then
+        instance.status = "failed"
+        instance.error = "Killed"
         os.queueEvent("service_status", name)
     end
 end
@@ -261,59 +221,62 @@ local function copyTable(t)
 end
 
 function services_api.status(name)
-    local service = services[name]
-    if not service then
+    local result = configs.tryGetConfig(name)
+    if not result then
         return nil
     end
-    if not service.config then
+
+    local config = result.config
+    if not config then
         return {
             status = "failed",
-            error = service.config_error,
+            error = result.error,
             requires = {},
             description = nil,
         }
     end
 
+    local instance = instances[name] or {
+        status = "stopped",
+        error = nil,
+    }
+
     local status
-    if service.config.type == "oneshot" then
+    if config.type == "oneshot" then
         status = ({
             stopped = "stopped",
             running = "starting",
             finished = "up",
             failed = "failed",
-        })[service.runtime_status]
-    elseif service.config.type == "process" then
+        })[instance.status]
+    elseif config.type == "process" then
         status = ({
             stopped = "stopped",
             running = "up",
             finished = "stopped",
             failed = "failed",
-        })[service.runtime_status]
+        })[instance.status]
     end
 
     local err = nil
-    if service.runtime_status == "failed" then
-        err = service.runtime_error
+    if instance.status == "failed" then
+        err = instance.error
     end
 
     return {
         status = status,
         error = err,
-        requires = copyTable(service.config.requires or {}),
-        description = service.config.description,
+        requires = copyTable(config.requires or {}),
+        description = config.description,
     }
 end
 
 function services_api.allStatus()
     local status = {}
-    for service, _ in pairs(services) do
-        status[service] = services_api.status(service)
+    for _, name in ipairs(configs.getConfigList()) do
+        status[name] = services_api.status(name)
     end
     return status
-end
-
-function services_api._getServices()
-    return services
 end
 
 return services_api
