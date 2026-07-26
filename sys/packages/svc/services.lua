@@ -10,6 +10,7 @@ local proc = require "svc.proc"
 --         -- The runtime status of the process, not the logical status of the service. For example,
 --         -- a running oneshot service that's already been initialized will have `finished` here.
 --         status = "stopped" | "running" | "finished" | "failed",
+--         -- Present only if the status is `failed`.
 --         error? = ...,
 --     },
 --     ...
@@ -18,19 +19,19 @@ local instances = {}
 
 local services_api = {}
 
+local function notifyStatusChange(name)
+    os.queueEvent("service_status#" .. name)
+end
 local function waitForStatusChange(name)
-    assert(configs.tryGetConfig(name), name .. ": unknown service")
-    local _, updated_name
-    repeat
-        _, updated_name = os.pullEvent("service_status")
-    until updated_name == name
+    os.pullEvent("service_status#" .. name)
 end
 
 function services_api.waitUp(name)
-    assert(configs.tryGetConfig(name), name .. ": unknown service")
     while true do
         local status = services_api.status(name)
-        if status.status == "stopped" then
+        if not status then
+            error(name .. ": unknown service")
+        elseif status.status == "stopped" then
             error(name .. ": service stopped")
         elseif status.status == "failed" then
             error(name .. ": " .. status.error)
@@ -42,10 +43,11 @@ function services_api.waitUp(name)
 end
 
 function services_api.waitDown(name)
-    assert(configs.tryGetConfig(name), name .. ": unknown service")
     while true do
         local status = services_api.status(name)
-        if status.status == "stopped" then
+        if not status then
+            error(name .. ": unknown service")
+        elseif status.status == "stopped" then
             return
         elseif status.status == "failed" then
             error(name .. ": " .. status.error)
@@ -62,21 +64,13 @@ local function runHook(hook)
 end
 
 function services_api.start(name)
+    -- Doing this early makes sure that the config exists and we won't get errors down below.
     local config = configs.getConfig(name)
 
-    local function checkStatus()
-        local status = services_api.status(name)
-        if status.status == "up" then
-            return true
-        elseif status.status == "starting" then
-            services_api.waitUp(name)
-            return true
-        else
-            return false
-        end
-    end
-
-    if checkStatus() then
+    -- Don't bother starting the service if another thread is already working on that.
+    local status = services_api.status(name)
+    if status.status == "up" or status.status == "starting" then
+        services_api.waitUp(name)
         return
     end
 
@@ -88,7 +82,9 @@ function services_api.start(name)
 
     -- By the time the dependencies are started, the service might have already been started by
     -- another instance of `services.start`, so check again.
-    if checkStatus() then
+    status = services_api.status(name)
+    if status.status == "up" or status.status == "starting" then
+        services_api.waitUp(name)
         return
     end
     -- The config at this point might differ from the one we used to check dependencies. We can't
@@ -131,25 +127,23 @@ function services_api.start(name)
         else
             instances[name] = { status = "failed", error = err }
         end
-        os.queueEvent("service_status", name)
+        notifyStatusChange(name)
     end, function()
         instances[name] = { status = "failed", error = "Killed" }
-        os.queueEvent("service_status", name)
+        notifyStatusChange(name)
     end)
 
-    instances[name] = {
-        pid = pid,
-        status = "running",
-        error = nil,
-    }
-    os.queueEvent("service_status", name)
+    instances[name] = { pid = pid, status = "running" }
+    notifyStatusChange(name)
 
+    -- Oneshot services are not considered up until the process finishes.
     if config.type == "oneshot" then
         services_api.waitUp(name)
     end
 end
 
 function services_api.stop(name)
+    -- Validate that the request even makes sense.
     local config = configs.getConfig(name)
 
     local instance = instances[name]
@@ -159,6 +153,7 @@ function services_api.stop(name)
     end
 
     local function assertNotRequired()
+        -- Is there any running service that depends on this one?
         for name2, _ in pairs(instances) do
             local status2 = services_api.status(name2).status
             if status2 == "starting" or status2 == "up" then
@@ -189,7 +184,7 @@ function services_api.stop(name)
             instance.status = "failed"
             instance.error = err
         end
-        os.queueEvent("service_status", name)
+        notifyStatusChange(name)
         if not ok then
             error(name .. ": " .. err)
         end
@@ -212,12 +207,8 @@ function services_api.kill(name)
     elseif config and config.type == "oneshot" and instance.status == "finished" then
         instance.status = "failed"
         instance.error = "Killed"
-        os.queueEvent("service_status", name)
+        notifyStatusChange(name)
     end
-end
-
-local function copyTable(t)
-    return table.move(t, 1, #t, 1, {})
 end
 
 function services_api.status(name)
@@ -266,7 +257,7 @@ function services_api.status(name)
     return {
         status = status,
         error = err,
-        requires = copyTable(config.requires or {}),
+        requires = config.requires or {},
         description = config.description,
     }
 end
