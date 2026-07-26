@@ -7,9 +7,8 @@ local proc = require "svc.proc"
 --     [name] = {
 --         -- Present only if a process is actively running.
 --         pid? = ...,
---         -- The runtime status of the process, not the logical status of the service. For example,
---         -- a running oneshot service that's already been initialized will have `finished` here.
---         status = "stopped" | "running" | "finished" | "failed",
+--         -- The logical state of the service.
+--         status = "stopped" | "starting" | "up" | "failed",
 --         -- Present only if the status is `failed`.
 --         error? = ...,
 --     },
@@ -27,30 +26,30 @@ local function waitForStatusChange(name)
 end
 
 function services_api.waitUp(name)
-    while true do
-        local status = services_api.status(name)
-        if not status then
-            error(name .. ": unknown service")
-        elseif status.status == "stopped" then
-            error(name .. ": service stopped")
-        elseif status.status == "failed" then
-            error(name .. ": " .. status.error)
-        elseif status.status == "up" then
-            return
-        end
+    while instances[name] and instances[name].status == "starting" do
         waitForStatusChange(name)
+    end
+    local instance = instances[name]
+    if not instance then
+        error(name .. ": unknown service")
+    elseif instance.status == "stopped" then
+        error(name .. ": service stopped")
+    elseif instance.status == "up" then
+        return
+    elseif instance.status == "failed" then
+        error(name .. ": " .. instance.error)
     end
 end
 
 function services_api.waitDown(name)
     while true do
-        local status = services_api.status(name)
-        if not status then
+        local instance = instances[name]
+        if not instance then
             error(name .. ": unknown service")
-        elseif status.status == "stopped" then
+        elseif instance.status == "stopped" then
             return
-        elseif status.status == "failed" then
-            error(name .. ": " .. status.error)
+        elseif instance.status == "failed" then
+            error(name .. ": " .. instance.error)
         end
         waitForStatusChange(name)
     end
@@ -63,13 +62,41 @@ local function runHook(hook)
     end
 end
 
+-- The main logic of a service process.
+local function run(config, ready)
+    if config.type == "oneshot" then
+        local ok, err = pcall(runHook, config.start)
+        if not ok then
+            local ok_stop, err_stop = pcall(runHook, config.stop)
+            if not ok_stop then
+                err = err .. "\nwhile stopping:\n" .. err_stop
+            end
+            error(err, 0)
+        end
+        ready()
+        -- Keep alive to indicate an "up" status, waiting for an external signal to stop.
+        os.pullEventRaw("terminate")
+        runHook(config.stop)
+    elseif config.type == "process" then
+        -- Immediately signal "up" status. TODO: allow services to signal readiness explicitly.
+        ready()
+        local ok, err = pcall(env.execIsolated, table.unpack(config.command))
+        if not ok then
+            -- Log the error to screen, since the user won't be able to observe it without
+            -- a working shell otherwise.
+            printError(err)
+            error(err, 0)
+        end
+    end
+end
+
 function services_api.start(name)
     -- Doing this early makes sure that the config exists and we won't get errors down below.
     local config = configs.getConfig(name)
 
     -- Don't bother starting the service if another thread is already working on that.
-    local status = services_api.status(name)
-    if status.status == "up" or status.status == "starting" then
+    local instance = instances[name]
+    if instance and (instance.status == "starting" or instance.status == "up") then
         services_api.waitUp(name)
         return
     end
@@ -82,8 +109,8 @@ function services_api.start(name)
 
     -- By the time the dependencies are started, the service might have already been started by
     -- another instance of `services.start`, so check again.
-    status = services_api.status(name)
-    if status.status == "up" or status.status == "starting" then
+    instance = instances[name]
+    if instance and (instance.status == "starting" or instance.status == "up") then
         services_api.waitUp(name)
         return
     end
@@ -92,38 +119,15 @@ function services_api.start(name)
     -- `svc reload` to break all ongoing `svc start` commands). For now we just use the old config
     -- for consistency.
 
-    local start = nil
-    if config.type == "oneshot" then
-        start = function()
-            local ok, err = pcall(runHook, config.start)
-            if not ok then
-                local ok_stop, err_stop = pcall(runHook, config.stop)
-                if not ok_stop then
-                    err = err .. "\nwhile stopping:\n" .. err_stop
-                end
-                error(err, 0)
-            end
-        end
-    elseif config.type == "process" then
-        start = function()
-            local ok, err = pcall(env.execIsolated, table.unpack(config.command))
-            if not ok then
-                -- Log the error to screen, since the user won't be able to observe it without
-                -- a working shell otherwise.
-                printError(err)
-                error(err, 0)
-            end
-        end
+    local function ready()
+        instances[name].status = "up" -- don't drop `pid`
+        notifyStatusChange(name)
     end
 
-    -- Run even oneshot services in a background process, since we don't want them to be cancelled
-    -- if `services.start` is cancelled.
     local pid = proc.start("service " .. name, function()
-        local ok, err = pcall(start)
-        if not ok and err == "Terminated" then
+        local ok, err = pcall(run, config, ready)
+        if ok or err == "Terminated" then
             instances[name] = { status = "stopped" }
-        elseif ok then
-            instances[name] = { status = "finished" }
         else
             instances[name] = { status = "failed", error = err }
         end
@@ -133,81 +137,55 @@ function services_api.start(name)
         notifyStatusChange(name)
     end)
 
-    instances[name] = { pid = pid, status = "running" }
+    instances[name] = { pid = pid, status = "starting" }
     notifyStatusChange(name)
 
     -- Oneshot services are not considered up until the process finishes.
-    if config.type == "oneshot" then
-        services_api.waitUp(name)
-    end
+    services_api.waitUp(name)
 end
 
 function services_api.stop(name)
-    -- Validate that the request even makes sense.
-    local config = configs.getConfig(name)
-
     local instance = instances[name]
     if not instance then
-        -- Hasn't ever started.
+        -- Allow stopping non-existent instances as long as they could exist (i.e. a config exists).
+        configs.getConfig(name)
+        return
+    end
+    -- Stopping a service doesn't require a working config, so don't validate it.
+
+    if instance.status ~= "starting" and instance.status ~= "up" then
         return
     end
 
-    local function assertNotRequired()
-        -- Is there any running service that depends on this one?
-        for name2, _ in pairs(instances) do
-            local status2 = services_api.status(name2).status
-            if status2 == "starting" or status2 == "up" then
-                local ok, config2 = pcall(configs.getConfig, name2)
-                if ok then
-                    for _, name3 in pairs(config2.requires or {}) do
-                        if name3 == name then
-                            error(name .. ": required by running service " .. name2)
-                        end
+    -- Is there any running service that depends on this one?
+    for name2, instance2 in pairs(instances) do
+        if instance2.status == "starting" or instance2.status == "up" then
+            local ok, config2 = pcall(configs.getConfig, name2)
+            if ok then
+                for _, name3 in pairs(config2.requires or {}) do
+                    if name3 == name then
+                        error(name .. ": required by running service " .. name2)
                     end
                 end
             end
         end
     end
 
-    if instance.status == "running" then
-        assertNotRequired()
-        proc.stop(instance.pid)
-        -- For oneshot services, `stop` throws an error, which `pcall` in `start` catches and stops
-        -- the service, so there is no need to call `config.stop` or update the status here.
-        services_api.waitDown(name)
-    elseif config.type == "oneshot" and instance.status == "finished" then
-        assertNotRequired()
-        local ok, err = pcall(runHook, config.stop)
-        if ok then
-            instance.status = "stopped"
-        else
-            instance.status = "failed"
-            instance.error = err
-        end
-        notifyStatusChange(name)
-        if not ok then
-            error(name .. ": " .. err)
-        end
-    end
+    proc.stop(instance.pid)
+    -- `stop` throws an error into the running coroutine, which cleans everything up, so there's no
+    -- need to run clean-up code or update the status here.
+    services_api.waitDown(name)
 end
 
 function services_api.kill(name)
+    -- Follows the logic in `services_api.stop`.
     local instance = instances[name]
-    local config_result = configs.tryGetConfig(name)
     if not instance then
-        -- Hasn't ever started, so an absent config is undoubtedly an error.
-        assert(config_result, name .. ": unknown service")
+        configs.getConfig(name)
         return
     end
-    -- If the service is known to exist, treat config deletion as any other config error.
-    local config = config_result and config_result.config
-
-    if instance.status == "running" then
+    if instance.status == "starting" or instance.status == "up" then
         proc.kill(instance.pid)
-    elseif config and config.type == "oneshot" and instance.status == "finished" then
-        instance.status = "failed"
-        instance.error = "Killed"
-        notifyStatusChange(name)
     end
 end
 
@@ -232,36 +210,12 @@ function services_api.status(name)
         }
     end
 
-    instance = instance or {
-        status = "stopped",
-        error = nil,
-    }
-
-    local status
-    if config.type == "oneshot" then
-        status = ({
-            stopped = "stopped",
-            running = "starting",
-            finished = "up",
-            failed = "failed",
-        })[instance.status]
-    elseif config.type == "process" then
-        status = ({
-            stopped = "stopped",
-            running = "up",
-            finished = "stopped",
-            failed = "failed",
-        })[instance.status]
-    end
-
-    local err = nil
-    if instance.status == "failed" then
-        err = instance.error
-    end
+    -- A service that has never been started is effectively stopped.
+    instance = instance or { status = "stopped" }
 
     return {
-        status = status,
-        error = err,
+        status = instance.status,
+        error = instance.error,
         requires = config.requires or {},
         description = config.description,
     }
