@@ -69,7 +69,7 @@ local function waitForStatusChange(name)
     assert(service, name .. ": unknown service")
     local _, updated_name
     repeat
-        _, updated_name = os.pullEventRaw("service_status")
+        _, updated_name = os.pullEvent("service_status")
     until updated_name == name
 end
 
