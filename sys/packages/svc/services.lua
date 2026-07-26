@@ -250,13 +250,8 @@ function services_api.kill(name)
         and service.config.type == "oneshot"
         and service.runtime_status == "finished"
     ) then
-        local ok, err = pcall(runHook, service.config.stop)
-        if ok then
-            service.runtime_status = "stopped"
-        else
-            service.runtime_status = "failed"
-            service.runtime_error = err
-        end
+        service.runtime_status = "failed"
+        service.runtime_error = "Killed"
         os.queueEvent("service_status", name)
     end
 end
