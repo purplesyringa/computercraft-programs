@@ -192,15 +192,15 @@ function services_api.stop(name)
 end
 
 function services_api.kill(name)
-    local config_result = configs.tryGetConfig(name)
-    assert(config_result, name .. ": unknown service")
-    local config = config_result.config
-
     local instance = instances[name]
+    local config_result = configs.tryGetConfig(name)
     if not instance then
-        -- Hasn't ever started.
+        -- Hasn't ever started, so an absent config is undoubtedly an error.
+        assert(config_result, name .. ": unknown service")
         return
     end
+    -- If the service is known to exist, treat config deletion as any other config error.
+    local config = config_result and config_result.config
 
     if instance.status == "running" then
         proc.kill(instance.pid)
@@ -212,22 +212,27 @@ function services_api.kill(name)
 end
 
 function services_api.status(name)
-    local result = configs.tryGetConfig(name)
-    if not result then
+    local instance = instances[name]
+    local config_result = configs.tryGetConfig(name)
+    if instance then
+        -- Services that have been started, but whose configs have been deleted since, still exist.
+        config_result = config_result or { error = "manifest deleted" }
+    end
+    if not config_result then
         return nil
     end
 
-    local config = result.config
+    local config = config_result.config
     if not config then
         return {
             status = "failed",
-            error = result.error,
+            error = config_result.error,
             requires = {},
             description = nil,
         }
     end
 
-    local instance = instances[name] or {
+    instance = instance or {
         status = "stopped",
         error = nil,
     }
@@ -263,9 +268,16 @@ function services_api.status(name)
 end
 
 function services_api.allStatus()
+    -- Populate from both running instances and configs. Services whose configs have been deleted
+    -- are exclusive to the former, services that have never been started are unique to the latter.
     local status = {}
-    for _, name in ipairs(configs.getConfigList()) do
+    for name, _ in pairs(instances) do
         status[name] = services_api.status(name)
+    end
+    for _, name in ipairs(configs.getConfigList()) do
+        if not status[name] then
+            status[name] = services_api.status(name)
+        end
     end
     return status
 end

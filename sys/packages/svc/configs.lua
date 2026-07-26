@@ -23,6 +23,7 @@ function configs_api.reload()
         table.insert(name_to_paths[name], path)
     end
 
+    configs = {}
     for name, paths in pairs(name_to_paths) do
         local ok, config_or_err = pcall(function()
             if #paths > 1 then
@@ -40,13 +41,6 @@ function configs_api.reload()
             configs[name] = { config = config_or_err }
         else
             configs[name] = { error = config_or_err }
-        end
-    end
-
-    -- Keep deleted configs in the map, since there may be active services using them.
-    for name, _ in pairs(configs) do
-        if not name_to_paths[name] then
-            configs[name] = { error = "Manifest deleted" }
         end
     end
 end
