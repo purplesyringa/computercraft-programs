@@ -30,7 +30,10 @@ function proc.start(name, f, on_killed)
     processes[pid] = {
         name = name,
         coroutine = coroutine.create(f),
-        filter = nil,
+        -- Set an impossible filter to avoid delivering events to a process that hasn't started yet.
+        -- Otherwise the intended `deliverEvent(pid)` bootstrapping call will arrive after the
+        -- process has started listening to events and lead `pullEvent` to return `nil`.
+        filter = false,
         on_killed = on_killed,
     }
     table.insert(processes_to_start, pid)
