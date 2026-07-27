@@ -1,5 +1,6 @@
+local environ = require "environ"
+local core = require "core"
 local named = require "named"
-local svc = require "svc"
 
 local open_sessions = {}
 
@@ -10,8 +11,8 @@ while true do
         params.client = client_id
         local id = string.format("%d:%d", params.client, params.session)
         open_sessions[id] = params
-        svc.startProcess("rsh-serve-session " .. id, function()
-            shell.execute("rsh-serve-session", textutils.serialize(params))
+        core.startProcess("rsh-serve-session " .. id, function()
+            environ.exec({}, "rsh-serve-session", textutils.serialize(params))
             open_sessions[id] = nil
         end, function()
             open_sessions[id] = nil

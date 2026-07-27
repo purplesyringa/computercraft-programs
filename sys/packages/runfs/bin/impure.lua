@@ -1,9 +1,9 @@
+local core = require "core"
 local runfs = require "runfs"
-local svc = require "svc"
 
 local function showGroupStatus(kind)
     local sysroot_items = {}
-    for _, file_name in pairs(fs.list(fs.combine(svc.sysroot, kind))) do
+    for _, file_name in pairs(fs.list(fs.combine(core.sysroot, kind))) do
         sysroot_items[file_name] = true
     end
 
@@ -58,7 +58,7 @@ local function showStatus()
     print()
     showGroupStatus("packages")
     showGroupStatus("targets")
-    if fs.exists(fs.combine(svc.sysroot, ".official")) then
+    if fs.exists(fs.combine(core.sysroot, ".official")) then
         term.setTextColor(colors.green)
         print("Booted from an official release")
     else

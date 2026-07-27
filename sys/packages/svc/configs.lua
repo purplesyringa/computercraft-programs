@@ -1,4 +1,4 @@
-local sysroot = os._svc.sysroot
+local core = require "core"
 
 -- On-disk configs, i.e. service templates. These have no relation to the runtime state.
 -- {
@@ -14,7 +14,7 @@ local configs_api = {}
 
 function configs_api.reload()
     local name_to_paths = {}
-    local glob = fs.combine(sysroot, "run", "packages", "*", "services", "*.lua")
+    local glob = fs.combine(core.sysroot, "run", "packages", "*", "services", "*.lua")
     for _, path in pairs(fs.find(glob)) do
         local name = fs.getName(path):gsub("%.lua$", "")
         if not name_to_paths[name] then

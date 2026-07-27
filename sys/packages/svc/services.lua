@@ -1,6 +1,6 @@
-local env = require "svc.env"
+local environ = require "environ"
 local configs = require "svc.configs"
-local proc = require "svc.proc"
+local core = require "core"
 
 -- Runtime service info. Services that never ran during the current boot are absent.
 -- {
@@ -82,7 +82,7 @@ end
 
 local function runHook(hook)
     if hook then
-        debug.setfenv(hook, env.make())
+        debug.setfenv(hook, environ.make({ sysroot_require = true }))
         hook()
     end
 end
@@ -109,7 +109,7 @@ local function run(config, setStatus)
     elseif config.type == "process" then
         -- Immediately signal "up" status. TODO: allow services to signal readiness explicitly.
         setStatus("up")
-        local ok, err = pcall(env.execIsolated, table.unpack(config.command))
+        local ok, err = pcall(environ.exec, {}, table.unpack(config.command))
         if not ok then
             -- Log the error to screen, since the user won't be able to observe it without
             -- a working shell otherwise.
@@ -132,7 +132,7 @@ function services_api.bringUpFromPlan(plan)
         if not isActive(instances[name]) then
             -- Start background threads for all services without yielding, so that the plan is
             -- enacted consistently even if this function is cancelled.
-            local pid = proc.start("service " .. name, function()
+            local pid = core.startProcess("service " .. name, function()
                 local ok, err = pcall(run, config, function(status)
                     instances[name].status = status -- don't drop `pid`
                     notifyStatusChange(name)
@@ -161,7 +161,7 @@ end
 function services_api.killAllExpect(set)
     for name, instance in pairs(instances) do
         if not set[name] and isActive(instance) then
-            proc.kill(instance.pid)
+            core.killProcess(instance.pid)
             -- `on_killed` will update the status accordingly.
         end
     end
@@ -203,7 +203,7 @@ function services_api.isolateByPlan(plan)
             end
             local instance = instances[name]
             if isActive(instance) then
-                proc.stop(instance.pid)
+                core.stopProcess(instance.pid)
                 waitDown(name)
             end
         end)
@@ -235,7 +235,7 @@ function services_api.stop(name)
         end
     end
 
-    proc.stop(instance.pid)
+    core.stopProcess(instance.pid)
     -- `stop` throws an error into the running coroutine, which cleans everything up, so there's no
     -- need to run clean-up code or update the status here.
     waitDown(name)
@@ -249,7 +249,7 @@ function services_api.kill(name)
         return
     end
     if isActive(instance) then
-        proc.kill(instance.pid)
+        core.killProcess(instance.pid)
     end
 end
 

@@ -14,7 +14,7 @@ settings.define("netbootd.tag", {
 
 local code = ([[
     local id, boot_path = %q, %q
-]]):format(os.computerID(), "nfs/sys/packages/svc/boot.lua")
+]]):format(os.computerID(), "nfs/sys/packages/core/boot.lua")
 
 code = code .. [[
     os._timings = {
@@ -37,7 +37,7 @@ else
     bind.mount("sys", "pub/sys", true)
 end
 code = code .. [[
-    os.run(_ENV, boot_path, "packages.svc.boot", boot_path)
+    os.run(_ENV, boot_path, "packages.core.boot", boot_path)
 ]]
 
 local code = pack.packString(code)

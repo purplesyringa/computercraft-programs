@@ -1,28 +1,14 @@
 # svc
 
-A service, process, system, and package manager. This is basically systemd on steroids.
+A service manager.
 
-## Booting the OS
+`svc` is not a normal library: while it can be `require` to access APIs for controlling services, those APIs are only available when the system has booted from [`svc-boot`](bin/svc-boot.lua), which in general is not required.
 
-`svc` is not a normal library: while it can be included to access APIs for controlling the running system, those APIs are only available when the entire system is running under `svc`.
+The main two nouns of `svc` are *services* and *targets*.
 
-To start the OS, you can either run [`boot.lua`](boot.lua) from this directory or [`startup.lua`](../../startup.lua) from the sysroot (which basically just `require`s `boot.lua`):
+## Services
 
-```shell
-> <sysroot>/packages/svc/boot
-or
-> <sysroot>/startup
-```
-
-Upon booting, you should be facing a familiar ([but improved](../msh)) shell.
-
-To configure the OS to start automatically, save `shell.run("<sysroot>/startup")` to `startup.lua` in the disk root.
-
-## Services and processes
-
-`svc` mainly manages two core things: services and processes.
-
-Services define the runtime properties of the system. Services control what the user-facing program is (the [`msh`](../msh) shell by default), what programs are run in the background (e.g. [`rshd`](../rshd)), and what hooks are run when the system is started (e.g. [`named`](../named)). Services are referred to by a short name and are not otherwise configurable. You can view the list of declared and running services by running `svc`, start services with `svc start <name>`, and stop them with `svc stop <name>`:
+Services define the runtime properties of the system. They control what the user-facing program is (the [`msh`](../msh) shell by default), what programs are run in the background (e.g. [`rshd`](../rshd)), and what hooks are run when the system is started (e.g. [`named`](../named)). Services are referred to by a short name and are not otherwise configurable. You can view the list of declared and running services by running `svc`, start services with `svc start <name>`, and stop them with `svc stop <name>`:
 
 ```shell
 > svc
@@ -36,86 +22,10 @@ nfsd            stopped
 rshd            up
 ```
 
-Processes are tasks that are automatically polled by `svc`. Anything that doesn't have a parent or that shouldn't be cancelled when its parent is stopped is a process. This includes all commands configured by servives, e.g. `msh` and `rshd`, as well as detached background tasks, like [`rsh-serve-session`](../rsh/bin/rsh-serve-session.lua). It does not include commands manually run from the shell. The list of running processes can be viewed with `proc`:
-
-```shell
-> proc
-PID Name
-5   service rshd
-6   service msh
-```
-
-Processes can be killed with `proc stop <pid>` and started with `proc start <program> <args...>`. Note that the process runs in the global environment, so it's `term` may be different from the current seat or `multishell`, and it will receive unprocessed native events.
-
-Processes are a more low-level mechanism than services, and you typically don't need to be aware of them. You might mainly be interested in processes to kill hung [`rsh`](../rsh) sessions or to start temporary [`getty`](../getty) sessions.
-
-## Targets
-
-Targets specify the sets of services that are started when the system boots. For example, the target `base` includes services like `msh`, `named`, and `rshd`. Targets can *inherit* from smaller targets, like `base`, so that you don't need to repeat yourself. For example, in a kiosk-like application, you might define the target `kiosk` that inherits from `base` and adds a `kiosk` service.
-
-You can start services according to a target temporarily with `svc reach <name>`, or make it the default boot target with `set svc.target <name>`.
-
-## Recovery shell
-
-When `svc` is running, <kbd>Alt+Terminate</kbd> starts a recovery shell by reaching `base` and then `shell`. This hotkey can be entered only on internal keyboard, as the corresponding [`getty`](../getty) processes will likely die as a consequence of not being included in `shell` target, hence the "recovery" in the name.
-
-## Packages
-
-Packages are units of applications. A package can define:
-
-- A library that can be imported from other packages with `require` (Lua files in the package directory, with `init.lua` as root).
-- One or more executables that are automatically made available in `PATH` and can use any packages (`bin` subdirectory of the package directory).
-- One or more services that are automatically visible to `svc` and can be started manually or via targets (`services` subdirectory of the package directory).
-
-For example:
-
-- `svc` declares a library, programs like `svc` and `proc`, and no services.
-- `rsh` declares no library, but has three programs `rsh`, `rshd`, `rsh-serve-session`, and the `rshd` service.
-
-Packages are stored in the [`packages`](..) subdirectory of the sysroot. They cannot be installed otherwise or located elsewhere: whatever is in `packages` declares the entire environment.
-
-When booting, `svc` mounts a [virtual filesystem](../vfs) called `runfs` at `<sysroot>/run` that contains a wrapper for each declared executable in the `bin` subdirectory. This directory is added to `PATH` on boot so that programs can be run without specifying a path. When invoked, the wrappers configure the `require` function to look for imports in the `<sysroot>/packages` directory, so that executables can `require` libraries from packages.
-
-Since the `require` configuration is propagated to all modules imported within a program, it means that each `require` is relative to the `packages` directory, rather than the per-package subdirectory, differing from normal ComputerCraft:
+A service definition is a Lua file stored in `packages/*/services/*.lua`. It is run with an empty environment and is not supposed to have local variables or do anything except returning a table literal, for example:
 
 ```lua
--- <sysroot>/packages/foo/init.lua
-assert(require "foo.submodule" == "foo_submodule")
-assert(require "bar" == "bar")
-
--- <sysroot>/packages/foo/submodule.lua
-return "foo_submodule"
-
--- <sysroot>/packages/bar/init.lua
-return "bar"
-```
-
-## Configuration
-
-Now that you understand the moving pieces, we can look at how services, targets, and packages are set up. Let's look at the `rsh` package for example:
-
-```
-sys
-└── packages
-   └── rsh
-      ├── events.lua
-      ├── vt.lua
-      ├── bin
-      │  ├── rsh-serve-session.lua
-      │  ├── rsh.lua
-      │  └── rshd.lua
-      └── services
-         └── rshd.lua
-...
-```
-
-`rsh` does not declare a library directly since it doesn't have `init.lua`, so `require "rsh"` won't work. However, since it has `events.lua` and `vt.lua`, using `require "rsh.events"` and `require "rsh.vt"` will load the corresponding files. This allows `rsh` to have private modules shared by multiple executables.
-
-The `bin` directory contains three files that can be executed from shell by their name without the `.lua` suffix: `rsh-serve-session`, `rsh`, `rshd`. `rsh-serve-session` is an internal binary and is not supposed to be invoked directly, hence an unwieldy name. `rsh` is supposed to be invoked by clients, and `rshd` hosts the server. Each file is loaded directly via `dofile` and is no different from a normal CraftOS application, except for `require` paths being set up differently.
-
-To avoid having to run `rshd` in a multishell by hand, the `rsh` package also declares the `rshd` service:
-
-```lua
+-- rshd.lua
 return {
     description = "Hosts remote shell server",
     type = "process",
@@ -123,9 +33,19 @@ return {
 }
 ```
 
-A service definition is a normal Lua file. It is run with an empty environment and is not supposed to have local variables or do anything except returning a table literal. `description` is a string that declares the purpose of the service and is shown by `svc status <name>`. `type` declares what kind of runtime behavior the service has, and can be one of two values:
+`description` is a string that declares the purpose of the service and is shown by `svc status <name>`.
 
-- `process` means that a command specified in the `command` field should be run. The first element is the name of the program (automatically resolved according to `PATH`), and the rest are arguments. The service is considered to be up as soon as the command starts executing, and is considered down when it exits or errors.
+`type` declares what kind of runtime behavior the service has, and can be one of two values:
+
+- `process` means that a command specified in the `command` field should be run. The first element is the name of the program (automatically resolved according to `PATH`), and the rest are arguments. The service is considered to be up as soon as the command starts executing, and is considered down when it exits or errors. Since [processes receive unprocessed events](../core), user-facing applications, like shells, should typically be run under [`getty`](../getty), which filters events from a specific seat and redirects the terminal if necessary. For example, take a look at the [`getty-default`](../getty/services/getty-default.lua) service that shows an interactive shell on boot:
+
+```lua
+return {
+    description = "Shell on default seat",
+    type = "process",
+    command = { "getty", "default", "multishell" },
+}
+```
 
 - `oneshot` services define actions that should be performed to start or stop the service, but do not run any code in the background. `command` is absent, and instead `start` must contain a function that is run when the service is started, and `stop` (optional) is run when it's stopped. `start` can be asynchronous, and the service is only considered to be up when it finishes. `stop`, if present, must be synchronous. Consider [`netbootupd`](../netboot/services/netbootupd.lua) for example:
 
@@ -152,9 +72,13 @@ return {
 }
 ```
 
-Processes receive all machine events, including events from [external keyboards](https://modrinth.com/mod/ducky-periphs), so user-facing applications, like shells, should typically be run under [`getty`](../getty), which filters events from a specific seat and redirects the terminal if necessary. For example, take a look at the [`getty-default`](../getty/services/getty-default.lua) service that shows an interactive shell on boot.
+## Targets
 
-Finally, let's look at targets. Targets are defined outside of `packages` at [`<sysroot>/targets`](../../targets). These are meant to be modified by the end user as necessary. Much like services, targets are pure Lua files that should return a table literal with the following properties:
+Targets specify the sets of services that are started when the system boots. For example, the target `base` includes services like `msh`, `named`, and `rshd`. You can start services according to a target temporarily with `svc reach <name>`, or make it the default boot target with `svc reach <name> --persist`.
+
+Targets can *inherit* from smaller targets, like `base`, so that you don't need to repeat yourself. For example, in a kiosk-like application, you might define the target `kiosk` that inherits from `base` and adds a `kiosk` service.
+
+Targets are defined outside of `packages` at [`<sysroot>/targets`](../../targets). These are meant to be modified by the end user as necessary. Much like services, targets are pure Lua files that return a table literal with the following properties:
 
 - `services` (optional): a list of services to start when this target is booted.
 - `inherits` (optional): a list of targets to pull services from, in addition to the `services` field in the current target. For example, writing `inherits = { "base" }` will bring up `named` regardless of whether it's present in `services`. Pulling is performed recursively.

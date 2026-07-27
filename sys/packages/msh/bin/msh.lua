@@ -1,6 +1,7 @@
+local environ = require "environ"
 local named = require "named"
-local svc = require "svc"
-local shell = svc.makeNestedShell(_ENV)
+
+local shell = environ.make({ base_shell = shell }).shell
 
 local args = { ... }
 if #args ~= 0 then

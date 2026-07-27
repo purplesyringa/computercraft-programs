@@ -1,4 +1,4 @@
-local svc = require "svc"
+local environ = require "environ"
 
 local args = { ... }
 
@@ -22,6 +22,9 @@ elseif args[1] == "--help" then
     printError("  lua")
     printError("  lua some.lua [args...]")
 else
-    local program = shell.resolve(args[1])
-    svc.execWrapped(_ENV, program, table.unpack(args, 2))
+    environ.exec({
+        env = _ENV,
+        sysroot_require = true,
+        path = shell.resolve(args[1]),
+    }, table.unpack(args))
 end

@@ -1,6 +1,7 @@
+local core = require "core"
+local environ = require "environ"
 local redirect = require "redirect"
 local remote_events = require("rsh.events").remote_events
-local svc = require "svc"
 local vt = require "rsh.vt"
 
 local params = textutils.unserialize(arg[1])
@@ -75,7 +76,7 @@ local function flushOpQueue()
     end
 end
 
-svc.withImminentHandler(function(reason)
+core.withImminentHandler(function(reason)
     flushOpQueue()
     sendToClient({ type = "close", reason = reason })
 end, function()
@@ -83,9 +84,7 @@ end, function()
         if not params.command[1] then
             params.command[1] = "msh"
         end
-        local nested_shell = svc.makeNestedShell({ shell = shell })
-        svc.reloadShellEnv(nested_shell)
-        nested_shell.execute(table.unpack(params.command))
+        environ.exec({ base_shell = shell, reload = true }, table.unpack(params.command))
     end)
     flushOpQueue()
 

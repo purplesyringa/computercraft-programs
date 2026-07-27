@@ -1,9 +1,7 @@
-local proc = require "svc.proc"
+local core = require "core"
 local services = require "svc.services"
 
 local targets_api = {}
-
-local sysroot = os._svc.sysroot
 
 -- {
 --     [name] = {
@@ -17,7 +15,7 @@ local current_target = nil
 
 function targets_api.reload()
     targets = {}
-    for _, path in pairs(fs.find(fs.combine(sysroot, "run", "targets", "*.lua"))) do
+    for _, path in pairs(fs.find(fs.combine(core.sysroot, "run", "targets", "*.lua"))) do
         local name = fs.getName(path):gsub("%.lua$", "")
         local ok, config_or_err = pcall(function()
             local module, err = loadfile(path, nil, {})
@@ -69,7 +67,7 @@ function targets_api.reach(name, force, persist)
 
     -- Run the logic in a separate process, since if `svc.reach` is called from a service that is
     -- disabled in the new target, we might fail to complete it.
-    proc.start("reach " .. name, function()
+    core.startProcess("reach " .. name, function()
         parallel.waitForAll(
             -- Bring up new services.
             function()

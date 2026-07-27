@@ -1,1 +1,1 @@
-require "packages.svc.boot"
+require "packages.core.boot"

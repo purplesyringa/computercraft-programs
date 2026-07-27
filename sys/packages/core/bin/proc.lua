@@ -1,4 +1,5 @@
-local svc = require "svc"
+local core = require "core"
+local environ = require "environ"
 local tableui = require "tableui"
 
 local function showProcessList()
@@ -7,7 +8,7 @@ local function showProcessList()
         { key = "pid", heading = "PID", width = 4 },
         { key = "name", heading = "Name" },
     })
-    for _, process in pairs(svc.listProcesses()) do
+    for _, process in pairs(core.listProcesses()) do
         term.setTextColor(colors.white)
         writeRow({
             pid = tostring(process.pid),
@@ -21,8 +22,8 @@ local function startProcess(is_detached, ...)
 
     -- This needs to be split into two statements so that `pid` is a bound variable in the callback.
     local pid
-    pid = svc.startProcess(table.concat(args, " ", first_arg), function()
-        local ok, err = pcall(svc.execIsolated, table.unpack(args))
+    pid = core.startProcess(table.concat(args, " ", first_arg), function()
+        local ok, err = pcall(environ.exec, {}, table.unpack(args))
         if not is_detached then
             os.queueEvent("proc_stopped", pid, not ok and err)
         end
@@ -39,7 +40,7 @@ local function startProcess(is_detached, ...)
         while true do
             local event = { os.pullEventRaw() }
             if event[1] == "terminate" then
-                svc.stopProcess(pid)
+                core.stopProcess(pid)
             elseif event[1] == "proc_stopped" and event[2] == pid then
                 if event[3] then
                     printError(event[3])
@@ -57,11 +58,11 @@ if #args == 0 then
 elseif #args == 2 and args[1] == "stop" then
     local pid = tonumber(args[2])
     assert(pid ~= nil, "Invalid PID " .. args[2])
-    svc.stopProcess(pid)
+    core.stopProcess(pid)
 elseif #args == 2 and args[1] == "kill" then
     local pid = tonumber(args[2])
     assert(pid ~= nil, "Invalid PID " .. args[2])
-    svc.killProcess(pid)
+    core.killProcess(pid)
 elseif args[1] == "start" and #args >= 2 + (args[2] == "-d" and 1 or 0) then
     local is_detached = args[2] == "-d"
     local first_arg = is_detached and 3 or 2

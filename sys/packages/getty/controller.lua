@@ -1,8 +1,8 @@
+local environ = require "environ"
 local expect = require "cc.expect".expect
 local Seat = require "getty.seat"
 local keyboard = require "keyboard"
 local redirect = require "redirect"
-local svc = require "svc"
 
 local Controller = {}
 
@@ -35,11 +35,7 @@ function Controller:run(...)
 
     local bg_command = redirect.runWithEventSource(
         redirect.runWithTerm, self.seat.monitor, self.seat,
-        function(...)
-            local nested_shell = svc.makeNestedShell({ shell = shell })
-            svc.reloadShellEnv(nested_shell)
-            nested_shell.execute(...)
-        end, ...
+        environ.exec, { base_shell = shell, reload = true }, ...
     )
 
     function self.deliver(event)

@@ -1,6 +1,6 @@
 local bytesio = require "bytesio"
+local core = require "core"
 local impure = require "runfs.impure"
-local svc = require "svc"
 local vfs = require "vfs"
 
 local runfs = {
@@ -24,7 +24,7 @@ end
 -- Calls `func` with the right root and error rewrites, where `rel_path` matches `packages/...`.
 local function forwardPackage(func, rel_path, ...)
     local package_home = rel_path:match("^packages/[^/]*")
-    local root_path = svc.sysroot
+    local root_path = core.sysroot
     if impure.get() and fs.exists(fs.combine("impure", package_home)) then
         root_path = "impure"
     end
@@ -36,7 +36,7 @@ local function makeBinaryWrapper(command)
         return nil
     end
 
-    local sys_paths = fs.find(fs.combine(svc.sysroot, "packages", "*", "bin", command .. ".lua"))
+    local sys_paths = fs.find(fs.combine(core.sysroot, "packages", "*", "bin", command .. ".lua"))
     local impure_paths = fs.find(fs.combine("impure", "packages", "*", "bin", command .. ".lua"))
 
     local paths = {}
@@ -59,7 +59,9 @@ local function makeBinaryWrapper(command)
         local error = ("Multiple binaries named '%s': %s"):format(command, table.concat(paths, ", "))
         return ("error(%q, 0)\n"):format(error)
     elseif #paths == 1 then
-        return ("os._svc.execWrapped(_ENV, %q, ...)\n"):format(paths[1])
+        -- `arg` may be absent if the program is run via `os.run`, which it sometimes is (e.g.
+        -- `multishell` invokes `shell` that way).
+        return ("os._core._execWrapped(_ENV, %q, arg and arg[0], ...)\n"):format(paths[1])
     elseif overridden_package then
         local s = "Package '%s' providing binary '%s' is overwritten by an impure package"
         local error = s:format(overridden_package, command)
@@ -90,7 +92,7 @@ function runfs.list(rel_path)
         local files = {}
         -- Include binaries from /impure unconditionally, since we create wrappers for them even if
         -- the impure environment is off to show human-friendly errors.
-        for _, root_path in pairs({ svc.sysroot, "impure" }) do
+        for _, root_path in pairs({ core.sysroot, "impure" }) do
             for _, path in pairs(fs.find(fs.combine(root_path, "packages", "*", "bin", "*.lua"))) do
                 local name = fs.getName(path):gsub("%.lua$", "")
                 if not added[name] then
@@ -121,7 +123,7 @@ function runfs.list(rel_path)
                 end
             end
         end
-        scanRoot(svc.sysroot)
+        scanRoot(core.sysroot)
         if impure.get() then
             -- Impure packages and targets overrides the ones from sysroot.
             scanRoot("impure")
@@ -154,7 +156,7 @@ function runfs.attributes(rel_path)
             end
             return nil
         end
-        return (impure.get() and scanRoot("impure")) or scanRoot(svc.sysroot)
+        return (impure.get() and scanRoot("impure")) or scanRoot(core.sysroot)
     end
     return nil
 end
@@ -179,7 +181,7 @@ function runfs.open(rel_path, mode)
                 return handle
             end
         end
-        return forward(vfs.open, svc.sysroot, rel_path, mode)
+        return forward(vfs.open, core.sysroot, rel_path, mode)
     end
 end
 

@@ -9,10 +9,11 @@ Here's a high-level overview of the boot process of a typical application-hotsin
 
 1. Unpacking `initrd`.
 2. Setting up `vfs` and `tmpfs` drivers.
-3. Setting up `PATH` and process environment.
-4. Loading service and target configuration from the sysroot.
-5. Bringing up services of the boot target.
-6. Configuring foreground process seats with `getty`.
+3. Setting up processes.
+4. Setting up environments and handing off the boot process.
+5. Loading service and target configuration from the sysroot.
+6. Bringing up services of the boot target.
+7. Configuring foreground process seats with `getty`.
 
 Let's go over these points in order.
 
@@ -35,11 +36,20 @@ When developing the core OS, you have a choice between rebuilding the `initrd` i
 If your goal is only to modify or create userland applications or libraries, you have another option: impure environments. If the directory `/impure` exists in the computer FS, it acts as a kind of overlay on `/sys`. For example, packages declared in `impure/packages` exist in addition to or override built-in packages at `sys/packages`, so you can develop software in-game, at the cost of being unable to use an IDE, push commits to Git, or share the programs between computers. This feature is explained in more detail near the end of this guide.
 
 
-## `PATH` and process environment
+## Processes
 
-After the sysroot becomes available at `/sys` or `/nfs/sys`, the entry point of the OS at `<sysroot>/packages/svc/boot.lua` is executed.
+After the sysroot becomes available at `/sys` or `/nfs/sys`, the entry point of the OS at `<sysroot>/packages/core/boot.lua` is executed.
 
-The first thing it does is reconfigure the shell and the `require` function to a *package-based hierarchy*.
+The first thing it does is set up processes. Processes are coroutines polled by [`core`](sys/packages/core), and they exist to let tasks live without an owner. This is a distinct notion from processes in large operating systems: processes don't form a tree, not all processes are programs (processes can run arbitrary functions, not just programs), and not all programs are processes (programs started within a shell are polled by that shell).
+
+Processes typically power [services](sys/packages/svc), but they can also be started in other circumstances when an action needs to be performed to completion even if the program that triggered it quits midway. For example, [`rshd`](sys/packages/rsh) starts a process per client. Processes also allow programs to run other programs without manually passing events; as we'll see later, this is critical for multi-seat configurations to work and the `terminate` event to be delivered properly.
+
+Active processes can be listed with `proc`, and new processes can be started with `proc start` (though that's seldom necessary). See [`core`](sys/packages/core) docs for more information on processes.
+
+
+## Environments and boot hand-off
+
+The second thing [`core`](sys/packages/core) does is reconfigure the shell and the `require` function to a *package-based hierarchy*.
 
 Typical Unix and CraftOS systems group files of the same format together, while keeping files related to a specific purpose apart:
 
@@ -79,24 +89,26 @@ This simplifies name resolution, but the few directory become cluttered and unco
 
 (You may be familiar with this design from distributions like NixOS. Given that this OS is typically installed from `initrd.lua` and thus has a read-only `sys`, it can be argued to be an immutable store-based distribution.)
 
-To make this work, `svc` implements a virtual file system called `runfs` that, among other things, merges all `bin` directories present inside `packages`. This FS is mounted at `<sysroot>/run`, and its `bin` subdirectory is added to `PATH`.
+To make this work, [`core`](sys/packages/core) implements a virtual file system called [`runfs`](sys/packages/runfs) that, among other things, merges all `bin` directories present inside `packages`. This FS is mounted at `<sysroot>/run`, and its `bin` subdirectory is added to `PATH`.
 
-However, the binary files inside `runfs` are not just copies of the files in `bin`, since that would break `require` paths: we want `require "async"` in a program to load a *library* from `<sysroot>/packages/async/init.lua`, while the default `require` implementation would attempt to load `<sysroot>/run/bin/async.lua`, which is a (non-existent) *program*. Since there is no analogue of `PATH` for `require`, `runfs` binaries are wrappers that reconfigure `require` to load libraries from `<sysroot>/packages/*/init.lua`, before passing control to the actual program.
+Libraries work differently: `require` paths are not inherited across [`shell.execute`](https://tweaked.cc/module/shell.html#v:execute), and the default configuration loads files relative to the program directory, e.g. causing `require "async"` to load `<sysroot>/run/bin/async.lua`, which is a binary, not a library. For this reason, [`environ`](sys/packages/environ) provides an abstraction that allows programs to be launched more configurably, and binary files inside [`runfs`](sys/packages/runfs) are wrappers that reconfigure `require` to load libraries from the correct location before passing control to the actual program.
 
 Overall, this design allows packages to refer to each other, and enables changes to `packages` to be visible immediately. However, it does so at the cost of breaking compatibility with CraftOS: while in CraftOS, `require` is relative to the directory within which the current file is located, in this OS `require` is always relative to `<sysroot>/packages`. So imports from the same library have to repeat the library name.
 
-Note that since `require` is only patched by `runfs` wrappers, it doesn't apply to programs invoked not through `runfs`. For example, running `<sysroot>/packages/*/bin/*.lua` directly can break imports. Crucially, this also requires the OS to override the built-in `lua` program, so that `require` works as expected in the REPL.
+Note that since `require` is only patched by [`runfs`](sys/packages/runfs) wrappers, it doesn't apply to programs invoked directly -- running `<sysroot>/packages/*/bin/*.lua` breaks imports. Crucially, this also requires the OS to override the built-in `lua` program, so that `require` works as expected in the REPL. Out-of-tree scripts can be run with the right `require` path with `lua <path.lua> <args...>`.
+
+After the paths are reconfigured, [`core`](sys/packages/core) hands off the boot process to a process running [`svc-boot`](sys/packages/svc/bin/svc-boot.lua) and starts polling the process event loop, at which point it's done.
 
 
 ## Services and targets
 
-The nominal function of the `svc` package is to manage *services* and *targets*.
+The [`svc`](sys/packages/svc) package manages *services* and *targets*.
 
-Services correspond to units that can be "up" or "down" (usually background programs, but also possibly start/stop scripts) and have dependencies, targets are groups of services. On boot, `svc` parses package and target definitions from `packages/*/services/*.lua` and `targets/*.lua` respectively, retrieves the name of the boot target from the `svc.target` [setting](https://tweaked.cc/module/settings.html) (defaulting to `base`), and queues the services of the boot target to be brought up.
+Services correspond to units that can be "up" or "down" (usually background programs, but also possibly start/stop scripts) and have dependencies, while targets are groups of services. On boot, [`svc`](sys/packages/svc) parses package and target definitions from `packages/*/services/*.lua` and `targets/*.lua` respectively, retrieves the name of the boot target from the `svc.target` [setting](https://tweaked.cc/module/settings.html) (defaulting to `shell`), and queues the services of the boot target to be brought up.
 
-`svc` uses *processes* to handle background operations. Processes are background threads polled by `svc`. Similarly to POSIX, processes are not necessarily started from scratch from executable files with string arguments: they can also be started from closures. Most services start processes, but they can also be started in other circumstances when an action needs to be performed to completion even if the program that triggered it quits midway. For example, `svc reach <target-name>` may need to bring down some services (e.g. if there's a foreground shell, but the target has another foreground program), which can include the service that is polling the `svc reach` command. To make sure that `svc reach` can complete its goal, it wraps the service start/stop logic in a process. Active processes can be listed with `proc`, and new processes can be started with `proc start` (though that's seldom necessary).
+[`svc`](sys/packages/svc) uses processes to handle background operations. Most services start processes, but importantly `svc reach <target-name>` starts one as well. As it bring down services (e.g. if there's a foreground shell, but the target has another foreground program), it may bring down the service that is polling the `svc reach` command. To make sure that `svc reach` can complete its goal, the service start/stop logic is wrapped in a process.
 
-The specifics of service, target, and process management are covered in [the `svc` documentation](sys/packages/svc).
+The specifics of service and target management are covered in [the `svc` documentation](sys/packages/svc).
 
 
 ## Seats
@@ -109,7 +121,7 @@ All services that start interactive programs should run the program under `getty
 
 You can also use `getty` to run programs on an external monitor and keyboard by providing a custom *seat name* instead of `default`. The seat name is opaque, but often called `seatN`. You can assign a monitor to a seat with `hw add <seat-name>.monitor <id>` and a keyboard with `hw add <seat-name>.keyboard <id>`. Alternatively, run `hw add <seat-name>.monitor/keyboard` and then plug in the corresponding peripheral. This process is documented in more detail in [the `hardware` docs](sys/packages/hardware).
 
-`getty` also applies a subtle rewrite to make `terminate` work as intended. `svc` rewrites all incoming `terminate` events to `fg_terminate` so that pressing the terminate button doesn't bring down all services. `getty`, in turn, rewrites `fg_terminate` back to `terminate` (filtering the event based on the originating keyboard), so that the event is delivered to the foreground service.
+`getty` also applies a subtle rewrite to make `terminate` work as intended. [`core`](sys/packages/core) rewrites all incoming `terminate` events to `fg_terminate` so that pressing the terminate button doesn't bring down all services. `getty`, in turn, rewrites `fg_terminate` back to `terminate` (filtering the event based on the originating keyboard), so that the event is delivered to the foreground service.
 
 Keyboard layouts are implemented by passing the native `key`, `key_up`, and `char` events to [the `keyboard` package](sys/packages/keyboard), which replaces `char` events with custom ones as necessary.
 
@@ -139,7 +151,7 @@ If you cannot develop software locally for some reason (e.g. if you cannot run s
 
 This development workflow is a bit more dangerous than a sysroot-oriented workflow, since overriding a built-in package with a buggy one can break important programs. This is further complicated by the fact that we don't offer API stability, so updating the OS can break out-of-tree packages. For this reason, this feature is hidden behind a flag. Use `impure enable` to enable the impure environment and `impure disable` to disable it. The setting applies to libraries and binaries immediately, while services and targets need to be reloaded with `svc reload`. The setting persists across reboots. If the system is broken so much that it doesn't even show a shell, you can use `set svc.impure false` from CraftOS or manually modify the `/.settings` file to recover control.
 
-The impure environment cannot modify all aspects of the system, since it is only enabled after the core of the OS is loaded. Specifically, `svc` and its dependencies always load from the sysroot.
+The impure environment cannot modify all aspects of the system, since it is only enabled after the core of the OS is loaded. Specifically, [`core`](sys/packages/core) and its dependencies always load from the sysroot.
 
 Impure packages are local to the computer they are installed on. It is technically possible to mount `nfs` over `/impure`, but this is not the intended usage. If you need to share a package across computers, you're likely better off building an `initrd`, possibly after debugging the package on one computer.
 
@@ -159,5 +171,5 @@ Some libraries you need to be aware of to avoid reinventing the wheel are:
 - Userland: [`async`](sys/packages/async) (async runtime), [`globbing`](sys/packages/globbing) (convert globs to patterns), [`ru`](sys/packages/ru) (KOI8 utilities).
 - Virtual I/O: [`vfs`](sys/packages/vfs) (the underlying API), [`bytesio`](sys/packages/bytesio) (in-memory files), [`wakeywakey`](sys/packages/wakeywakey) (asynchronous monkey-patching).
 - Terminal I/O: [`redirect`](sys/packages/redirect) (`term` and event source redirection), [`svc` shell APIs used by `rsh`](sys/packages/rsh/bin/rsh-serve-session.lua), [`keyboard`](sys/packages/keyboard) (`key`, `key_up`, and `char` event modification).
-- System: [`hardware`](sys/packages/hardware) (hardware assignments), [`startup`](sys/packages/startup) (startup script manipulation), [`svc`](sys/packages/svc) (services, targets, processes).
+- System: [`hardware`](sys/packages/hardware) (hardware assignments), [`startup`](sys/packages/startup) (startup script manipulation), [`core`](sys/packages/core) (processes), [`environ`](sys/packages/environ) (environments), [`svc`](sys/packages/svc) (services and targets).
 - Networking: [`named`](sys/packages/named) (hostname management and resolution), [`rsh`](sys/packages/rsh) (remote shell), [`pack`](sys/packages/pack) (webpack for Lua).
