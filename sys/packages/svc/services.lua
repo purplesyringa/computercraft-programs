@@ -11,6 +11,9 @@ local proc = require "svc.proc"
 --         error? = ...,
 --         -- Present only if the service is active.
 --         pid? = ...,
+--         -- The ground-truth config for this service (i.e. possibly outdated compared to
+--         -- `configs`). Present only if the service is active.
+--         config? = ...,
 --     },
 --     ...
 -- }
@@ -150,7 +153,7 @@ function services_api.bringUpFromPlan(plan)
             end)
             -- New processes start after the current one yields, so all services will be `queued` or
             -- better by the time `run` is entered, and `waitUpMultiple` won't witness stale state.
-            instances[name] = { status = "queued", pid = pid }
+            instances[name] = { status = "queued", pid = pid, config = config }
             notifyStatusChange(name)
         end
     end
@@ -175,12 +178,9 @@ function services_api.stop(name)
     -- Is there any active service that depends on this one?
     for name2, instance2 in pairs(instances) do
         if isActive(instance2) then
-            local ok, config2 = pcall(configs.getConfig, name2)
-            if ok then
-                for _, name3 in pairs(config2.requires or {}) do
-                    if name3 == name then
-                        error(name .. ": required by running service " .. name2)
-                    end
+            for _, name3 in pairs(instance2.config.requires or {}) do
+                if name3 == name then
+                    error(name .. ": required by running service " .. name2)
                 end
             end
         end
@@ -205,24 +205,31 @@ function services_api.kill(name)
 end
 
 function services_api.status(name)
+    local config
     local instance = instances[name]
-    local config_result = configs.tryGetConfig(name)
-    if instance then
-        -- Services that have been started, but whose configs have been deleted since, still exist.
-        config_result = config_result or { error = "manifest deleted" }
-    end
-    if not config_result then
-        return nil
-    end
+    if isActive(instance) then
+        -- Active services don't care about on-disk configs.
+        config = instance.config
+    else
+        local config_result = configs.tryGetConfig(name)
+        if instance then
+            -- Services that have at some point existed, but whose configs have been deleted since,
+            -- still exist.
+            config_result = config_result or { error = "manifest deleted" }
+        end
+        if not config_result then
+            return nil
+        end
 
-    local config = config_result.config
-    if not config then
-        return {
-            status = "failed",
-            error = config_result.error,
-            requires = {},
-            description = nil,
-        }
+        config = config_result.config
+        if not config then
+            return {
+                status = "failed",
+                error = config_result.error,
+                requires = {},
+                description = nil,
+            }
+        end
     end
 
     -- A service that has never been started is effectively stopped.
