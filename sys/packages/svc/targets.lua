@@ -135,7 +135,6 @@ function targets_api.status(name)
     end
 
     local services_by_status = {
-        unknown = {},
         stopped = {},
         queued = {},
         starting = {},
@@ -143,20 +142,16 @@ function targets_api.status(name)
         failed = {},
     }
     for service, _ in pairs(buildTargetBringUpPlan(name)) do
-        local status = services.status(service) or { status = "unknown" }
+        local status = services.status(service)
         table.insert(services_by_status[status.status], service)
     end
 
     local status
     local err = nil
-    if (
-        next(services_by_status.failed)
-        or next(services_by_status.stopped)
-        or next(services_by_status.unknown)
-    ) then
+    if next(services_by_status.failed) or next(services_by_status.stopped) then
         status = "degraded"
         local error_lines = {}
-        for _, key in pairs({ "failed", "stopped", "unknown" }) do
+        for _, key in pairs({ "failed", "stopped" }) do
             local list = services_by_status[key]
             if next(list) then
                 table.insert(error_lines, key .. " services: " .. table.concat(list, ", "))
