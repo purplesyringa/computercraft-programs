@@ -12,14 +12,17 @@ Services define the runtime properties of the system. They control what the user
 
 ```shell
 > svc
-Target: base (up)
+Target: fileserver (up)
 
 Service         Status
-msh             up
+getty-default   up
 named           up
-netbootd        stopped
-nfsd            stopped
+netbootd        up
+netbootupd      up
+nfsd            up
+rednetd         up
 rshd            up
+...and 10 stopped service(s)
 ```
 
 A service definition is a Lua file stored in `packages/*/services/*.lua`. It is run with an empty environment and is not supposed to have local variables or do anything except returning a table literal, for example:

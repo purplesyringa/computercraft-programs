@@ -29,8 +29,12 @@ The list of running processes can be viewed with `proc`:
 ```shell
 > proc
 PID Name
-5   service rshd
-6   service msh
+3   service named
+4   service getty-default
+5   service netbootupd
+6   service rshd
+7   service rednetd
+8   rsh-serve-session 0:189222384
 ```
 
 Processes can be killed with `proc stop <pid>` and started with `proc start <program> <args...>`. `core` exposes the following API for programmatic usage:
