@@ -36,64 +36,44 @@ function targets_api.reload()
     end
 end
 
-local function getTargetServiceSet(target)
-    local service_statuses = services.allStatus()
-    local service_set = {}
-    local function visitService(name)
-        if service_set[name] or not service_statuses[name] then
-            return
-        end
-        service_set[name] = true
-        for _, dependency in pairs(service_statuses[name].requires) do
-            visitService(dependency)
-        end
-    end
-
-    local target_set = {}
+local function buildTargetBringUpPlan(name)
+    local plan = {}
+    local set = {}
     local function visitTarget(name)
-        if target_set[name] then
+        if set[name] then
             return
         end
-        target_set[name] = true
+        set[name] = true
         local target = targets[name]
         assert(target, name .. ": unknown target")
         if not target.config then
             error(name .. ": " .. target.config_error)
         end
         for _, service in pairs(target.config.services or {}) do
-            visitService(service)
+            services.populateBringUpPlan(plan, service)
         end
-        for _, target in pairs(target.config.inherits or {}) do
-            visitTarget(target)
+        for _, dep in pairs(target.config.inherits or {}) do
+            visitTarget(dep)
         end
     end
-
-    visitTarget(target)
-    return service_set
+    visitTarget(name)
+    return plan
 end
 
 function targets_api.reach(name, force, persist)
-    local goal_set = getTargetServiceSet(name)
+    local plan = buildTargetBringUpPlan(name)
     current_target = name
 
     local closures = {}
 
     -- Bring up new services.
-    local services_left = 0
-    for _ in pairs(goal_set) do
-        services_left = services_left + 1
-    end
-    for service, _ in pairs(goal_set) do
-        table.insert(closures, function()
-            if pcall(services.start, service) then
-                services_left = services_left - 1
-                if services_left == 0 and persist then
-                    settings.set("svc.target", name)
-                    settings.save()
-                end
-            end
-        end)
-    end
+    table.insert(closures, function()
+        local ok = pcall(services.bringUpFromPlan, plan)
+        if ok and persist then
+            settings.set("svc.target", name)
+            settings.save()
+        end
+    end)
 
     -- Tear down old services.
     local all_status = services.allStatus()
@@ -107,7 +87,7 @@ function targets_api.reach(name, force, persist)
         end
     end
     for service, _ in pairs(all_status) do
-        if not goal_set[service] then
+        if not plan[service] then
             table.insert(closures, function()
                 if force then
                     services.kill(service)
@@ -157,11 +137,12 @@ function targets_api.status(name)
     local services_by_status = {
         unknown = {},
         stopped = {},
+        queued = {},
         starting = {},
         up = {},
         failed = {},
     }
-    for service, _ in pairs(getTargetServiceSet(name)) do
+    for service, _ in pairs(buildTargetBringUpPlan(name)) do
         local status = services.status(service) or { status = "unknown" }
         table.insert(services_by_status[status.status], service)
     end
@@ -182,7 +163,7 @@ function targets_api.status(name)
             end
         end
         err = table.concat(error_lines, "\n")
-    elseif next(services_by_status.starting) then
+    elseif next(services_by_status.queued) or next(services_by_status.starting) then
         status = "starting"
     else
         status = "up"

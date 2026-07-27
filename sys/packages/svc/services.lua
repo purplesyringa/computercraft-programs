@@ -5,12 +5,12 @@ local proc = require "svc.proc"
 -- Runtime service info. Services that never ran during the current boot are absent.
 -- {
 --     [name] = {
---         -- Present only if a process is actively running.
---         pid? = ...,
 --         -- The logical state of the service.
---         status = "stopped" | "starting" | "up" | "failed",
+--         status = "stopped" | "queued" | "starting" | "up" | "failed",
 --         -- Present only if the status is `failed`.
 --         error? = ...,
+--         -- Present only if the service is active.
+--         pid? = ...,
 --     },
 --     ...
 -- }
@@ -25,19 +25,33 @@ local function waitForStatusChange(name)
     os.pullEvent("service_status#" .. name)
 end
 
-function services_api.waitUp(name)
-    while instances[name] and instances[name].status == "starting" do
+local function isActive(instance)
+    return instance and (
+        instance.status == "queued"
+        or instance.status == "starting"
+        or instance.status == "up"
+    )
+end
+
+local function waitUp(name)
+    while instances[name].status == "queued" or instances[name].status == "starting" do
         waitForStatusChange(name)
     end
     local instance = instances[name]
-    if not instance then
-        error(name .. ": unknown service")
-    elseif instance.status == "stopped" then
+    if instance.status == "stopped" then
         error(name .. ": service stopped")
-    elseif instance.status == "up" then
-        return
     elseif instance.status == "failed" then
         error(name .. ": " .. instance.error)
+    end
+end
+
+local function waitUpMultiple(names)
+    for _, name in ipairs(names) do
+        waitUp(name)
+    end
+    -- Make sure no service has failed or been stopped since it got up in the previous loop.
+    for _, name in ipairs(names) do
+        assert(instances[name].status == "up", name .. " is down")
     end
 end
 
@@ -55,6 +69,18 @@ function services_api.waitDown(name)
     end
 end
 
+function services_api.populateBringUpPlan(plan, name)
+    -- Preload all configs before starting services, so that we have a consistent picture.
+    if plan[name] then
+        return
+    end
+    local config = configs.getConfig(name)
+    plan[name] = config
+    for _, dep in pairs(config.requires or {}) do
+        services_api.populateBringUpPlan(plan, dep)
+    end
+end
+
 local function runHook(hook)
     if hook then
         debug.setfenv(hook, env.make())
@@ -63,7 +89,11 @@ local function runHook(hook)
 end
 
 -- The main logic of a service process.
-local function run(config, ready)
+local function run(config, setStatus)
+    -- Wait for dependencies to start.
+    waitUpMultiple(config.requires or {})
+    setStatus("starting")
+
     if config.type == "oneshot" then
         local ok, err = pcall(runHook, config.start)
         if not ok then
@@ -73,13 +103,13 @@ local function run(config, ready)
             end
             error(err, 0)
         end
-        ready()
+        setStatus("up")
         -- Keep alive to indicate an "up" status, waiting for an external signal to stop.
         os.pullEventRaw("terminate")
         runHook(config.stop)
     elseif config.type == "process" then
         -- Immediately signal "up" status. TODO: allow services to signal readiness explicitly.
-        ready()
+        setStatus("up")
         local ok, err = pcall(env.execIsolated, table.unpack(config.command))
         if not ok then
             -- Log the error to screen, since the user won't be able to observe it without
@@ -91,57 +121,42 @@ local function run(config, ready)
 end
 
 function services_api.start(name)
-    -- Doing this early makes sure that the config exists and we won't get errors down below.
-    local config = configs.getConfig(name)
+    local plan = {}
+    services_api.populateBringUpPlan(plan, name)
+    services_api.bringUpFromPlan(plan)
+end
 
-    -- Don't bother starting the service if another thread is already working on that.
-    local instance = instances[name]
-    if instance and (instance.status == "starting" or instance.status == "up") then
-        services_api.waitUp(name)
-        return
-    end
-
-    local closures = {}
-    for _, dependency in ipairs(config.requires or {}) do
-        table.insert(closures, function() services_api.start(dependency) end)
-    end
-    parallel.waitForAll(table.unpack(closures))
-
-    -- By the time the dependencies are started, the service might have already been started by
-    -- another instance of `services.start`, so check again.
-    instance = instances[name]
-    if instance and (instance.status == "starting" or instance.status == "up") then
-        services_api.waitUp(name)
-        return
-    end
-    -- The config at this point might differ from the one we used to check dependencies. We can't
-    -- detect this without deep comparison, and that's not possible for closures (if we don't want
-    -- `svc reload` to break all ongoing `svc start` commands). For now we just use the old config
-    -- for consistency.
-
-    local function ready()
-        instances[name].status = "up" -- don't drop `pid`
-        notifyStatusChange(name)
-    end
-
-    local pid = proc.start("service " .. name, function()
-        local ok, err = pcall(run, config, ready)
-        if ok or err == "Terminated" then
-            instances[name] = { status = "stopped" }
-        else
-            instances[name] = { status = "failed", error = err }
+function services_api.bringUpFromPlan(plan)
+    local names = {}
+    for name, config in pairs(plan) do
+        table.insert(names, name)
+        if not isActive(instances[name]) then
+            -- Start background threads for all services without yielding, so that the plan is
+            -- enacted consistently even if this function is cancelled.
+            local pid = proc.start("service " .. name, function()
+                local ok, err = pcall(run, config, function(status)
+                    instances[name].status = status -- don't drop `pid`
+                    notifyStatusChange(name)
+                end)
+                if ok or err == "Terminated" then
+                    instances[name] = { status = "stopped" }
+                else
+                    instances[name] = { status = "failed", error = err }
+                end
+                notifyStatusChange(name)
+            end, function()
+                instances[name] = { status = "failed", error = "Killed" }
+                notifyStatusChange(name)
+            end)
+            -- New processes start after the current one yields, so all services will be `queued` or
+            -- better by the time `run` is entered, and `waitUpMultiple` won't witness stale state.
+            instances[name] = { status = "queued", pid = pid }
+            notifyStatusChange(name)
         end
-        notifyStatusChange(name)
-    end, function()
-        instances[name] = { status = "failed", error = "Killed" }
-        notifyStatusChange(name)
-    end)
+    end
 
-    instances[name] = { pid = pid, status = "starting" }
-    notifyStatusChange(name)
-
-    -- Oneshot services are not considered up until the process finishes.
-    services_api.waitUp(name)
+    -- Wait for readiness.
+    waitUpMultiple(names)
 end
 
 function services_api.stop(name)
@@ -153,13 +168,13 @@ function services_api.stop(name)
     end
     -- Stopping a service doesn't require a working config, so don't validate it.
 
-    if instance.status ~= "starting" and instance.status ~= "up" then
+    if not isActive(instance) then
         return
     end
 
-    -- Is there any running service that depends on this one?
+    -- Is there any active service that depends on this one?
     for name2, instance2 in pairs(instances) do
-        if instance2.status == "starting" or instance2.status == "up" then
+        if isActive(instance2) then
             local ok, config2 = pcall(configs.getConfig, name2)
             if ok then
                 for _, name3 in pairs(config2.requires or {}) do
@@ -184,7 +199,7 @@ function services_api.kill(name)
         configs.getConfig(name)
         return
     end
-    if instance.status == "starting" or instance.status == "up" then
+    if isActive(instance) then
         proc.kill(instance.pid)
     end
 end
