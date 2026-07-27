@@ -104,7 +104,7 @@ After the paths are reconfigured, [`core`](sys/packages/core) hands off the boot
 
 The [`svc`](sys/packages/svc) package manages *services* and *targets*.
 
-Services correspond to units that can be "up" or "down" (usually background programs, but also possibly start/stop scripts) and have dependencies, while targets are groups of services. On boot, [`svc`](sys/packages/svc) parses package and target definitions from `packages/*/services/*.lua` and `targets/*.lua` respectively, retrieves the name of the boot target from the `svc.target` [setting](https://tweaked.cc/module/settings.html) (defaulting to `shell`), and queues the services of the boot target to be brought up.
+Services correspond to units that can be "up" or "down" (usually background programs, but also possibly start/stop scripts) and have dependencies, while targets are groups of services. On boot, [`svc`](sys/packages/svc) parses service and target definitions from `packages/*/services/*.lua` and `targets/*.lua` respectively, retrieves the name of the boot target from the `svc.target` [setting](https://tweaked.cc/module/settings.html) (defaulting to `shell`), and queues the services of the boot target to be brought up.
 
 [`svc`](sys/packages/svc) uses processes to handle background operations. Most services start processes, but importantly `svc reach <target-name>` starts one as well. As it bring down services (e.g. if there's a foreground shell, but the target has another foreground program), it may bring down the service that is polling the `svc reach` command. To make sure that `svc reach` can complete its goal, the service start/stop logic is wrapped in a process.
 
