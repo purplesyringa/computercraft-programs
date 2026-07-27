@@ -12,7 +12,7 @@ local function doMake(opts, command)
         -- the `shell` instance because there's no direct way to obtain it, and directly running
         -- programs via `shell <...>` mangles arguments and consumes errors.
         os.run(
-            { shell = opts.base_shell or shell },
+            opts.base_env or { shell = shell },
             "rom/programs/shell.lua",
             -- Calling `env-setup` might take some time due to FS operations possibly being
             -- asynchronous, but when it does load, it should set up the environment and quit

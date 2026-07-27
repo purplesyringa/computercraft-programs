@@ -35,7 +35,7 @@ function Controller:run(...)
 
     local bg_command = redirect.runWithEventSource(
         redirect.runWithTerm, self.seat.monitor, self.seat,
-        environ.exec, { base_shell = shell, reload = true }, ...
+        environ.exec, { reload = true }, ...
     )
 
     function self.deliver(event)

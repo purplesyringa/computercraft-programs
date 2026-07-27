@@ -10,7 +10,7 @@ ComputerCraft's [`shell.execute`](https://tweaked.cc/module/shell.html#v:execute
 
 Create a nested environment (as in `_ENV`) according to the options:
 
-- If `opts.env` is present, that environment is reused and mutated. Otherwise, a new environment is created with an isolated shell that inherits from `opts.base_shell`, or the root `shell` if that value is absent.
+- If `opts.env` is present, that environment is reused and mutated. Otherwise, a new isolated environment is created that inherits from `opts.base_env`, or the root environment if that value is absent.
 
 - If `opts.reload` is set to `true`, the shell configuration (like the program path and completion rules) is updated. This affects, for instance, whether advanced-computer-only commands are visible, according to the value of `term` at the time of call.
 
@@ -30,11 +30,11 @@ A typical usage pattern looks like this:
 -- Execute an isolated command.
 environ.exec({}, "ls")
 
--- Execute a command normally, inheriting properties from the current shell.
-environ.exec({ base_shell = shell }, "ls")
+-- Execute an isolated command with a virtual terminal (assume the terminal is already set up).
+environ.exec({ reload = true }, ...)
 
--- Execute a command with a virtual terminal (assume the terminal is already set up).
-environ.exec({ base_shell = shell, reload = true }, ...)
+-- Execute a command normally, inheriting properties from the current environment.
+environ.exec({ base_env = _ENV }, "ls")
 
 -- Simulate a wrapper.
 environ.exec({ env = _ENV, sysroot_require = true, path = "<path to wrapper>" }, arg[0], ...)

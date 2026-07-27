@@ -1,7 +1,7 @@
 local environ = require "environ"
 local named = require "named"
 
-local shell = environ.make({ base_shell = shell }).shell
+local shell = environ.make({ base_env = _ENV }).shell
 
 local args = { ... }
 if #args ~= 0 then

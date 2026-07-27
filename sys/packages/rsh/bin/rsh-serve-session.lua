@@ -84,7 +84,7 @@ end, function()
         if not params.command[1] then
             params.command[1] = "msh"
         end
-        environ.exec({ base_shell = shell, reload = true }, table.unpack(params.command))
+        environ.exec({ reload = true }, table.unpack(params.command))
     end)
     flushOpQueue()
 
