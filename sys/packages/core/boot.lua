@@ -78,6 +78,6 @@ end)
 
 proc.loop(function()
     proc.start("recovery", function()
-        environ.exec({}, "svc-recovery")
+        environ.exec({}, "svc-recovery", "-f")
     end)
 end)

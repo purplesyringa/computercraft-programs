@@ -57,4 +57,4 @@ This is a `try`..`catch` of sorts, but it differs from a hypothetical `pcall`-ba
 
 `core` by itself does not know how to bring up the system -- it defers to [`svc`](../svc). Upon booting, it runs the `svc-boot` command in a background process.
 
-In addition, `core` has a "recovery" hook: pressing <kbd>Alt+Terminate</kbd> starts a recovery shell by running `svc-recovery`. This hotkey can be entered only on internal keyboard. It typically brings down most services and spawns a shell on the main seat.
+In addition, `core` has a "recovery" hook: pressing <kbd>Alt+Terminate</kbd> starts a recovery shell by running `svc-recovery -f`. This hotkey can be entered only on internal keyboard. It typically brings down most services and spawns a shell on the main seat.
