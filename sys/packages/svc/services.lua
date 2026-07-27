@@ -58,17 +58,13 @@ local function waitUpMultiple(names)
     end
 end
 
-function services_api.waitDown(name)
-    while true do
-        local instance = instances[name]
-        if not instance then
-            error(name .. ": unknown service")
-        elseif instance.status == "stopped" then
-            return
-        elseif instance.status == "failed" then
-            error(name .. ": " .. instance.error)
-        end
+local function waitDown(name)
+    while isActive(instances[name]) do
         waitForStatusChange(name)
+    end
+    local instance = instances[name]
+    if instance and instance.status == "failed" then
+        error(name .. ": " .. instance.error)
     end
 end
 
@@ -162,6 +158,59 @@ function services_api.bringUpFromPlan(plan)
     waitUpMultiple(names)
 end
 
+function services_api.killAllExpect(set)
+    for name, instance in pairs(instances) do
+        if not set[name] and isActive(instance) then
+            proc.kill(instance.pid)
+            -- `on_killed` will update the status accordingly.
+        end
+    end
+end
+
+function services_api.buildIsolatePlan(set)
+    local dependents = {}
+    for name, instance in pairs(instances) do
+        if isActive(instance) then
+            for _, dep in pairs(instance.config.requires or {}) do
+                if not dependents[dep] then
+                    dependents[dep] = {}
+                end
+                table.insert(dependents[dep], name)
+                -- Requirements of a kept service must be kept as well, unless they're already down.
+                if set[name] and not set[dep] and isActive(instances[dep]) then
+                    error(dep .. ": required by active service " .. name)
+                end
+            end
+        end
+    end
+
+    local plan = {}
+    for name, _ in pairs(instances) do
+        if not set[name] then
+            plan[name] = dependents[name] or {}
+        end
+    end
+    return plan
+end
+
+-- Doesn't start a background process, cancellation aborts stopping.
+function services_api.isolateByPlan(plan)
+    local closures = {}
+    for name, dependents in pairs(plan) do
+        table.insert(closures, function()
+            for _, dependent in pairs(dependents) do
+                waitDown(dependent)
+            end
+            local instance = instances[name]
+            if isActive(instance) then
+                proc.stop(instance.pid)
+                waitDown(name)
+            end
+        end)
+    end
+    parallel.waitForAll(table.unpack(closures))
+end
+
 function services_api.stop(name)
     local instance = instances[name]
     if not instance then
@@ -180,7 +229,7 @@ function services_api.stop(name)
         if isActive(instance2) then
             for _, name3 in pairs(instance2.config.requires or {}) do
                 if name3 == name then
-                    error(name .. ": required by running service " .. name2)
+                    error(name .. ": required by active service " .. name2)
                 end
             end
         end
@@ -189,7 +238,7 @@ function services_api.stop(name)
     proc.stop(instance.pid)
     -- `stop` throws an error into the running coroutine, which cleans everything up, so there's no
     -- need to run clean-up code or update the status here.
-    services_api.waitDown(name)
+    waitDown(name)
 end
 
 function services_api.kill(name)
@@ -226,7 +275,6 @@ function services_api.status(name)
             return {
                 status = "failed",
                 error = config_result.error,
-                requires = {},
                 description = nil,
             }
         end
@@ -238,7 +286,6 @@ function services_api.status(name)
     return {
         status = instance.status,
         error = instance.error,
-        requires = config.requires or {},
         description = config.description,
     }
 end

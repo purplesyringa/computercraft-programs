@@ -61,51 +61,33 @@ local function buildTargetBringUpPlan(name)
 end
 
 function targets_api.reach(name, force, persist)
-    local plan = buildTargetBringUpPlan(name)
+    -- Build plans ahead of time so that errors are surfaced before we mutate the system.
+    local up_plan = buildTargetBringUpPlan(name)
+    local isolate_plan = services.buildIsolatePlan(up_plan)
+
     current_target = name
 
-    local closures = {}
-
-    -- Bring up new services.
-    table.insert(closures, function()
-        local ok = pcall(services.bringUpFromPlan, plan)
-        if ok and persist then
-            settings.set("svc.target", name)
-            settings.save()
-        end
-    end)
-
-    -- Tear down old services.
-    local all_status = services.allStatus()
-    local dependents = {}
-    for service, status in pairs(all_status) do
-        for _, dependency in pairs(status.requires) do
-            if not dependents[dependency] then
-                dependents[dependency] = {}
-            end
-            table.insert(dependents[dependency], service)
-        end
-    end
-    for service, _ in pairs(all_status) do
-        if not plan[service] then
-            table.insert(closures, function()
-                if force then
-                    services.kill(service)
-                else
-                    for _, dependent in pairs(dependents[service] or {}) do
-                        -- Stopping the dependents will be triggered by other closures.
-                        services.waitDown(dependent)
-                    end
-                    pcall(services.stop, service)
-                end
-            end)
-        end
-    end
-
-    -- Start this logic in a separate process, since if `svc.reach` is called from a service that is
-    -- disabled in the new target, we might fail to finish reaching it.
+    -- Run the logic in a separate process, since if `svc.reach` is called from a service that is
+    -- disabled in the new target, we might fail to complete it.
     proc.start("reach " .. name, function()
-        parallel.waitForAll(table.unpack(closures))
+        parallel.waitForAll(
+            -- Bring up new services.
+            function()
+                local ok = pcall(services.bringUpFromPlan, up_plan)
+                if ok and persist then
+                    settings.set("svc.target", name)
+                    settings.save()
+                end
+            end,
+            -- Tear down old services.
+            function()
+                if force then
+                    services.killAllExpect(up_plan)
+                else
+                    services.isolateByPlan(isolate_plan)
+                end
+            end
+        )
         os.queueEvent("target_reached")
     end, function()
         os.queueEvent("target_reached")
