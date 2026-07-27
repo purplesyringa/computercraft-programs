@@ -39,7 +39,7 @@ PID Name
 
 Processes can be killed with `proc stop <pid>` and started with `proc start <program> <args...>`. `core` exposes the following API for programmatic usage:
 
-- `core.startProcess(name, f[, on_killed])` -- run the function `f` in a new process named named `name`, registering `on_killed` to run if it's killed. Returns the PID. `f()` will not be called immediately, but only after the current process yields. The process lifetime is guaranteed to end either by the process terminating normally or by calling `on_killed`. `on_killed` should never fail or yield.
+- `core.startProcess(name, f[, on_killed])` -- run the function `f` in a new process named `name`, registering `on_killed` to run if it's killed. Returns the PID. `f()` will not be called immediately, but only after the current process yields. The process lifetime is guaranteed to end either by the process terminating normally or by calling `on_killed`. `on_killed` should never fail or yield.
 
 - `core.stopProcess(pid)` -- send a `terminate` event to the process with the given PID. The event will be delivered soon after the current process yields.
 
@@ -53,7 +53,7 @@ Each process runs in the global environment. It receives unprocessed native even
 
 In addition to handling the main event loop, `core` has special handling for `os.shutdown` and `os.reboot`, allowing programs to run quick last-chance handlers.
 
-`core.withImminentHandler(handler, f, ...)` registers `handler()` to run when the computer is about to shutdown (`handler = "shutdown"`) or reboot (`handler = "reboot"`), and runs `f(...)`. When `f` returns, the handler is unregistered. The handler is also removed if the current coroutine is dropped.
+`core.withImminentHandler(handler, f, ...)` registers `handler(reason)` to run when the computer is about to shutdown (`reason = "shutdown"`) or reboot (`reason = "reboot"`), and runs `f(...)`. When `f` returns, the handler is unregistered. The handler is also removed if the current coroutine is dropped.
 
 This is a `try`..`catch` of sorts, but it differs from a hypothetical `pcall`-based solution in that the handler is invoked correctly regardless of who triggered the shutdown/reboot: `f` itself, another coroutine in the same process, or a different process.
 
