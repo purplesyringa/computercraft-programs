@@ -1,6 +1,6 @@
 return {
     description = "Hosts netboot server",
     type = "process",
-    requires = { "nfsd" },
+    requires = { "nfsd@pub" },
     command = { "netbootd" },
 }

@@ -1,5 +1,7 @@
-return {
-    description = "Hosts NFS server",
-    type = "process",
-    command = { "nfsd", "pub" },
-}
+return function(path)
+    return {
+        description = "Hosts NFS server",
+        type = "process",
+        command = { "nfsd", path },
+    }
+end

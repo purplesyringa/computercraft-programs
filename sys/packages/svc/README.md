@@ -19,7 +19,7 @@ getty-default   up
 named           up
 netbootd        up
 netbootupd      up
-nfsd            up
+nfsd@pub        up
 rednetd         up
 rshd            up
 ...and 10 stopped service(s)

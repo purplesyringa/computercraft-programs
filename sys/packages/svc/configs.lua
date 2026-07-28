@@ -45,22 +45,50 @@ function configs_api.reload()
     end
 end
 
+-- returns (group, param) or (name)
+local function splitServiceName(name)
+    local group, param = name:match("([^@]+)@(.*)")
+    if group then
+        return group, param
+    end
+    return name
+end
+
 function configs_api.tryGetConfig(name)
-    return configs[name]
+    local group, param = splitServiceName(name)
+    local config_group = configs[group]
+    if config_group and type(config_group.config) == "function" then
+        local ok, config_or_err = pcall(config_group.config, param)
+        if ok then
+            return { config = config_or_err }
+        else
+            return { error = config_or_err }
+        end
+    elseif config_group and type(config_group.config) == "table" and param then
+        return { error = "not a template" }
+    else
+        return config_group
+    end
 end
 
 function configs_api.getConfig(name)
-    assert(configs[name], name .. ": unknown service")
-    if not configs[name].config then
-        error(name .. ": " .. configs[name].error)
+    local config_or_err = configs_api.tryGetConfig(name)
+    if not config_or_err then
+        error(name .. ": unknown service", 0)
     end
-    return configs[name].config
+    if not config_or_err.config then
+        error(name .. ": " .. config_or_err.error, 0)
+    end
+    return config_or_err.config
 end
 
 function configs_api.getConfigList()
     local names = {}
     for name, _ in pairs(configs) do
-        table.insert(names, name)
+        -- Parametrized services are excluded from config list
+        if type(configs[name].config) ~= "function" then
+            table.insert(names, name)
+        end
     end
     table.sort(names)
     return names
