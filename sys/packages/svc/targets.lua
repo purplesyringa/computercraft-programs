@@ -37,6 +37,7 @@ end
 local function buildTargetBringUpPlan(name)
     local plan = {}
     local set = {}
+    local errors = {}
     local function visitTarget(name)
         if set[name] then
             return
@@ -48,19 +49,22 @@ local function buildTargetBringUpPlan(name)
             error(name .. ": " .. target.config_error)
         end
         for _, service in pairs(target.config.services or {}) do
-            services.populateBringUpPlan(plan, service)
+            services.populateBringUpPlan(plan, errors, service)
         end
         for _, dep in pairs(target.config.inherits or {}) do
             visitTarget(dep)
         end
     end
     visitTarget(name)
-    return plan
+    return plan, errors
 end
 
 function targets_api.reach(name, force, persist)
     -- Build plans ahead of time so that errors are surfaced before we mutate the system.
-    local up_plan = buildTargetBringUpPlan(name)
+
+    -- Errors are not handled here, as targets_api.status would surface them anyway.
+    -- They're only used to keep old serivces running in case the target is broken in some way.
+    local up_plan, errors = buildTargetBringUpPlan(name)
     local isolate_plan = services.buildIsolatePlan(up_plan)
 
     current_target = name
@@ -79,10 +83,12 @@ function targets_api.reach(name, force, persist)
             end,
             -- Tear down old services.
             function()
-                if force then
-                    services.killAllExpect(up_plan)
-                else
-                    services.isolateByPlan(isolate_plan)
+                if not next(errors) then
+                    if force then
+                        services.killAllExpect(up_plan)
+                    else
+                        services.isolateByPlan(isolate_plan)
+                    end
                 end
             end
         )
@@ -121,7 +127,11 @@ function targets_api.status(name)
         up = {},
         failed = {},
     }
-    for service, _ in pairs(buildTargetBringUpPlan(name)) do
+    local plan, errors = buildTargetBringUpPlan(name)
+    for dep, _ in pairs(errors) do
+        plan[dep] = true -- collect dependencies with failed configs too
+    end
+    for service, _ in pairs(plan) do
         local status = services.status(service)
         table.insert(services_by_status[status.status], service)
     end

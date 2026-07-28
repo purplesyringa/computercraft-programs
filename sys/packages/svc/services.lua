@@ -68,15 +68,33 @@ local function waitDown(name)
     end
 end
 
-function services_api.populateBringUpPlan(plan, name)
+function services_api.populateBringUpPlan(plan, errors, name)
     -- Preload all configs before starting services, so that we have a consistent picture.
     if plan[name] then
-        return
+        return true
+    elseif errors[name] then
+        return false
     end
-    local config = configs.getConfig(name)
-    plan[name] = config
-    for _, dep in pairs(config.requires or {}) do
-        services_api.populateBringUpPlan(plan, dep)
+
+    local ok, config_or_err = pcall(configs.getConfig, name)
+    if not ok then
+        errors[name] = config_or_err
+        return false
+    end
+
+    local failed_deps = {}
+    for _, dep in pairs(config_or_err.requires or {}) do
+        if not services_api.populateBringUpPlan(plan, errors, dep) then
+            table.insert(failed_deps, dep)
+        end
+    end
+
+    if next(failed_deps) then
+        errors[name] = name .. ": failed dependencies: " .. table.concat(failed_deps, ", ")
+        return false
+    else
+        plan[name] = config_or_err
+        return true
     end
 end
 
@@ -121,7 +139,16 @@ end
 
 function services_api.start(name)
     local plan = {}
-    services_api.populateBringUpPlan(plan, name)
+    local errors = {}
+    services_api.populateBringUpPlan(plan, errors, name)
+    if next(errors) then
+        local error_list = {}
+        for _, err in pairs(errors) do
+            table.insert(error_list, err)
+        end
+        table.sort(error_list)
+        error("while starting " .. name .. ":\n  " .. table.concat(error_list, "\n  "), 0)
+    end
     services_api.bringUpFromPlan(plan)
 end
 
